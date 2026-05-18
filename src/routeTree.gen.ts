@@ -15,7 +15,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCandidatosRouteImport } from './routes/_authenticated/candidatos'
-import { Route as AuthenticatedAgendamentoRouteImport } from './routes/_authenticated/agendamento'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -46,17 +45,10 @@ const AuthenticatedCandidatosRoute = AuthenticatedCandidatosRouteImport.update({
   path: '/candidatos',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAgendamentoRoute =
-  AuthenticatedAgendamentoRouteImport.update({
-    id: '/agendamento',
-    path: '/agendamento',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/agendamento': typeof AuthenticatedAgendamentoRoute
   '/candidatos': typeof AuthenticatedCandidatosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
@@ -64,7 +56,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/agendamento': typeof AuthenticatedAgendamentoRoute
   '/candidatos': typeof AuthenticatedCandidatosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
@@ -74,34 +65,20 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
-  '/_authenticated/agendamento': typeof AuthenticatedAgendamentoRoute
   '/_authenticated/candidatos': typeof AuthenticatedCandidatosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/login'
-    | '/agendamento'
-    | '/candidatos'
-    | '/dashboard'
-    | '/pipeline'
+  fullPaths: '/' | '/login' | '/candidatos' | '/dashboard' | '/pipeline'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/login'
-    | '/agendamento'
-    | '/candidatos'
-    | '/dashboard'
-    | '/pipeline'
+  to: '/' | '/login' | '/candidatos' | '/dashboard' | '/pipeline'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/login'
-    | '/_authenticated/agendamento'
     | '/_authenticated/candidatos'
     | '/_authenticated/dashboard'
     | '/_authenticated/pipeline'
@@ -157,25 +134,16 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCandidatosRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/agendamento': {
-      id: '/_authenticated/agendamento'
-      path: '/agendamento'
-      fullPath: '/agendamento'
-      preLoaderRoute: typeof AuthenticatedAgendamentoRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
   }
 }
 
 interface AuthenticatedRouteChildren {
-  AuthenticatedAgendamentoRoute: typeof AuthenticatedAgendamentoRoute
   AuthenticatedCandidatosRoute: typeof AuthenticatedCandidatosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAgendamentoRoute: AuthenticatedAgendamentoRoute,
   AuthenticatedCandidatosRoute: AuthenticatedCandidatosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
@@ -193,13 +161,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
