@@ -16,46 +16,52 @@ export type Database = {
     Tables: {
       candidatos: {
         Row: {
-          cidade: string
+          cidade: string | null
           created_at: string
           curriculo_url: string | null
+          email: string | null
+          experiencias: string | null
           id: string
           nome: string
           observacoes: string | null
           recrutador_id: string | null
-          regiao: string
+          regiao: string | null
           status: Database["public"]["Enums"]["candidato_status"]
-          telefone: string
+          telefone: string | null
           updated_at: string
-          vaga: string
+          vaga: string | null
         }
         Insert: {
-          cidade: string
+          cidade?: string | null
           created_at?: string
           curriculo_url?: string | null
+          email?: string | null
+          experiencias?: string | null
           id?: string
           nome: string
           observacoes?: string | null
           recrutador_id?: string | null
-          regiao: string
+          regiao?: string | null
           status?: Database["public"]["Enums"]["candidato_status"]
-          telefone: string
+          telefone?: string | null
           updated_at?: string
-          vaga: string
+          vaga?: string | null
         }
         Update: {
-          cidade?: string
+          cidade?: string | null
           created_at?: string
           curriculo_url?: string | null
+          email?: string | null
+          experiencias?: string | null
           id?: string
           nome?: string
           observacoes?: string | null
           recrutador_id?: string | null
-          regiao?: string
+          regiao?: string | null
           status?: Database["public"]["Enums"]["candidato_status"]
-          telefone?: string
+          telefone?: string | null
           updated_at?: string
-          vaga?: string
+          vaga?: string | null
         }
         Relationships: []
       }
@@ -114,12 +120,12 @@ export type Database = {
     Enums: {
       app_role: "admin" | "agendamento" | "recrutador"
       candidato_status:
-        | "novo"
         | "triagem"
         | "aguardando_contato"
+        | "remarcar"
+        | "sem_interesse"
         | "agendado"
         | "compareceu"
-        | "reprovado"
         | "contratado"
     }
     CompositeTypes: {
@@ -250,12 +256,12 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "agendamento", "recrutador"],
       candidato_status: [
-        "novo",
         "triagem",
         "aguardando_contato",
+        "remarcar",
+        "sem_interesse",
         "agendado",
         "compareceu",
-        "reprovado",
         "contratado",
       ],
     },
