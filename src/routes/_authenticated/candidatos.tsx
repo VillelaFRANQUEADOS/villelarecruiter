@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Search, FileText, Pencil, Trash2 } from "lucide-react";
-import { BulkUpload } from "@/components/BulkUpload";
-import { CandidatoEditDialog } from "@/components/CandidatoEditDialog";
 import {
   useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE,
   type CandidatoRow, type CandidatoStatus,
@@ -24,6 +22,9 @@ import {
   useProfilesLiteQuery,
 } from "@/lib/ats-data";
 import { toast } from "sonner";
+
+const BulkUpload = lazy(async () => import("@/components/BulkUpload").then((mod) => ({ default: mod.BulkUpload })));
+const CandidatoEditDialog = lazy(async () => import("@/components/CandidatoEditDialog").then((mod) => ({ default: mod.CandidatoEditDialog })));
 
 export const Route = createFileRoute("/_authenticated/candidatos")({
   component: CandidatosPage,
@@ -105,7 +106,9 @@ function CandidatosPage() {
       </header>
 
       <Card className="p-4 mb-4">
-        <BulkUpload onCreated={() => invalidateAtsQueries(queryClient)} />
+        <Suspense fallback={<div className="h-36 rounded-lg border border-dashed bg-accent/20 animate-pulse" />}>
+          <BulkUpload onCreated={() => invalidateAtsQueries(queryClient)} />
+        </Suspense>
       </Card>
 
       <Card className="p-3 mb-3">
@@ -212,7 +215,9 @@ function CandidatosPage() {
         </div>
       </Card>
 
-      <CandidatoEditDialog open={open} onOpenChange={setOpen} candidato={editing} onSaved={() => invalidateAtsQueries(queryClient)} />
+      <Suspense fallback={null}>
+        <CandidatoEditDialog open={open} onOpenChange={setOpen} candidato={editing} onSaved={() => invalidateAtsQueries(queryClient)} />
+      </Suspense>
     </div>
   );
 }
