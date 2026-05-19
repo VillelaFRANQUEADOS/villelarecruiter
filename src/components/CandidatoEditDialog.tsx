@@ -27,7 +27,10 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
     status: "triagem" as CandidatoStatus, observacoes: "",
   });
 
+  const isNew = !candidato;
+
   useEffect(() => {
+    if (!open) return;
     if (candidato) {
       setForm({
         nome: candidato.nome,
@@ -37,17 +40,25 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
         status: candidato.status,
         observacoes: candidato.observacoes ?? "",
       });
+    } else {
+      setForm({ nome: "", telefone: "", cidade: "", email: "", status: "triagem", observacoes: "" });
     }
   }, [candidato, open]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!candidato) return;
     setBusy(true);
-    const { error } = await supabase.from("candidatos").update(form).eq("id", candidato.id);
+    let error;
+    if (isNew) {
+      const { data: u } = await supabase.auth.getUser();
+      const payload = { ...form, recrutador_id: u.user?.id ?? null };
+      ({ error } = await supabase.from("candidatos").insert(payload));
+    } else {
+      ({ error } = await supabase.from("candidatos").update(form).eq("id", candidato!.id));
+    }
     setBusy(false);
     if (error) toast.error(error.message);
-    else { toast.success("Atualizado"); onSaved(); onOpenChange(false); }
+    else { toast.success(isNew ? "Criado" : "Atualizado"); onSaved(); onOpenChange(false); }
   }
 
   return (
