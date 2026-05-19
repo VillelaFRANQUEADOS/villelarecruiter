@@ -2,10 +2,10 @@ import { useCallback, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { parseAndCreateCandidato } from "@/lib/cv-parser.functions";
 import { extractPdfText, fileToBase64 } from "@/lib/pdf-extract";
-import { Upload, FileText, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Upload, FileText, CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type Status = "pending" | "extracting" | "ai" | "done" | "error";
+type Status = "pending" | "extracting" | "ai" | "done" | "warn" | "error";
 interface Item { id: string; file: File; status: Status; message?: string }
 
 const CONCURRENCY = 3;
@@ -25,8 +25,11 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
       const text = await extractPdfText(item.file);
       const base64 = await fileToBase64(item.file);
       setItem(item.id, { status: "ai" });
-      await parse({ data: { fileName: item.file.name, pdfBase64: base64, cvText: text } });
-      setItem(item.id, { status: "done" });
+      const res = await parse({ data: { fileName: item.file.name, pdfBase64: base64, cvText: text } });
+      setItem(item.id, {
+        status: res?.aiFailed ? "warn" : "done",
+        message: res?.aiFailed ? "criado sem IA - edite" : undefined,
+      });
       onCreated();
     } catch (e) {
       setItem(item.id, { status: "error", message: e instanceof Error ? e.message : "Erro" });
@@ -90,7 +93,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
       {items.length > 0 && (
         <div className="rounded-lg border bg-card divide-y max-h-72 overflow-auto">
           <div className="px-3 py-2 text-xs font-medium text-muted-foreground flex justify-between">
-            <span>{items.filter(i => i.status === "done").length} de {items.length} processados</span>
+            <span>{items.filter(i => i.status === "done" || i.status === "warn").length} de {items.length} processados</span>
             <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setItems([])}>Limpar</Button>
           </div>
           {items.map((it) => (
@@ -111,6 +114,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
 
 function StatusIcon({ status }: { status: Status }) {
   if (status === "done") return <CheckCircle2 className="size-4 text-success" />;
+  if (status === "warn") return <AlertTriangle className="size-4 text-warning" />;
   if (status === "error") return <XCircle className="size-4 text-destructive" />;
   if (status === "pending") return <div className="size-4 rounded-full border border-muted-foreground/30" />;
   return <Loader2 className="size-4 animate-spin text-primary" />;
@@ -122,6 +126,7 @@ function labelOf(it: Item) {
     case "extracting": return "lendo PDF";
     case "ai": return "extraindo com IA";
     case "done": return "criado";
+    case "warn": return it.message || "criado sem IA";
     case "error": return it.message || "erro";
   }
 }
