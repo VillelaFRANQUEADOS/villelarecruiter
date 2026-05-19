@@ -18,7 +18,10 @@ const CANDIDATOS_SELECT = [
   "nome",
   "telefone",
   "cidade",
+  "regiao",
+  "vaga",
   "email",
+  "experiencias",
   "observacoes",
   "status",
   "curriculo_url",
@@ -34,7 +37,7 @@ async function fetchCandidatos() {
     .limit(500);
 
   if (error) throw error;
-  return (data ?? []) as CandidatoRow[];
+  return ((data ?? []) as unknown) as CandidatoRow[];
 }
 
 async function fetchProfilesLite() {
