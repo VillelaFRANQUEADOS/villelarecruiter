@@ -64,7 +64,7 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Editar candidato</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isNew ? "Novo candidato" : "Editar candidato"}</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5 col-span-2"><Label>Nome</Label><Input required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
