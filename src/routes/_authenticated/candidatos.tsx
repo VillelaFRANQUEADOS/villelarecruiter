@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,48 +11,36 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Search, FileText, Pencil, Trash2 } from "lucide-react";
-import { BulkUpload } from "@/components/BulkUpload";
-import { CandidatoEditDialog } from "@/components/CandidatoEditDialog";
 import {
   useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE,
   type CandidatoRow, type CandidatoStatus,
 } from "@/lib/auth";
+import {
+  invalidateAtsQueries,
+  useCandidatosQuery,
+  useCandidatosRealtime,
+  useProfilesLiteQuery,
+} from "@/lib/ats-data";
 import { toast } from "sonner";
+
+const BulkUpload = lazy(async () => import("@/components/BulkUpload").then((mod) => ({ default: mod.BulkUpload })));
+const CandidatoEditDialog = lazy(async () => import("@/components/CandidatoEditDialog").then((mod) => ({ default: mod.CandidatoEditDialog })));
 
 export const Route = createFileRoute("/_authenticated/candidatos")({
   component: CandidatosPage,
 });
 
-interface ProfileLite { id: string; nome: string }
-
 function CandidatosPage() {
   const { role } = useAuth();
-  const [rows, setRows] = useState<CandidatoRow[]>([]);
-  const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+  const queryClient = useQueryClient();
+  const { data: rows = [] } = useCandidatosQuery();
+  const { data: profiles = [] } = useProfilesLiteQuery();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
   const [q, setQ] = useState("");
   const [fStatus, setFStatus] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  async function load() {
-    const { data } = await supabase
-      .from("candidatos")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(500);
-    setRows((data as CandidatoRow[]) ?? []);
-    const { data: p } = await supabase.from("profiles").select("id,nome");
-    setProfiles((p as ProfileLite[]) ?? []);
-  }
-
-  useEffect(() => {
-    load();
-    const ch = supabase.channel("cand-list")
-      .on("postgres_changes", { event: "*", schema: "public", table: "candidatos" }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, []);
+  useCandidatosRealtime();
 
   const profMap = useMemo(() => new Map(profiles.map(p => [p.id, p.nome])), [profiles]);
 
@@ -68,7 +57,11 @@ function CandidatosPage() {
   async function handleDelete(id: string) {
     if (!confirm("Excluir este candidato?")) return;
     const { error } = await supabase.from("candidatos").delete().eq("id", id);
-    if (error) toast.error(error.message); else toast.success("Excluído");
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Excluído");
+      invalidateAtsQueries(queryClient);
+    }
   }
 
   async function openCurriculo(path: string) {
@@ -78,17 +71,15 @@ function CandidatosPage() {
   }
 
   async function changeStatus(id: string, status: CandidatoStatus) {
-    setRows((arr) => arr.map((r) => r.id === id ? { ...r, status } : r)); // optimistic
     const { error } = await supabase.from("candidatos").update({ status }).eq("id", id);
-    if (error) { toast.error(error.message); load(); }
+    if (error) toast.error(error.message);
   }
 
   async function bulkChange(status: CandidatoStatus) {
     if (!selected.size) return;
     const ids = [...selected];
-    setRows((arr) => arr.map((r) => ids.includes(r.id) ? { ...r, status } : r));
     const { error } = await supabase.from("candidatos").update({ status }).in("id", ids);
-    if (error) { toast.error(error.message); load(); }
+    if (error) toast.error(error.message);
     else { toast.success(`${ids.length} candidato(s) movidos`); setSelected(new Set()); }
   }
 
@@ -115,7 +106,9 @@ function CandidatosPage() {
       </header>
 
       <Card className="p-4 mb-4">
-        <BulkUpload onCreated={load} />
+        <Suspense fallback={<div className="h-36 rounded-lg border border-dashed bg-accent/20 animate-pulse" />}>
+          <BulkUpload onCreated={() => invalidateAtsQueries(queryClient)} />
+        </Suspense>
       </Card>
 
       <Card className="p-3 mb-3">
@@ -222,7 +215,9 @@ function CandidatosPage() {
         </div>
       </Card>
 
-      <CandidatoEditDialog open={open} onOpenChange={setOpen} candidato={editing} onSaved={load} />
+      <Suspense fallback={null}>
+        <CandidatoEditDialog open={open} onOpenChange={setOpen} candidato={editing} onSaved={() => invalidateAtsQueries(queryClient)} />
+      </Suspense>
     </div>
   );
 }

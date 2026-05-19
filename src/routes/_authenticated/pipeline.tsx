@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,51 +11,33 @@ import {
   STATUS_ORDER, STATUS_LABELS,
   type CandidatoRow, type CandidatoStatus,
 } from "@/lib/auth";
+import { useCandidatosQuery, useCandidatosRealtime, useProfilesLiteQuery } from "@/lib/ats-data";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/pipeline")({
   component: PipelinePage,
 });
 
-interface ProfileLite { id: string; nome: string }
-
 function PipelinePage() {
-  const [rows, setRows] = useState<CandidatoRow[]>([]);
-  const [profiles, setProfiles] = useState<ProfileLite[]>([]);
+  const { data: rows = [] } = useCandidatosQuery();
+  const { data: profiles = [] } = useProfilesLiteQuery();
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<CandidatoStatus | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  async function load() {
-    const { data } = await supabase
-      .from("candidatos").select("*").order("created_at", { ascending: false }).limit(500);
-    setRows((data as CandidatoRow[]) ?? []);
-    const { data: p } = await supabase.from("profiles").select("id,nome");
-    setProfiles((p as ProfileLite[]) ?? []);
-  }
-
-  useEffect(() => {
-    load();
-    const ch = supabase.channel("pipe")
-      .on("postgres_changes", { event: "*", schema: "public", table: "candidatos" }, load)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, []);
+  useCandidatosRealtime();
 
   const profMap = useMemo(() => new Map(profiles.map(p => [p.id, p.nome])), [profiles]);
 
   async function move(id: string, status: CandidatoStatus) {
-    setRows((arr) => arr.map((r) => r.id === id ? { ...r, status } : r));
     const { error } = await supabase.from("candidatos").update({ status }).eq("id", id);
-    if (error) { toast.error(error.message); load(); }
+    if (error) toast.error(error.message);
   }
 
   async function bulkMove(status: CandidatoStatus) {
     const ids = [...selected];
     if (!ids.length) return;
-    setRows((arr) => arr.map((r) => ids.includes(r.id) ? { ...r, status } : r));
     const { error } = await supabase.from("candidatos").update({ status }).in("id", ids);
-    if (error) { toast.error(error.message); load(); }
+    if (error) toast.error(error.message);
     else { toast.success(`${ids.length} candidato(s) movidos`); setSelected(new Set()); }
   }
 

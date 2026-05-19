@@ -30,7 +30,6 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
         status: res?.aiFailed ? "warn" : "done",
         message: res?.aiFailed ? "criado sem IA - edite" : undefined,
       });
-      onCreated();
     } catch (e) {
       setItem(item.id, { status: "error", message: e instanceof Error ? e.message : "Erro" });
     }
@@ -55,6 +54,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
       }
     });
     await Promise.all(workers);
+    onCreated();
   }, [processOne]);
 
   const onDrop = (e: React.DragEvent) => {

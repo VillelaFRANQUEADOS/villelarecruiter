@@ -1,30 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, PhoneCall, CalendarCheck, CheckCircle2 } from "lucide-react";
-import { STATUS_LABELS, STATUS_TONE, type CandidatoRow } from "@/lib/auth";
+import { STATUS_LABELS, STATUS_TONE } from "@/lib/auth";
+import { useCandidatosQuery, useCandidatosRealtime } from "@/lib/ats-data";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
 });
 
 function DashboardPage() {
-  const [rows, setRows] = useState<CandidatoRow[]>([]);
-
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from("candidatos").select("*").order("created_at", { ascending: false }).limit(500);
-      setRows((data as CandidatoRow[]) ?? []);
-    };
-    load();
-    const ch = supabase.channel("dash")
-      .on("postgres_changes", { event: "*", schema: "public", table: "candidatos" }, load)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, []);
+  const { data: rows = [] } = useCandidatosQuery();
+  useCandidatosRealtime();
 
   const total = rows.length;
   const aguardando = rows.filter(r => r.status === "aguardando_contato").length;
