@@ -114,6 +114,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
 
 function StatusIcon({ status }: { status: Status }) {
   if (status === "done") return <CheckCircle2 className="size-4 text-success" />;
+  if (status === "warn") return <AlertTriangle className="size-4 text-warning" />;
   if (status === "error") return <XCircle className="size-4 text-destructive" />;
   if (status === "pending") return <div className="size-4 rounded-full border border-muted-foreground/30" />;
   return <Loader2 className="size-4 animate-spin text-primary" />;
@@ -125,6 +126,7 @@ function labelOf(it: Item) {
     case "extracting": return "lendo PDF";
     case "ai": return "extraindo com IA";
     case "done": return "criado";
+    case "warn": return it.message || "criado sem IA";
     case "error": return it.message || "erro";
   }
 }
