@@ -5,7 +5,7 @@ import { extractPdfText, fileToBase64 } from "@/lib/pdf-extract";
 import { Upload, FileText, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type Status = "pending" | "extracting" | "ai" | "done" | "error";
+type Status = "pending" | "extracting" | "ai" | "done" | "warn" | "error";
 interface Item { id: string; file: File; status: Status; message?: string }
 
 const CONCURRENCY = 3;
