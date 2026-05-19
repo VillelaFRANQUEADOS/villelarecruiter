@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { parseAndCreateCandidato } from "@/lib/cv-parser.functions";
 import { extractPdfText, fileToBase64 } from "@/lib/pdf-extract";
-import { Upload, FileText, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Upload, FileText, CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type Status = "pending" | "extracting" | "ai" | "done" | "warn" | "error";
