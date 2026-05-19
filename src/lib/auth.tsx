@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -23,31 +23,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [nome, setNome] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastLoadedUserId = useRef<string | null>(null);
+  const metaRequestRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
       if (s?.user) {
-        setTimeout(() => loadMeta(s.user.id), 0);
+        setTimeout(() => { void loadMeta(s.user.id); }, 0);
       } else {
+        lastLoadedUserId.current = null;
         setRole(null); setNome(null);
       }
     });
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      if (data.session?.user) loadMeta(data.session.user.id);
+      if (data.session?.user) {
+        void loadMeta(data.session.user.id);
+      }
       setLoading(false);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
 
   async function loadMeta(userId: string) {
-    const [{ data: p }, { data: r }] = await Promise.all([
-      supabase.from("profiles").select("nome").eq("id", userId).maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
-    ]);
-    setNome(p?.nome ?? null);
-    setRole((r?.role as AppRole) ?? null);
+    if (lastLoadedUserId.current === userId) return;
+    if (metaRequestRef.current) {
+      await metaRequestRef.current;
+      if (lastLoadedUserId.current === userId) return;
+    }
+
+    metaRequestRef.current = (async () => {
+      const [{ data: p }, { data: r }] = await Promise.all([
+        supabase.from("profiles").select("nome").eq("id", userId).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+      ]);
+      lastLoadedUserId.current = userId;
+      setNome(p?.nome ?? null);
+      setRole((r?.role as AppRole) ?? null);
+    })();
+
+    try {
+      await metaRequestRef.current;
+    } finally {
+      metaRequestRef.current = null;
+    }
   }
 
   return (
