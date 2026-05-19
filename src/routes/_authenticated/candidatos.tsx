@@ -109,6 +109,9 @@ function CandidatosPage() {
           <h1 className="text-xl font-semibold tracking-tight">Candidatos</h1>
           <p className="text-xs text-muted-foreground">{filtered.length} de {rows.length}</p>
         </div>
+        <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
+          + Novo candidato
+        </Button>
       </header>
 
       <Card className="p-4 mb-4">
