@@ -25,8 +25,11 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
       const text = await extractPdfText(item.file);
       const base64 = await fileToBase64(item.file);
       setItem(item.id, { status: "ai" });
-      await parse({ data: { fileName: item.file.name, pdfBase64: base64, cvText: text } });
-      setItem(item.id, { status: "done" });
+      const res = await parse({ data: { fileName: item.file.name, pdfBase64: base64, cvText: text } });
+      setItem(item.id, {
+        status: res?.aiFailed ? "warn" : "done",
+        message: res?.aiFailed ? "criado sem IA - edite" : undefined,
+      });
       onCreated();
     } catch (e) {
       setItem(item.id, { status: "error", message: e instanceof Error ? e.message : "Erro" });
