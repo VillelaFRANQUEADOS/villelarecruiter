@@ -23,6 +23,24 @@ function hasEnoughText(text: string) {
   return letters >= 80;
 }
 
+function extractPhoneFromText(text: string): string | null {
+  if (!text) return null;
+  const re = /(?:\+?55[\s.\-]?)?\(?(\d{2})\)?[\s.\-]?(9?\d{4})[\s.\-]?(\d{4})/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const digits = (m[1] + m[2] + m[3]).replace(/\D/g, "");
+    if (digits.length === 10 || digits.length === 11) return digits;
+  }
+  return null;
+}
+
+function extractEmailFromText(text: string): string | null {
+  if (!text) return null;
+  const m = text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+  return m ? m[0] : null;
+}
+
+
 export const parseAndCreateCandidato = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { fileName: string; pdfBase64: string; cvText: string }) => input)
@@ -44,10 +62,16 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
           model,
           schema: ExtractedSchema,
           prompt:
-            "Extraia os dados do candidato a partir do texto do currículo abaixo. " +
-            "Campos: nome completo, telefone (apenas dígitos com DDD), email, cidade (sem estado), " +
-            "e um resumo curto das experiências profissionais (máx 500 caracteres). " +
-            "Se algum campo não estiver presente, retorne null.\n\nCURRÍCULO:\n" + cvText,
+            "Você extrai dados estruturados de currículos brasileiros. Retorne JSON com:\n" +
+            "- nome: nome completo do candidato\n" +
+            "- telefone: APENAS DÍGITOS, com DDD (10 ou 11 dígitos). Procure por padrões como " +
+            "'(35) 99117-1223', '+55 35 9 9117 1223', '35 99117 1223', '35.99117.1223'. " +
+            "Remova parênteses, traços, espaços, pontos e o DDI 55. Exemplo: '(35) 99117-1223' vira '35991171223'.\n" +
+            "- email: endereço de email\n" +
+            "- cidade: apenas o nome da cidade, sem estado\n" +
+            "- experiencias: resumo curto das experiências profissionais (máx 500 caracteres)\n" +
+            "Se algum campo não estiver presente, retorne null para ele.\n\nCURRÍCULO:\n" + cvText,
+
         });
         extracted = object;
       } catch (e) {
@@ -73,13 +97,22 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
       ? `Extração automática falhou (${aiErrorMsg}). Edite manualmente.`
       : null;
 
+    // Fallbacks via regex sobre o texto bruto (telefone e email)
+    let telefoneFinal = (extracted.telefone || "").replace(/\D/g, "");
+    if (telefoneFinal.startsWith("55") && telefoneFinal.length > 11) telefoneFinal = telefoneFinal.slice(2);
+    if (telefoneFinal.length < 10 || telefoneFinal.length > 11) telefoneFinal = "";
+    if (!telefoneFinal) telefoneFinal = extractPhoneFromText(cvText) || "";
+
+    const emailFinal = (extracted.email && extracted.email.trim()) || extractEmailFromText(cvText) || null;
+
     const { data: inserted, error } = await supabase
       .from("candidatos")
       .insert({
         nome: nomeFinal,
-        telefone: extracted.telefone || "",
-        email: extracted.email || null,
+        telefone: telefoneFinal,
+        email: emailFinal,
         cidade: extracted.cidade || "",
+
         experiencias: extracted.experiencias || null,
         observacoes,
         curriculo_url: path,
