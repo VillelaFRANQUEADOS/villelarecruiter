@@ -97,13 +97,22 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
       ? `Extração automática falhou (${aiErrorMsg}). Edite manualmente.`
       : null;
 
+    // Fallbacks via regex sobre o texto bruto (telefone e email)
+    let telefoneFinal = (extracted.telefone || "").replace(/\D/g, "");
+    if (telefoneFinal.startsWith("55") && telefoneFinal.length > 11) telefoneFinal = telefoneFinal.slice(2);
+    if (telefoneFinal.length < 10 || telefoneFinal.length > 11) telefoneFinal = "";
+    if (!telefoneFinal) telefoneFinal = extractPhoneFromText(cvText) || "";
+
+    const emailFinal = (extracted.email && extracted.email.trim()) || extractEmailFromText(cvText) || null;
+
     const { data: inserted, error } = await supabase
       .from("candidatos")
       .insert({
         nome: nomeFinal,
-        telefone: extracted.telefone || "",
-        email: extracted.email || null,
+        telefone: telefoneFinal,
+        email: emailFinal,
         cidade: extracted.cidade || "",
+
         experiencias: extracted.experiencias || null,
         observacoes,
         curriculo_url: path,
