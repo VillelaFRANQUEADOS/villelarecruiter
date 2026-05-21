@@ -55,13 +55,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     metaRequestRef.current = (async () => {
       const [{ data: p }, { data: r }] = await Promise.all([
-        supabase.from("profiles").select("nome").eq("id", userId).maybeSingle(),
+        supabase.from("profiles").select("nome,ativo").eq("id", userId).maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
       ]);
+      if (p && p.ativo === false) {
+        await supabase.auth.signOut();
+        lastLoadedUserId.current = null;
+        setNome(null); setRole(null);
+        if (typeof window !== "undefined") {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { toast } = await import("sonner");
+          toast.error("Usuário desativado. Contate um administrador.");
+        }
+        return;
+      }
       lastLoadedUserId.current = userId;
       setNome(p?.nome ?? null);
       setRole((r?.role as AppRole) ?? null);
     })();
+
 
     try {
       await metaRequestRef.current;
