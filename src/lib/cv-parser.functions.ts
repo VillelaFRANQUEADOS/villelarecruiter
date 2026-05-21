@@ -23,6 +23,24 @@ function hasEnoughText(text: string) {
   return letters >= 80;
 }
 
+function extractPhoneFromText(text: string): string | null {
+  if (!text) return null;
+  const re = /(?:\+?55[\s.\-]?)?\(?(\d{2})\)?[\s.\-]?(9?\d{4})[\s.\-]?(\d{4})/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const digits = (m[1] + m[2] + m[3]).replace(/\D/g, "");
+    if (digits.length === 10 || digits.length === 11) return digits;
+  }
+  return null;
+}
+
+function extractEmailFromText(text: string): string | null {
+  if (!text) return null;
+  const m = text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+  return m ? m[0] : null;
+}
+
+
 export const parseAndCreateCandidato = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { fileName: string; pdfBase64: string; cvText: string }) => input)
