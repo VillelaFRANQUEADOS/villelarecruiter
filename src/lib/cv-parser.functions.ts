@@ -62,10 +62,16 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
           model,
           schema: ExtractedSchema,
           prompt:
-            "Extraia os dados do candidato a partir do texto do currículo abaixo. " +
-            "Campos: nome completo, telefone (apenas dígitos com DDD), email, cidade (sem estado), " +
-            "e um resumo curto das experiências profissionais (máx 500 caracteres). " +
-            "Se algum campo não estiver presente, retorne null.\n\nCURRÍCULO:\n" + cvText,
+            "Você extrai dados estruturados de currículos brasileiros. Retorne JSON com:\n" +
+            "- nome: nome completo do candidato\n" +
+            "- telefone: APENAS DÍGITOS, com DDD (10 ou 11 dígitos). Procure por padrões como " +
+            "'(35) 99117-1223', '+55 35 9 9117 1223', '35 99117 1223', '35.99117.1223'. " +
+            "Remova parênteses, traços, espaços, pontos e o DDI 55. Exemplo: '(35) 99117-1223' vira '35991171223'.\n" +
+            "- email: endereço de email\n" +
+            "- cidade: apenas o nome da cidade, sem estado\n" +
+            "- experiencias: resumo curto das experiências profissionais (máx 500 caracteres)\n" +
+            "Se algum campo não estiver presente, retorne null para ele.\n\nCURRÍCULO:\n" + cvText,
+
         });
         extracted = object;
       } catch (e) {
