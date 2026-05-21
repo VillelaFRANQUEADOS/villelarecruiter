@@ -32,8 +32,9 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex-1 p-2 space-y-0.5">
-        {items.map((it) => {
+        {[...baseItems, ...(role === "admin" ? adminItems : [])].map((it) => {
           const active = path.startsWith(it.to);
+
           return (
             <Link
               key={it.to}
