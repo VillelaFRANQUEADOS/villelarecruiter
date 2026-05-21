@@ -1,13 +1,18 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Kanban, LogOut, Briefcase } from "lucide-react";
+import { LayoutDashboard, Users, Kanban, LogOut, Briefcase, Shield } from "lucide-react";
 import { useAuth, ROLE_LABELS } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
-const items = [
+const baseItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/candidatos", label: "Candidatos", icon: Users },
   { to: "/pipeline", label: "Pipeline", icon: Kanban },
 ] as const;
+
+const adminItems = [
+  { to: "/usuarios", label: "Usuários", icon: Shield },
+] as const;
+
 
 export function AppSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
