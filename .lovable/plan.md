@@ -1,46 +1,50 @@
-# Problemas identificados
+# Controle de acesso por perfis (Admin / Recrutador)
 
-## 1. Recrutador aparece em branco
+## Estado atual
 
-Verifiquei no banco: o usuário que está enviando os currículos (`a3b1f551…`) **não tem linha em `profiles`** — todos os candidatos dele saem com `recrutador_nome = null`.
+- Já existe enum `app_role` com `admin`, `agendamento`, `recrutador`.
+- Já existe função `has_role()` e RLS por papel nas tabelas.
+- Hoje só há 2 usuários: `joao.feijo@grupovillela.com` (recrutador) e `ariele.pereira@grupovillela.com` (sem papel).
+- Não há tela para gerenciar usuários — tudo é feito no banco.
 
-Causa raiz: o trigger `on_auth_user_created` que deveria chamar `handle_new_user()` em cada cadastro **não existe** em `auth.users` (a função está criada, mas o trigger nunca foi anexado). Resultado: usuários antigos ficaram sem profile/role, e qualquer novo usuário continuaria com o mesmo problema.
+## A. Banco
 
-## 2. Telefone vazio em alguns currículos
+1. **Backfill** do papel para a Ariele (`recrutador`).
+2. **Promover o primeiro admin** — precisa de input seu (ver pergunta abaixo).
+3. Adicionar coluna `ativo boolean default true` em `profiles` para o "desativar usuário" (sem mexer em `auth.users`).
+4. Política de UPDATE em `user_roles` restrita a admin (hoje só ADMIN via policy `admins manage roles`, ok).
+5. RLS em `profiles`: admin pode atualizar qualquer perfil; usuário só o próprio.
 
-A IA às vezes não retorna o telefone — formatos brasileiros variam muito (`(35) 99117-1223`, `+55 35 9 9117 1223`, `35.99117.1223`, etc.) e, quando o PDF tem layout estranho, o modelo simplesmente devolve `null`. Hoje não há nenhum fallback: se a IA não achou, fica vazio.
+## B. Server functions (admin-only, usam `supabaseAdmin`)
 
-# Plano
+Em `src/lib/admin-users.functions.ts`, todas validam que `claims.role` é `admin` antes de executar:
 
-## A. Recrutador
+- `listUsers()` → join de `auth.users` + `profiles` + `user_roles` (email, nome, papel, ativo, último login).
+- `createUser({ email, nome, senha, role })` → `supabaseAdmin.auth.admin.createUser` + insert em `profiles` e `user_roles`.
+- `updateUserRole({ userId, role })`.
+- `setUserActive({ userId, ativo })` → atualiza `profiles.ativo` e, se desativar, `supabaseAdmin.auth.admin.updateUserById(id, { ban_duration: 'none' → '876000h' })` para bloquear login.
+- `resetUserPassword({ userId, novaSenha })` → `supabaseAdmin.auth.admin.updateUserById(id, { password })`.
+- `deleteUser({ userId })` → `supabaseAdmin.auth.admin.deleteUser(id)` (cascateia pela FK).
 
-1. **Migration** criando o trigger faltante:
-   ```sql
-   CREATE TRIGGER on_auth_user_created
-   AFTER INSERT ON auth.users
-   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-   ```
-2. **Backfill** (via insert tool) para o usuário atual:
-   - Inserir profile a partir de `auth.users` (nome = parte antes do `@`, email = email do auth) onde ainda não existe profile.
-   - O role `recrutador` já foi criado anteriormente para esse usuário.
-3. Front-end já lê `profiles` corretamente — depois do backfill os candidatos existentes vão exibir o nome do recrutador automaticamente.
+## C. Front-end
 
-## B. Telefone
+1. **Layout admin-only** `src/routes/_authenticated/_admin.tsx` com `beforeLoad` que redireciona para `/dashboard` se `role !== 'admin'`.
+2. **Página `/usuarios`** (sob `_admin`): tabela com nome, email, papel, status, ativo desde + ações (editar papel, redefinir senha, desativar/ativar, excluir) + botão "Novo usuário" (dialog com nome, email, senha, papel).
+3. **Sidebar**: item "Usuários" só aparece para admin (`Settings` icon).
+4. **Bloqueio de login para desativados**: no `auth.tsx`, depois do login carrega `profiles.ativo` — se `false`, faz `signOut` e mostra "Usuário desativado".
+5. **Ajustes pequenos de UI já existentes** — botão de excluir candidato já é admin-only; manter como está. Recrutador continua podendo criar/editar candidatos e mover no funil (RLS atual já permite).
 
-Em `src/lib/cv-parser.functions.ts`:
+## D. Limpeza
 
-1. **Prompt mais explícito** — listar formatos comuns brasileiros e pedir só os dígitos com DDD (11 dígitos para celular, 10 para fixo).
-2. **Fallback por regex** sobre `cvText`, executado quando a IA retornar telefone vazio (ou mesmo quando falhar):
-   ```ts
-   const re = /(?:\+?55\s*)?\(?\d{2}\)?[\s.-]?9?\d{4}[\s.-]?\d{4}/g;
-   ```
-   - Pega o primeiro match, remove tudo que não for dígito, descarta DDI 55 se vier, mantém só os 10–11 dígitos finais.
-3. **Mesma ideia para email** (já existe regex padrão) — se a IA não trouxer, extrai o primeiro `\S+@\S+\.\S+` do texto.
-4. Quando a IA falhar totalmente (cenário "criado sem IA"), aplicar os dois fallbacks antes de inserir, em vez de gravar telefone/email vazios.
+- Remover o papel `agendamento` da UI (ainda fica no enum por compatibilidade, mas some dos selects). Confirmar abaixo.
 
-Sem mudanças em pipeline/dashboard nem em schema de tabelas.
+## Perguntas
 
-# Fora de escopo
+1. Quem deve virar admin agora — `joao.feijo@grupovillela.com`, `ariele.pereira@grupovillela.com`, ou os dois?
+2. Remover totalmente o papel "Agendamento" da interface (mantendo no banco por enquanto)?
 
-- OCR para PDFs escaneados.
-- Reprocessar candidatos antigos com telefone vazio (podemos fazer depois se você quiser; por ora só corrige novos uploads).
+## Fora de escopo
+
+- Auditoria de ações dos usuários.
+- Convite por email (a criação será com senha definida pelo admin na hora).
+- Multi-tenant / equipes.
