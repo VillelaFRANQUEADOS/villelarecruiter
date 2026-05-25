@@ -64,6 +64,18 @@ function CandidatosPage() {
     }
   }
 
+  async function handleDeleteAll() {
+    const txt = prompt(`Excluir TODOS os ${rows.length} candidatos? Digite EXCLUIR para confirmar.`);
+    if (txt !== "EXCLUIR") return;
+    const { error } = await supabase.from("candidatos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Todos os candidatos foram excluídos");
+      setSelected(new Set());
+      invalidateAtsQueries(queryClient);
+    }
+  }
+
   async function openCurriculo(path: string) {
     const { data, error } = await supabase.storage.from("curriculos").createSignedUrl(path, 60);
     if (error) toast.error(error.message);
