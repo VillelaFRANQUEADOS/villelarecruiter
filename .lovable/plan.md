@@ -1,50 +1,58 @@
-# Controle de acesso por perfis (Admin / Recrutador)
+## 1. Filtros por coluna na aba Candidatos
 
-## Estado atual
+Substituir a barra de busca única + select de status por uma linha de filtros com um campo para cada coluna principal:
 
-- Já existe enum `app_role` com `admin`, `agendamento`, `recrutador`.
-- Já existe função `has_role()` e RLS por papel nas tabelas.
-- Hoje só há 2 usuários: `joao.feijo@grupovillela.com` (recrutador) e `ariele.pereira@grupovillela.com` (sem papel).
-- Não há tela para gerenciar usuários — tudo é feito no banco.
+- **Nome** (texto)
+- **Telefone** (texto)
+- **Cidade** (texto)
+- **Email** (texto)
+- **Vaga** (texto)
+- **Status** (select, mantém)
+- **Recrutador** (select com a lista de profiles)
 
-## A. Banco
+Comportamento:
+- Filtragem client-side em cima do `useCandidatosQuery` (já carregado), mantendo a velocidade e o realtime.
+- Botão "Limpar filtros" e contador "X de Y candidatos".
+- Layout responsivo: em telas menores os filtros viram um grid 2 colunas; em desktop ficam em linha acima da tabela.
+- Mantém a seleção em lote, edição e exclusão como hoje.
 
-1. **Backfill** do papel para a Ariele (`recrutador`).
-2. **Promover o primeiro admin** — precisa de input seu (ver pergunta abaixo).
-3. Adicionar coluna `ativo boolean default true` em `profiles` para o "desativar usuário" (sem mexer em `auth.users`).
-4. Política de UPDATE em `user_roles` restrita a admin (hoje só ADMIN via policy `admins manage roles`, ok).
-5. RLS em `profiles`: admin pode atualizar qualquer perfil; usuário só o próprio.
+## 2. Hospedagem de currículos no Google Drive
 
-## B. Server functions (admin-only, usam `supabaseAdmin`)
+Hoje os PDFs ficam no bucket `curriculos` do Lovable Cloud. Vamos migrar para o Google Drive da sua conta corporativa via connector.
 
-Em `src/lib/admin-users.functions.ts`, todas validam que `claims.role` é `admin` antes de executar:
+### Como vai funcionar
+- O connector autentica **uma conta Google** (a sua / da empresa). Todos os recrutadores fazem upload e leitura através dessa mesma conta — eles não precisam logar no Drive.
+- Cria-se uma pasta única no Drive (ex: `ATS - Currículos`) e os arquivos ficam organizados lá. O ID da pasta fica num secret.
+- No banco, a coluna `curriculo_url` passa a guardar o `fileId` do Drive (string curta) em vez do path do Storage.
 
-- `listUsers()` → join de `auth.users` + `profiles` + `user_roles` (email, nome, papel, ativo, último login).
-- `createUser({ email, nome, senha, role })` → `supabaseAdmin.auth.admin.createUser` + insert em `profiles` e `user_roles`.
-- `updateUserRole({ userId, role })`.
-- `setUserActive({ userId, ativo })` → atualiza `profiles.ativo` e, se desativar, `supabaseAdmin.auth.admin.updateUserById(id, { ban_duration: 'none' → '876000h' })` para bloquear login.
-- `resetUserPassword({ userId, novaSenha })` → `supabaseAdmin.auth.admin.updateUserById(id, { password })`.
-- `deleteUser({ userId })` → `supabaseAdmin.auth.admin.deleteUser(id)` (cascateia pela FK).
+### Fluxo técnico (TanStack server functions)
+1. Conectar **Google Drive** via `standard_connectors--connect` (escopo `drive.file` — só vê arquivos criados pelo app, mais seguro que `drive`).
+2. Criar `src/lib/curriculos.functions.ts` com:
+   - `uploadCurriculoToDrive({ filename, contentBase64, mimeType })` → faz `POST /upload/drive/v3/files?uploadType=multipart` via gateway, retorna `fileId`.
+   - `getCurriculoDownloadUrl({ fileId })` → gera link curto via `GET /files/{fileId}?fields=webContentLink` ou faz proxy do conteúdo.
+   - `deleteCurriculoFromDrive({ fileId })` → `DELETE /files/{fileId}`.
+3. Atualizar `BulkUpload` e o fluxo de upload individual para chamar `uploadCurriculoToDrive` em vez do `supabase.storage`.
+4. Atualizar `openCurriculo` em `candidatos.tsx` para usar `getCurriculoDownloadUrl`.
+5. Adicionar secret `GOOGLE_DRIVE_FOLDER_ID` (você cria a pasta no Drive e cola o ID).
 
-## C. Front-end
+### Migração dos currículos existentes
+Os arquivos que já estão no Lovable Cloud não somem automaticamente. Duas opções (decidimos depois de aprovar o plano):
+- **A** — Deixar como está: registros antigos continuam abrindo do Storage, novos vão para o Drive. Código detecta pelo formato de `curriculo_url` (path vs fileId).
+- **B** — Script único de migração: baixa do Storage e re-envia para o Drive, atualiza os registros e zera o bucket.
 
-1. **Layout admin-only** `src/routes/_authenticated/_admin.tsx` com `beforeLoad` que redireciona para `/dashboard` se `role !== 'admin'`.
-2. **Página `/usuarios`** (sob `_admin`): tabela com nome, email, papel, status, ativo desde + ações (editar papel, redefinir senha, desativar/ativar, excluir) + botão "Novo usuário" (dialog com nome, email, senha, papel).
-3. **Sidebar**: item "Usuários" só aparece para admin (`Settings` icon).
-4. **Bloqueio de login para desativados**: no `auth.tsx`, depois do login carrega `profiles.ativo` — se `false`, faz `signOut` e mostra "Usuário desativado".
-5. **Ajustes pequenos de UI já existentes** — botão de excluir candidato já é admin-only; manter como está. Recrutador continua podendo criar/editar candidatos e mover no funil (RLS atual já permite).
+### Trade-offs honestos
+- **Vantagem**: storage do Lovable Cloud fica praticamente vazio; backups e gestão dos PDFs ficam no Drive (que você já paga).
+- **Limitação**: cota da API do Drive é generosa mas não infinita (1.000 req/100s por usuário). Para um ATS de recrutamento isso sobra.
+- **Single-account**: se um dia quiser que cada recrutador use o próprio Drive, precisaria trocar para OAuth per-user (refazer auth).
 
-## D. Limpeza
+## Arquivos afetados
+- `src/routes/_authenticated/candidatos.tsx` — novos filtros
+- `src/lib/curriculos.functions.ts` — novo
+- `src/components/BulkUpload.tsx` — troca de destino
+- `src/components/CandidatoEditDialog.tsx` — troca de destino (se faz upload)
+- `src/start.ts` — sem mudança
+- Migração SQL: nenhuma (reaproveita `curriculo_url`)
 
-- Remover o papel `agendamento` da UI (ainda fica no enum por compatibilidade, mas some dos selects). Confirmar abaixo.
-
-## Perguntas
-
-1. Quem deve virar admin agora — `joao.feijo@grupovillela.com`, `ariele.pereira@grupovillela.com`, ou os dois?
-2. Remover totalmente o papel "Agendamento" da interface (mantendo no banco por enquanto)?
-
-## Fora de escopo
-
-- Auditoria de ações dos usuários.
-- Convite por email (a criação será com senha definida pelo admin na hora).
-- Multi-tenant / equipes.
+## Perguntas antes de implementar
+1. **Migração A ou B** para os currículos já existentes?
+2. Você quer que eu já chame o `connect` do Google Drive agora ou prefere preparar o código primeiro e conectar depois?
