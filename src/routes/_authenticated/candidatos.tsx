@@ -161,19 +161,35 @@ function CandidatosPage() {
         </Suspense>
       </Card>
 
-      <Card className="p-3 mb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input className="pl-9 h-9" placeholder="Buscar por nome, telefone, cidade..." value={q} onChange={(e) => setQ(e.target.value)} />
+      <Card className="p-3 mb-3 space-y-2">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-7">
+          <div className="relative lg:col-span-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <Input className="pl-8 h-9" placeholder="Nome" value={fNome} onChange={(e) => setFNome(e.target.value)} />
           </div>
+          <Input className="h-9" placeholder="Telefone" value={fTelefone} onChange={(e) => setFTelefone(e.target.value)} />
+          <Input className="h-9" placeholder="Cidade" value={fCidade} onChange={(e) => setFCidade(e.target.value)} />
+          <Input className="h-9" placeholder="Email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} />
+          <Input className="h-9" placeholder="Vaga" value={fVaga} onChange={(e) => setFVaga(e.target.value)} />
           <Select value={fStatus} onValueChange={setFStatus}>
-            <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
               {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={fRecrutador} onValueChange={setFRecrutador}>
+            <SelectTrigger className="h-9 w-56"><SelectValue placeholder="Recrutador" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os recrutadores</SelectItem>
+              {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {hasFilters && (
+            <Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
+          )}
           {selected.size > 0 && (
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-xs text-muted-foreground">{selected.size} selecionado(s)</span>
@@ -183,7 +199,7 @@ function CandidatosPage() {
                   {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar</Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
             </div>
           )}
         </div>
