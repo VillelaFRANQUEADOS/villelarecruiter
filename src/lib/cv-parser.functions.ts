@@ -84,14 +84,16 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
       aiErrorMsg = "PDF sem texto legível (possivelmente escaneado)";
     }
 
-    // Upload PDF
+    // Upload PDF para o Google Drive
     const safeName = data.fileName.replace(/[^\w.\-]/g, "_");
-    const path = `${userId}/${Date.now()}-${safeName}`;
-    const bytes = Uint8Array.from(atob(data.pdfBase64), (c) => c.charCodeAt(0));
-    const { error: upErr } = await supabase.storage
-      .from("curriculos")
-      .upload(path, bytes, { contentType: "application/pdf", upsert: false });
-    if (upErr) throw new Error(`Upload falhou: ${upErr.message}`);
+    const driveName = `${Date.now()}-${safeName}`;
+    let driveFileId: string;
+    try {
+      const up = await uploadPdfToDrive({ filename: driveName, pdfBase64: data.pdfBase64 });
+      driveFileId = up.fileId;
+    } catch (e) {
+      throw new Error(`Upload Drive falhou: ${e instanceof Error ? e.message : String(e)}`);
+    }
 
     const nomeFinal = (extracted.nome && extracted.nome.trim()) || cleanFileName(data.fileName);
     const observacoes = aiFailed
