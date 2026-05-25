@@ -118,7 +118,7 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
 
         experiencias: extracted.experiencias || null,
         observacoes,
-        curriculo_url: path,
+        curriculo_url: `drive:${driveFileId}`,
         recrutador_id: userId,
         status: "triagem",
       })
