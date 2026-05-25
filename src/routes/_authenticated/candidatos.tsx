@@ -64,6 +64,18 @@ function CandidatosPage() {
     }
   }
 
+  async function handleDeleteAll() {
+    const txt = prompt(`Excluir TODOS os ${rows.length} candidatos? Digite EXCLUIR para confirmar.`);
+    if (txt !== "EXCLUIR") return;
+    const { error } = await supabase.from("candidatos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Todos os candidatos foram excluídos");
+      setSelected(new Set());
+      invalidateAtsQueries(queryClient);
+    }
+  }
+
   async function openCurriculo(path: string) {
     const { data, error } = await supabase.storage.from("curriculos").createSignedUrl(path, 60);
     if (error) toast.error(error.message);
@@ -100,9 +112,16 @@ function CandidatosPage() {
           <h1 className="text-xl font-semibold tracking-tight">Candidatos</h1>
           <p className="text-xs text-muted-foreground">{filtered.length} de {rows.length}</p>
         </div>
-        <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
-          + Novo candidato
-        </Button>
+        <div className="flex items-center gap-2">
+          {role === "admin" && rows.length > 0 && (
+            <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={handleDeleteAll}>
+              <Trash2 className="size-3.5 mr-1" /> Excluir todos
+            </Button>
+          )}
+          <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
+            + Novo candidato
+          </Button>
+        </div>
       </header>
 
       <Card className="p-4 mb-4">
