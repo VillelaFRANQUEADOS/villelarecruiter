@@ -92,10 +92,25 @@ function CandidatosPage() {
     }
   }
 
-  async function openCurriculo(path: string) {
-    const { data, error } = await supabase.storage.from("curriculos").createSignedUrl(path, 60);
-    if (error) toast.error(error.message);
-    else window.open(data.signedUrl, "_blank");
+  async function openCurriculo(ref: string) {
+    try {
+      if (ref.startsWith("drive:")) {
+        const fileId = ref.slice(6);
+        const { base64, mimeType } = await fetchCv({ data: { fileId } });
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        const blob = new Blob([bytes], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else {
+        // legado: storage Lovable Cloud
+        const { data, error } = await supabase.storage.from("curriculos").createSignedUrl(ref, 60);
+        if (error) throw error;
+        window.open(data.signedUrl, "_blank");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao abrir currículo");
+    }
   }
 
   async function changeStatus(id: string, status: CandidatoStatus) {
