@@ -112,9 +112,16 @@ function CandidatosPage() {
           <h1 className="text-xl font-semibold tracking-tight">Candidatos</h1>
           <p className="text-xs text-muted-foreground">{filtered.length} de {rows.length}</p>
         </div>
-        <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
-          + Novo candidato
-        </Button>
+        <div className="flex items-center gap-2">
+          {role === "admin" && rows.length > 0 && (
+            <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={handleDeleteAll}>
+              <Trash2 className="size-3.5 mr-1" /> Excluir todos
+            </Button>
+          )}
+          <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
+            + Novo candidato
+          </Button>
+        </div>
       </header>
 
       <Card className="p-4 mb-4">
