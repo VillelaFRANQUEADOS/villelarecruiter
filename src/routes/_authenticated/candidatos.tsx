@@ -37,24 +37,38 @@ function CandidatosPage() {
   const queryClient = useQueryClient();
   const { data: rows = [] } = useCandidatosQuery();
   const { data: profiles = [] } = useProfilesLiteQuery();
+  const fetchCv = useServerFn(getCurriculoContent);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
-  const [q, setQ] = useState("");
+  const [fNome, setFNome] = useState("");
+  const [fTelefone, setFTelefone] = useState("");
+  const [fCidade, setFCidade] = useState("");
+  const [fEmail, setFEmail] = useState("");
+  const [fVaga, setFVaga] = useState("");
   const [fStatus, setFStatus] = useState<string>("all");
+  const [fRecrutador, setFRecrutador] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useCandidatosRealtime();
 
   const profMap = useMemo(() => new Map(profiles.map(p => [p.id, p.nome])), [profiles]);
 
+  const norm = (s: string | null | undefined) => (s ?? "").toLowerCase();
   const filtered = useMemo(() => rows.filter(r => {
     if (fStatus !== "all" && r.status !== fStatus) return false;
-    if (q) {
-      const t = q.toLowerCase();
-      const hay = `${r.nome} ${r.telefone ?? ""} ${r.cidade ?? ""} ${r.email ?? ""}`.toLowerCase();
-      if (!hay.includes(t)) return false;
-    }
+    if (fRecrutador !== "all" && (r.recrutador_id ?? "") !== fRecrutador) return false;
+    if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
+    if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
+    if (fCidade && !norm(r.cidade).includes(fCidade.toLowerCase())) return false;
+    if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
+    if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
     return true;
-  }), [rows, q, fStatus]);
+  }), [rows, fNome, fTelefone, fCidade, fEmail, fVaga, fStatus, fRecrutador]);
+
+  const hasFilters = !!(fNome || fTelefone || fCidade || fEmail || fVaga) || fStatus !== "all" || fRecrutador !== "all";
+  function clearFilters() {
+    setFNome(""); setFTelefone(""); setFCidade(""); setFEmail(""); setFVaga("");
+    setFStatus("all"); setFRecrutador("all");
+  }
 
   async function handleDelete(id: string) {
     if (!confirm("Excluir este candidato?")) return;
