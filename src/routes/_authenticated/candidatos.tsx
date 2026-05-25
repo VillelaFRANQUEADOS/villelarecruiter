@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { getCurriculoContent } from "@/lib/curriculos.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -35,24 +37,38 @@ function CandidatosPage() {
   const queryClient = useQueryClient();
   const { data: rows = [] } = useCandidatosQuery();
   const { data: profiles = [] } = useProfilesLiteQuery();
+  const fetchCv = useServerFn(getCurriculoContent);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
-  const [q, setQ] = useState("");
+  const [fNome, setFNome] = useState("");
+  const [fTelefone, setFTelefone] = useState("");
+  const [fCidade, setFCidade] = useState("");
+  const [fEmail, setFEmail] = useState("");
+  const [fVaga, setFVaga] = useState("");
   const [fStatus, setFStatus] = useState<string>("all");
+  const [fRecrutador, setFRecrutador] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useCandidatosRealtime();
 
   const profMap = useMemo(() => new Map(profiles.map(p => [p.id, p.nome])), [profiles]);
 
+  const norm = (s: string | null | undefined) => (s ?? "").toLowerCase();
   const filtered = useMemo(() => rows.filter(r => {
     if (fStatus !== "all" && r.status !== fStatus) return false;
-    if (q) {
-      const t = q.toLowerCase();
-      const hay = `${r.nome} ${r.telefone ?? ""} ${r.cidade ?? ""} ${r.email ?? ""}`.toLowerCase();
-      if (!hay.includes(t)) return false;
-    }
+    if (fRecrutador !== "all" && (r.recrutador_id ?? "") !== fRecrutador) return false;
+    if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
+    if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
+    if (fCidade && !norm(r.cidade).includes(fCidade.toLowerCase())) return false;
+    if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
+    if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
     return true;
-  }), [rows, q, fStatus]);
+  }), [rows, fNome, fTelefone, fCidade, fEmail, fVaga, fStatus, fRecrutador]);
+
+  const hasFilters = !!(fNome || fTelefone || fCidade || fEmail || fVaga) || fStatus !== "all" || fRecrutador !== "all";
+  function clearFilters() {
+    setFNome(""); setFTelefone(""); setFCidade(""); setFEmail(""); setFVaga("");
+    setFStatus("all"); setFRecrutador("all");
+  }
 
   async function handleDelete(id: string) {
     if (!confirm("Excluir este candidato?")) return;
@@ -76,10 +92,25 @@ function CandidatosPage() {
     }
   }
 
-  async function openCurriculo(path: string) {
-    const { data, error } = await supabase.storage.from("curriculos").createSignedUrl(path, 60);
-    if (error) toast.error(error.message);
-    else window.open(data.signedUrl, "_blank");
+  async function openCurriculo(ref: string) {
+    try {
+      if (ref.startsWith("drive:")) {
+        const fileId = ref.slice(6);
+        const { base64, mimeType } = await fetchCv({ data: { fileId } });
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        const blob = new Blob([bytes], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else {
+        // legado: storage Lovable Cloud
+        const { data, error } = await supabase.storage.from("curriculos").createSignedUrl(ref, 60);
+        if (error) throw error;
+        window.open(data.signedUrl, "_blank");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao abrir currículo");
+    }
   }
 
   async function changeStatus(id: string, status: CandidatoStatus) {
@@ -130,19 +161,35 @@ function CandidatosPage() {
         </Suspense>
       </Card>
 
-      <Card className="p-3 mb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input className="pl-9 h-9" placeholder="Buscar por nome, telefone, cidade..." value={q} onChange={(e) => setQ(e.target.value)} />
+      <Card className="p-3 mb-3 space-y-2">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-7">
+          <div className="relative lg:col-span-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <Input className="pl-8 h-9" placeholder="Nome" value={fNome} onChange={(e) => setFNome(e.target.value)} />
           </div>
+          <Input className="h-9" placeholder="Telefone" value={fTelefone} onChange={(e) => setFTelefone(e.target.value)} />
+          <Input className="h-9" placeholder="Cidade" value={fCidade} onChange={(e) => setFCidade(e.target.value)} />
+          <Input className="h-9" placeholder="Email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} />
+          <Input className="h-9" placeholder="Vaga" value={fVaga} onChange={(e) => setFVaga(e.target.value)} />
           <Select value={fStatus} onValueChange={setFStatus}>
-            <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os status</SelectItem>
               {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={fRecrutador} onValueChange={setFRecrutador}>
+            <SelectTrigger className="h-9 w-56"><SelectValue placeholder="Recrutador" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os recrutadores</SelectItem>
+              {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {hasFilters && (
+            <Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
+          )}
           {selected.size > 0 && (
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-xs text-muted-foreground">{selected.size} selecionado(s)</span>
@@ -152,7 +199,7 @@ function CandidatosPage() {
                   {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar</Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
             </div>
           )}
         </div>
