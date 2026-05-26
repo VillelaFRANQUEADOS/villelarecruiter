@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Briefcase } from "lucide-react";
+import logoDark from "@/assets/villela-logo-dark.png";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -38,12 +38,10 @@ function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-accent/30 to-background">
       <div className="w-full max-w-md">
         <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="size-11 rounded-xl bg-primary grid place-items-center text-primary-foreground">
-            <Briefcase className="size-5" />
-          </div>
+          <img src={logoDark} alt="Grupo Villela" className="size-12 object-contain" />
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">RecrutaCRM</h1>
-            <p className="text-xs text-muted-foreground">Gestão operacional de recrutamento</p>
+            <h1 className="text-xl font-semibold tracking-tight">Grupo Villela</h1>
+            <p className="text-xs text-muted-foreground">ATS · Recrutamento operacional</p>
           </div>
         </div>
         <Card className="p-6">

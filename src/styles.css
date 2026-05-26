@@ -39,44 +39,48 @@
 }
 
 :root {
+  /* Grupo Villela — ID Visual 2026
+     Paleta: navy profundo (#062029), teals intermediários, ciano claro (#43B5C9) */
   --radius: 0.75rem;
-  --background: oklch(0.985 0.003 250);
-  --foreground: oklch(0.18 0.03 260);
+  --background: oklch(0.985 0.004 220);
+  --foreground: oklch(0.22 0.04 220);
 
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.03 260);
+  --card-foreground: oklch(0.22 0.04 220);
 
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.03 260);
+  --popover-foreground: oklch(0.22 0.04 220);
 
-  --primary: oklch(0.55 0.22 265);
+  /* Navy Villela */
+  --primary: oklch(0.25 0.045 220);
   --primary-foreground: oklch(0.99 0 0);
 
-  --secondary: oklch(0.96 0.01 255);
-  --secondary-foreground: oklch(0.25 0.03 260);
+  --secondary: oklch(0.96 0.012 220);
+  --secondary-foreground: oklch(0.28 0.04 220);
 
-  --muted: oklch(0.96 0.008 255);
-  --muted-foreground: oklch(0.5 0.02 260);
+  --muted: oklch(0.96 0.01 220);
+  --muted-foreground: oklch(0.5 0.025 220);
 
-  --accent: oklch(0.94 0.03 265);
-  --accent-foreground: oklch(0.28 0.08 265);
+  /* Ciano Villela como accent */
+  --accent: oklch(0.93 0.04 215);
+  --accent-foreground: oklch(0.28 0.07 220);
 
   --destructive: oklch(0.6 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
 
-  --success: oklch(0.65 0.18 155);
+  --success: oklch(0.65 0.16 175);
   --warning: oklch(0.78 0.17 75);
-  --info: oklch(0.65 0.15 230);
+  --info: oklch(0.7 0.11 215);
 
-  --border: oklch(0.92 0.008 255);
-  --input: oklch(0.92 0.008 255);
-  --ring: oklch(0.55 0.22 265);
+  --border: oklch(0.92 0.012 220);
+  --input: oklch(0.92 0.012 220);
+  --ring: oklch(0.7 0.11 215);
 
-  --sidebar: oklch(0.21 0.04 265);
-  --sidebar-foreground: oklch(0.92 0.01 255);
-  --sidebar-accent: oklch(0.28 0.06 265);
+  --sidebar: oklch(0.22 0.045 220);
+  --sidebar-foreground: oklch(0.94 0.012 220);
+  --sidebar-accent: oklch(0.3 0.055 215);
   --sidebar-accent-foreground: oklch(0.99 0 0);
-  --sidebar-border: oklch(0.3 0.04 265);
+  --sidebar-border: oklch(0.32 0.05 220);
 }
 
 @layer base {
