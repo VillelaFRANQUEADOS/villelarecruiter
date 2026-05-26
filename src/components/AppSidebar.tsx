@@ -1,7 +1,8 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Kanban, LogOut, Briefcase, Shield } from "lucide-react";
+import { LayoutDashboard, Users, Kanban, LogOut, Shield } from "lucide-react";
 import { useAuth, ROLE_LABELS } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import logoWhite from "@/assets/villela-logo-white.png";
 
 const baseItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -22,12 +23,10 @@ export function AppSidebar() {
   return (
     <aside className="hidden md:flex w-56 shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="px-4 py-4 flex items-center gap-3 border-b border-sidebar-border">
-        <div className="size-8 rounded-md bg-primary grid place-items-center text-primary-foreground">
-          <Briefcase className="size-4" />
-        </div>
+        <img src={logoWhite} alt="Grupo Villela" className="size-9 object-contain" />
         <div>
-          <p className="text-sm font-semibold leading-none">RecrutaCRM</p>
-          <p className="text-[11px] text-sidebar-foreground/60 mt-1">ATS</p>
+          <p className="text-sm font-semibold leading-none tracking-tight">Grupo Villela</p>
+          <p className="text-[11px] text-sidebar-foreground/60 mt-1">ATS · Recrutamento</p>
         </div>
       </div>
 
