@@ -100,9 +100,7 @@ export type CandidatoStatus =
   | "aguardando_contato"
   | "remarcar"
   | "sem_interesse"
-  | "agendado"
-  | "compareceu"
-  | "contratado";
+  | "agendado";
 
 export const STATUS_LABELS: Record<CandidatoStatus, string> = {
   triagem: "Triagem",
@@ -110,8 +108,6 @@ export const STATUS_LABELS: Record<CandidatoStatus, string> = {
   remarcar: "Remarcar",
   sem_interesse: "Sem interesse",
   agendado: "Agendado",
-  compareceu: "Compareceu",
-  contratado: "Contratado",
 };
 
 export const STATUS_ORDER: CandidatoStatus[] = [
@@ -120,8 +116,6 @@ export const STATUS_ORDER: CandidatoStatus[] = [
   "remarcar",
   "sem_interesse",
   "agendado",
-  "compareceu",
-  "contratado",
 ];
 
 export const STATUS_TONE: Record<CandidatoStatus, string> = {
@@ -130,8 +124,6 @@ export const STATUS_TONE: Record<CandidatoStatus, string> = {
   remarcar: "bg-info/15 text-info border-info/30",
   sem_interesse: "bg-destructive/10 text-destructive border-destructive/30",
   agendado: "bg-primary/15 text-primary border-primary/30",
-  compareceu: "bg-success/15 text-success border-success/30",
-  contratado: "bg-success/20 text-success border-success/40",
 };
 
 export const ROLE_LABELS: Record<AppRole, string> = {
