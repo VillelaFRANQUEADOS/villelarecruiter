@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, PhoneCall, CalendarCheck, CheckCircle2 } from "lucide-react";
+import { Users, PhoneCall, CalendarCheck, RotateCcw } from "lucide-react";
 import { STATUS_LABELS, STATUS_TONE } from "@/lib/auth";
 import { useCandidatosQuery, useCandidatosRealtime } from "@/lib/ats-data";
 
@@ -16,7 +16,7 @@ function DashboardPage() {
   const total = rows.length;
   const aguardando = rows.filter(r => r.status === "aguardando_contato").length;
   const agendados = rows.filter(r => r.status === "agendado").length;
-  const compareceram = rows.filter(r => r.status === "compareceu").length;
+  const remarcar = rows.filter(r => r.status === "remarcar").length;
   const recent = rows.slice(0, 12);
 
   return (
@@ -30,7 +30,7 @@ function DashboardPage() {
         <Stat icon={<Users className="size-4" />} label="Total candidatos" value={total} />
         <Stat icon={<PhoneCall className="size-4" />} label="Aguardando contato" value={aguardando} tone="text-warning" />
         <Stat icon={<CalendarCheck className="size-4" />} label="Agendados" value={agendados} tone="text-primary" />
-        <Stat icon={<CheckCircle2 className="size-4" />} label="Compareceram" value={compareceram} tone="text-success" />
+        <Stat icon={<RotateCcw className="size-4" />} label="Para remarcar" value={remarcar} tone="text-info" />
       </div>
 
       <Card className="overflow-hidden">
