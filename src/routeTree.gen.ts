@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCandidatosRouteImport } from './routes/_authenticated/candidatos'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/_admin'
@@ -31,11 +30,6 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedPipelineRoute = AuthenticatedPipelineRouteImport.update({
-  id: '/pipeline',
-  path: '/pipeline',
-  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
@@ -63,7 +57,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/candidatos': typeof AuthenticatedCandidatosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/pipeline': typeof AuthenticatedPipelineRoute
   '/usuarios': typeof AuthenticatedAdminUsuariosRoute
 }
 export interface FileRoutesByTo {
@@ -71,7 +64,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/candidatos': typeof AuthenticatedCandidatosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/pipeline': typeof AuthenticatedPipelineRoute
   '/usuarios': typeof AuthenticatedAdminUsuariosRoute
 }
 export interface FileRoutesById {
@@ -82,20 +74,13 @@ export interface FileRoutesById {
   '/_authenticated/_admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/candidatos': typeof AuthenticatedCandidatosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
   '/_authenticated/_admin/usuarios': typeof AuthenticatedAdminUsuariosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/login'
-    | '/candidatos'
-    | '/dashboard'
-    | '/pipeline'
-    | '/usuarios'
+  fullPaths: '/' | '/login' | '/candidatos' | '/dashboard' | '/usuarios'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/candidatos' | '/dashboard' | '/pipeline' | '/usuarios'
+  to: '/' | '/login' | '/candidatos' | '/dashboard' | '/usuarios'
   id:
     | '__root__'
     | '/'
@@ -104,7 +89,6 @@ export interface FileRouteTypes {
     | '/_authenticated/_admin'
     | '/_authenticated/candidatos'
     | '/_authenticated/dashboard'
-    | '/_authenticated/pipeline'
     | '/_authenticated/_admin/usuarios'
   fileRoutesById: FileRoutesById
 }
@@ -136,13 +120,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/pipeline': {
-      id: '/_authenticated/pipeline'
-      path: '/pipeline'
-      fullPath: '/pipeline'
-      preLoaderRoute: typeof AuthenticatedPipelineRouteImport
-      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
@@ -190,14 +167,12 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedCandidatosRoute: typeof AuthenticatedCandidatosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedCandidatosRoute: AuthenticatedCandidatosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
