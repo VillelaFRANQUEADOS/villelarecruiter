@@ -96,31 +96,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export const useAuth = () => useContext(Ctx);
 
 export type CandidatoStatus =
-  | "triagem"
   | "aguardando_contato"
+  | "aguardando_retorno"
   | "remarcar"
   | "sem_interesse"
   | "agendado";
 
 export const STATUS_LABELS: Record<CandidatoStatus, string> = {
-  triagem: "Triagem",
   aguardando_contato: "Aguardando contato",
+  aguardando_retorno: "Aguardando retorno",
   remarcar: "Remarcar",
   sem_interesse: "Sem interesse",
   agendado: "Agendado",
 };
 
 export const STATUS_ORDER: CandidatoStatus[] = [
-  "triagem",
   "aguardando_contato",
+  "aguardando_retorno",
   "remarcar",
   "sem_interesse",
   "agendado",
 ];
 
 export const STATUS_TONE: Record<CandidatoStatus, string> = {
-  triagem: "bg-accent text-accent-foreground border-border",
   aguardando_contato: "bg-warning/15 text-warning border-warning/30",
+  aguardando_retorno: "bg-accent text-accent-foreground border-border",
   remarcar: "bg-info/15 text-info border-info/30",
   sem_interesse: "bg-destructive/10 text-destructive border-destructive/30",
   agendado: "bg-primary/15 text-primary border-primary/30",
