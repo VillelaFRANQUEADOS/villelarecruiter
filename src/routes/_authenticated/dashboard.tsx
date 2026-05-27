@@ -30,7 +30,7 @@ function DashboardPage() {
         <Stat icon={<Users className="size-4" />} label="Total candidatos" value={total} />
         <Stat icon={<PhoneCall className="size-4" />} label="Aguardando contato" value={aguardando} tone="text-warning" />
         <Stat icon={<CalendarCheck className="size-4" />} label="Agendados" value={agendados} tone="text-primary" />
-        <Stat icon={<RotateCcw className="size-4" />} label="Para remarcar" value={remarcar} tone="text-info" />
+        <Stat icon={<Clock className="size-4" />} label="Aguardando retorno" value={aguardandoRetorno} tone="text-info" />
       </div>
 
       <Card className="overflow-hidden">
