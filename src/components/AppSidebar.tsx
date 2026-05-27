@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Kanban, LogOut, Shield } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Shield } from "lucide-react";
 import { useAuth, ROLE_LABELS } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import logoWhite from "@/assets/villela-logo-white.png";
@@ -7,7 +7,6 @@ import logoWhite from "@/assets/villela-logo-white.png";
 const baseItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/candidatos", label: "Candidatos", icon: Users },
-  { to: "/pipeline", label: "Pipeline", icon: Kanban },
 ] as const;
 
 const adminItems = [
