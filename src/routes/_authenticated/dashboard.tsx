@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, PhoneCall, CalendarCheck, RotateCcw } from "lucide-react";
+import { Users, PhoneCall, CalendarCheck, Clock } from "lucide-react";
 import { STATUS_LABELS, STATUS_TONE } from "@/lib/auth";
 import { useCandidatosQuery, useCandidatosRealtime } from "@/lib/ats-data";
 
