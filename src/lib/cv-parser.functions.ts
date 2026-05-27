@@ -120,7 +120,7 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
         observacoes,
         curriculo_url: `drive:${driveFileId}`,
         recrutador_id: userId,
-        status: "triagem",
+        status: "aguardando_contato",
       })
       .select()
       .single();

@@ -24,7 +24,7 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     nome: "", telefone: "", cidade: "", email: "",
-    status: "triagem" as CandidatoStatus, observacoes: "",
+    status: "aguardando_contato" as CandidatoStatus, observacoes: "",
   });
 
   const isNew = !candidato;
@@ -41,7 +41,7 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
         observacoes: candidato.observacoes ?? "",
       });
     } else {
-      setForm({ nome: "", telefone: "", cidade: "", email: "", status: "triagem", observacoes: "" });
+      setForm({ nome: "", telefone: "", cidade: "", email: "", status: "aguardando_contato", observacoes: "" });
     }
   }, [candidato, open]);
 
