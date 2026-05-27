@@ -63,14 +63,16 @@ export const getCurriculoContent = createServerFn({ method: "POST" })
       headers,
     });
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Drive download falhou [${res.status}]: ${text}`);
+      const text = await res.text().catch(() => "");
+      if (res.status === 404) throw new Error("Currículo não encontrado no Google Drive (arquivo removido ou sem permissão).");
+      if (res.status === 401 || res.status === 403) throw new Error("Conexão com o Google Drive expirou. Reconecte em Connectors.");
+      throw new Error(`Falha ao baixar do Drive [${res.status}]: ${text.slice(0, 200)}`);
     }
-    const buf = new Uint8Array(await res.arrayBuffer());
-    let binary = "";
-    for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
-    const base64 = btoa(binary);
-    return { base64, mimeType: "application/pdf" };
+    const mimeType = res.headers.get("content-type")?.split(";")[0] || "application/pdf";
+    const arr = await res.arrayBuffer();
+    // Buffer base64 é muito mais rápido que loop char-a-char + btoa
+    const base64 = Buffer.from(arr).toString("base64");
+    return { base64, mimeType };
   });
 
 export const deleteCurriculoFromDrive = createServerFn({ method: "POST" })
