@@ -125,7 +125,6 @@ export type Database = {
       candidato_status:
         | "aguardando_contato"
         | "aguardando_retorno"
-        | "remarcar"
         | "sem_interesse"
         | "agendado"
     }
@@ -259,7 +258,6 @@ export const Constants = {
       candidato_status: [
         "aguardando_contato",
         "aguardando_retorno",
-        "remarcar",
         "sem_interesse",
         "agendado",
       ],
