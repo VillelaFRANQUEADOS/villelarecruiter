@@ -93,23 +93,35 @@ function CandidatosPage() {
   }
 
   async function openCurriculo(ref: string) {
+    const toastId = toast.loading("Abrindo currículo...");
     try {
+      let url: string;
+      let revokeAfterMs = 5 * 60_000;
       if (ref.startsWith("drive:")) {
         const fileId = ref.slice(6);
         const { base64, mimeType } = await fetchCv({ data: { fileId } });
-        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        // Decodificação eficiente sem loop char-a-char
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         const blob = new Blob([bytes], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        url = URL.createObjectURL(blob);
       } else {
         // legado: storage Lovable Cloud
-        const { data, error } = await supabase.storage.from("curriculos").createSignedUrl(ref, 60);
+        const { data, error } = await supabase.storage.from("curriculos").createSignedUrl(ref, 300);
         if (error) throw error;
-        window.open(data.signedUrl, "_blank");
+        url = data.signedUrl;
+        revokeAfterMs = 0;
       }
+      const win = window.open(url, "_blank", "noopener,noreferrer");
+      if (!win) {
+        toast.error("Bloqueado pelo navegador. Permita pop-ups para visualizar o currículo.", { id: toastId });
+        return;
+      }
+      toast.success("Currículo aberto", { id: toastId });
+      if (revokeAfterMs > 0) setTimeout(() => URL.revokeObjectURL(url), revokeAfterMs);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao abrir currículo");
+      toast.error(e instanceof Error ? e.message : "Falha ao abrir currículo", { id: toastId });
     }
   }
 
