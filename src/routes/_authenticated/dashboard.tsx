@@ -16,7 +16,7 @@ function DashboardPage() {
   const total = rows.length;
   const aguardando = rows.filter(r => r.status === "aguardando_contato").length;
   const agendados = rows.filter(r => r.status === "agendado").length;
-  const remarcar = rows.filter(r => r.status === "remarcar").length;
+  const aguardandoRetorno = rows.filter(r => r.status === "aguardando_retorno").length;
   const recent = rows.slice(0, 12);
 
   return (
