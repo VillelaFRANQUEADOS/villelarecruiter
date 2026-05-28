@@ -154,8 +154,10 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
         telefone: telefoneFinal,
         email: emailFinal,
         cidade: extracted.cidade || "",
+        estado: normalizeUf(extracted.estado, cvText),
 
         experiencias: extracted.experiencias || null,
+
         observacoes,
         curriculo_url: `drive:${driveFileId}`,
         recrutador_id: userId,
