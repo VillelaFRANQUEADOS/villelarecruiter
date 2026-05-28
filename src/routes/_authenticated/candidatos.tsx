@@ -265,7 +265,9 @@ function CandidatosPage() {
                   <td className="px-3 py-2">
                     <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
                   </td>
-                  <td className="px-3 py-2 font-medium">{r.nome}</td>
+                  <td className="px-3 py-2 font-medium">
+  {(r.nome || "").toUpperCase()}
+</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.telefone || "—"}</td>
                   <td className="px-3 py-2">{r.cidade || "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.estado || "—"}</td>
