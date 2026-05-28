@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, LogOut, Shield } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth, ROLE_LABELS } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import logoWhite from "@/assets/villela-logo-white.png";
@@ -13,19 +14,35 @@ const adminItems = [
   { to: "/usuarios", label: "Usuários", icon: Shield },
 ] as const;
 
-
 export function AppSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { nome, role, signOut } = useAuth();
   const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <aside className="hidden md:flex w-56 shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
-      <div className="px-4 py-4 flex items-center gap-3 border-b border-sidebar-border">
-        <img src={logoWhite} alt="Villela Recruiter" className="size-9 object-contain" />
-        <div>
-          <p className="text-sm font-semibold leading-none tracking-tight">Villela Recruiter</p>
-          <p className="text-[11px] text-sidebar-foreground/60 mt-1">ATS · Recrutamento</p>
+    <aside
+      className={`hidden md:flex shrink-0 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-all duration-300 ${
+        collapsed ? "w-20" : "w-56"
+      }`}
+    >
+      <div className="relative px-4 py-4 border-b border-sidebar-border">
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="absolute -right-3 top-5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm hover:bg-sidebar-accent"
+        >
+          {collapsed ? <ChevronRight className="size-3" /> : <ChevronLeft className="size-3" />}
+        </button>
+
+        <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
+          <img src={logoWhite} alt="Villela Recruiter" className="size-9 object-contain shrink-0" />
+
+          {!collapsed && (
+            <div>
+              <p className="text-sm font-semibold leading-none tracking-tight">Villela Recruiter</p>
+              <p className="text-[11px] text-sidebar-foreground/60 mt-1">ATS · Recrutamento</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -37,31 +54,43 @@ export function AppSidebar() {
             <Link
               key={it.to}
               to={it.to}
-              className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
+              title={collapsed ? it.label : undefined}
+              className={`flex items-center rounded-md px-3 py-2 text-sm transition ${
+                collapsed ? "justify-center" : "gap-3"
+              } ${
                 active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                   : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
               }`}
             >
-              <it.icon className="size-4" />
-              {it.label}
+              <it.icon className="size-4 shrink-0" />
+              {!collapsed && it.label}
             </Link>
           );
         })}
       </nav>
 
       <div className="p-2 border-t border-sidebar-border">
-        <div className="px-3 py-2 mb-1">
-          <p className="text-sm font-medium truncate">{nome ?? "Usuário"}</p>
-          <p className="text-[11px] text-sidebar-foreground/60">{role ? ROLE_LABELS[role] : "—"}</p>
-        </div>
+        {!collapsed && (
+          <div className="px-3 py-2 mb-1">
+            <p className="text-sm font-medium truncate">{nome ?? "Usuário"}</p>
+            <p className="text-[11px] text-sidebar-foreground/60">{role ? ROLE_LABELS[role] : "—"}</p>
+          </div>
+        )}
+
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-          onClick={async () => { await signOut(); navigate({ to: "/login" }); }}
+          className={`w-full text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground ${
+            collapsed ? "justify-center" : "justify-start"
+          }`}
+          onClick={async () => {
+            await signOut();
+            navigate({ to: "/login" });
+          }}
         >
-          <LogOut className="size-4 mr-2" /> Sair
+          <LogOut className={`size-4 ${collapsed ? "" : "mr-2"}`} />
+          {!collapsed && "Sair"}
         </Button>
       </div>
     </aside>
