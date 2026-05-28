@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import logoWhite from "@/assets/villela-logo-white.png";
 
 const baseItems = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/candidatos", label: "Candidatos", icon: Users },
 ] as const;
 
 const adminItems = [
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/usuarios", label: "Usuários", icon: Shield },
 ] as const;
 
