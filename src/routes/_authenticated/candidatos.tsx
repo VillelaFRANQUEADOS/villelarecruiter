@@ -268,6 +268,8 @@ function CandidatosPage() {
                   <td className="px-3 py-2 font-medium">{r.nome}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.telefone || "—"}</td>
                   <td className="px-3 py-2">{r.cidade || "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{r.estado || "—"}</td>
+
                   <td className="px-3 py-2 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
                   <td className="px-3 py-2">
                     <Select value={r.status} onValueChange={(v) => changeStatus(r.id, v as CandidatoStatus)}>
