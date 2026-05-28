@@ -23,7 +23,7 @@ interface Props {
 export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: Props) {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
-    nome: "", telefone: "", cidade: "", email: "",
+    nome: "", telefone: "", cidade: "", estado: "" as string, email: "",
     status: "aguardando_contato" as CandidatoStatus, observacoes: "",
   });
 
@@ -36,14 +36,16 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
         nome: candidato.nome,
         telefone: candidato.telefone ?? "",
         cidade: candidato.cidade ?? "",
+        estado: candidato.estado ?? "",
         email: candidato.email ?? "",
         status: candidato.status,
         observacoes: candidato.observacoes ?? "",
       });
     } else {
-      setForm({ nome: "", telefone: "", cidade: "", email: "", status: "aguardando_contato", observacoes: "" });
+      setForm({ nome: "", telefone: "", cidade: "", estado: "", email: "", status: "aguardando_contato", observacoes: "" });
     }
   }, [candidato, open]);
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
