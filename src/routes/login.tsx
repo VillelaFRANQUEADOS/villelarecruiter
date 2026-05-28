@@ -52,23 +52,12 @@ function LoginPage() {
       <div className="relative z-10 grid min-h-screen lg:grid-cols-[1.1fr_0.9fr]">
         <div className="hidden lg:flex flex-col justify-center px-16 xl:px-24 border-r border-white/5">
           <div className="max-w-2xl">
-            <div className="mb-10 flex items-center gap-5">
-              <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-cyan-400/20 bg-cyan-400/10 backdrop-blur-md">
-                <img
-                  src={logoSvg}
-                  alt="Villela Recruiter"
-                  className="h-10 w-10 object-contain"
-                />
-              </div>
-
-              <div>
-                <p className="text-sm uppercase tracking-[0.3em] text-cyan-300/80">
-                  Villela Recruiter
-                </p>
-                <h1 className="mt-2 text-4xl font-semibold tracking-tight text-white">
-                  Recruiting Platform
-                </h1>
-              </div>
+            <div className="mb-12 rounded-[36px] border border-white/10 bg-white/[0.03] p-10 backdrop-blur-md shadow-2xl shadow-cyan-950/20">
+              <img
+                src={logoSvg}
+                alt="Villela Recruiter"
+                className="h-auto w-full max-w-[560px] object-contain"
+              />
             </div>
 
             <div className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-1 text-sm text-cyan-200 backdrop-blur-sm">
@@ -87,21 +76,21 @@ function LoginPage() {
               <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-md transition hover:-translate-y-1 hover:bg-white/10">
                 <p className="text-3xl font-bold text-cyan-300">ATS</p>
                 <p className="mt-2 text-sm text-white/55">
-                  Pipeline centralizado
+                  Gestão centralizada
                 </p>
               </div>
 
               <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-md transition hover:-translate-y-1 hover:bg-white/10">
                 <p className="text-3xl font-bold text-cyan-300">IA</p>
                 <p className="mt-2 text-sm text-white/55">
-                  Leitura automática
+                  Extração automática
                 </p>
               </div>
 
               <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-md transition hover:-translate-y-1 hover:bg-white/10">
-                <p className="text-3xl font-bold text-cyan-300">UFs</p>
+                <p className="text-3xl font-bold text-cyan-300">LIVE</p>
                 <p className="mt-2 text-sm text-white/55">
-                  Controle regional
+                  Atualização em tempo real
                 </p>
               </div>
             </div>
@@ -112,11 +101,11 @@ function LoginPage() {
           <Card className="w-full max-w-md rounded-[32px] border border-white/10 bg-white/10 backdrop-blur-2xl shadow-2xl shadow-cyan-950/40">
             <div className="p-8 lg:p-10">
               <div className="mb-8 text-center">
-                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl border border-cyan-400/20 bg-cyan-400/10 backdrop-blur-md lg:hidden">
+                <div className="mx-auto mb-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-md lg:hidden">
                   <img
                     src={logoSvg}
                     alt="Villela Recruiter"
-                    className="h-10 w-10 object-contain"
+                    className="mx-auto h-auto w-full max-w-[240px] object-contain"
                   />
                 </div>
 
