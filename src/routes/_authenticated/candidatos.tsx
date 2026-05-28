@@ -48,6 +48,8 @@ function CandidatosPage() {
   const [fVaga, setFVaga] = useState("");
   const [fStatus, setFStatus] = useState<string>("all");
   const [fRecrutador, setFRecrutador] = useState<string>("all");
+  const [fEstado, setFEstado] = useState<string>("all");
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useCandidatosRealtime();
 
