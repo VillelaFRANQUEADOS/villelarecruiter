@@ -204,9 +204,17 @@ function CandidatosPage() {
               {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={fEstado} onValueChange={setFEstado}>
+            <SelectTrigger className="h-9 w-36"><SelectValue placeholder="UF" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as UFs</SelectItem>
+              {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+            </SelectContent>
+          </Select>
           {hasFilters && (
             <Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
           )}
+
           {selected.size > 0 && (
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-xs text-muted-foreground">{selected.size} selecionado(s)</span>
