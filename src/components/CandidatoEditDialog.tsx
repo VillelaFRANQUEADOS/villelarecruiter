@@ -51,13 +51,14 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
     e.preventDefault();
     setBusy(true);
     let error;
+    const payloadBase = { ...form, estado: form.estado || null };
     if (isNew) {
       const { data: u } = await supabase.auth.getUser();
-      const payload = { ...form, recrutador_id: u.user?.id ?? null };
-      ({ error } = await supabase.from("candidatos").insert(payload));
+      ({ error } = await supabase.from("candidatos").insert({ ...payloadBase, recrutador_id: u.user?.id ?? null }));
     } else {
-      ({ error } = await supabase.from("candidatos").update(form).eq("id", candidato!.id));
+      ({ error } = await supabase.from("candidatos").update(payloadBase).eq("id", candidato!.id));
     }
+
     setBusy(false);
     if (error) toast.error(error.message);
     else { toast.success(isNew ? "Criado" : "Atualizado"); onSaved(); onOpenChange(false); }
