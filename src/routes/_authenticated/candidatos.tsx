@@ -268,7 +268,16 @@ function CandidatosPage() {
                   <td className="px-3 py-2 font-medium">
   {(r.nome || "").toUpperCase()}
 </td>
-                  <td className="px-3 py-2 text-muted-foreground">{r.telefone || "—"}</td>
+                 <td
+  className="px-3 py-2 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+  onClick={() => {
+    navigator.clipboard.writeText(r.telefone || "");
+    toast.success("Telefone copiado");
+  }}
+  title="Clique para copiar"
+>
+  {r.telefone || "—"}
+</td>
                   <td className="px-3 py-2">{r.cidade || "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.estado || "—"}</td>
 
