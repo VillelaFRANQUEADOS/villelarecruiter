@@ -107,8 +107,10 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
             "Remova parênteses, traços, espaços, pontos e o DDI 55. Exemplo: '(35) 99117-1223' vira '35991171223'.\n" +
             "- email: endereço de email\n" +
             "- cidade: apenas o nome da cidade, sem estado\n" +
+            "- estado: a sigla UF de 2 letras maiúsculas (ex: SP, RJ, MG, RS, SC, PR, BA, PE, CE, GO). Procure por padrões como 'Cidade/UF', 'Cidade - UF' ou o nome do estado por extenso.\n" +
             "- experiencias: resumo curto das experiências profissionais (máx 500 caracteres)\n" +
             "Se algum campo não estiver presente, retorne null para ele.\n\nCURRÍCULO:\n" + cvText,
+
 
         });
         extracted = object;
