@@ -59,19 +59,21 @@ function CandidatosPage() {
   const filtered = useMemo(() => rows.filter(r => {
     if (fStatus !== "all" && r.status !== fStatus) return false;
     if (fRecrutador !== "all" && (r.recrutador_id ?? "") !== fRecrutador) return false;
+    if (fEstado !== "all" && (r.estado ?? "") !== fEstado) return false;
     if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
     if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
     if (fCidade && !norm(r.cidade).includes(fCidade.toLowerCase())) return false;
     if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
     if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
     return true;
-  }), [rows, fNome, fTelefone, fCidade, fEmail, fVaga, fStatus, fRecrutador]);
+  }), [rows, fNome, fTelefone, fCidade, fEmail, fVaga, fStatus, fRecrutador, fEstado]);
 
-  const hasFilters = !!(fNome || fTelefone || fCidade || fEmail || fVaga) || fStatus !== "all" || fRecrutador !== "all";
+  const hasFilters = !!(fNome || fTelefone || fCidade || fEmail || fVaga) || fStatus !== "all" || fRecrutador !== "all" || fEstado !== "all";
   function clearFilters() {
     setFNome(""); setFTelefone(""); setFCidade(""); setFEmail(""); setFVaga("");
-    setFStatus("all"); setFRecrutador("all");
+    setFStatus("all"); setFRecrutador("all"); setFEstado("all");
   }
+
 
   async function handleDelete(id: string) {
     if (!confirm("Excluir este candidato?")) return;
