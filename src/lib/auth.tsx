@@ -133,6 +133,7 @@ export interface CandidatoRow {
   nome: string;
   telefone: string;
   cidade: string;
+  estado: string | null;
   regiao: string | null;
   vaga: string | null;
   email: string | null;
@@ -143,3 +144,9 @@ export interface CandidatoRow {
   recrutador_id: string | null;
   created_at: string;
 }
+
+export const UF_LIST: string[] = [
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+  "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+];
+

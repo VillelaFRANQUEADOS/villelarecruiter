@@ -5,13 +5,17 @@ import { uploadPdfToDrive } from "@/lib/curriculos.functions";
 import { generateObject } from "ai";
 import { z } from "zod";
 
+const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"] as const;
+
 const ExtractedSchema = z.object({
   nome: z.string().nullable().optional(),
   telefone: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   cidade: z.string().nullable().optional(),
+  estado: z.string().nullable().optional(),
   experiencias: z.string().nullable().optional(),
 });
+
 
 type Extracted = z.infer<typeof ExtractedSchema>;
 
@@ -40,6 +44,39 @@ function extractEmailFromText(text: string): string | null {
   const m = text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
   return m ? m[0] : null;
 }
+
+const UF_NAMES: Record<string, string> = {
+  "acre":"AC","alagoas":"AL","amapa":"AP","amapá":"AP","amazonas":"AM","bahia":"BA",
+  "ceara":"CE","ceará":"CE","distrito federal":"DF","espirito santo":"ES","espírito santo":"ES",
+  "goias":"GO","goiás":"GO","maranhao":"MA","maranhão":"MA","mato grosso":"MT","mato grosso do sul":"MS",
+  "minas gerais":"MG","para":"PA","pará":"PA","paraiba":"PB","paraíba":"PB","parana":"PR","paraná":"PR",
+  "pernambuco":"PE","piaui":"PI","piauí":"PI","rio de janeiro":"RJ","rio grande do norte":"RN",
+  "rio grande do sul":"RS","rondonia":"RO","rondônia":"RO","roraima":"RR","santa catarina":"SC",
+  "sao paulo":"SP","são paulo":"SP","sergipe":"SE","tocantins":"TO",
+};
+
+function extractUfFromText(text: string): string | null {
+  if (!text) return null;
+  // Procura padrões "Cidade/SP", "Cidade - SP", " SP " ou " SP,"
+  const m = text.match(/[\/\-,\s]\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)(?:[\s,.\)\/\-]|$)/);
+  if (m) return m[1];
+  const lower = text.toLowerCase();
+  for (const [name, uf] of Object.entries(UF_NAMES)) {
+    if (lower.includes(name)) return uf;
+  }
+  return null;
+}
+
+function normalizeUf(value: string | null | undefined, cvText: string): string | null {
+  if (value) {
+    const v = value.trim().toUpperCase();
+    if (UFS.includes(v as typeof UFS[number])) return v;
+    const named = UF_NAMES[value.trim().toLowerCase()];
+    if (named) return named;
+  }
+  return extractUfFromText(cvText);
+}
+
 
 
 export const parseAndCreateCandidato = createServerFn({ method: "POST" })
@@ -70,8 +107,10 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
             "Remova parênteses, traços, espaços, pontos e o DDI 55. Exemplo: '(35) 99117-1223' vira '35991171223'.\n" +
             "- email: endereço de email\n" +
             "- cidade: apenas o nome da cidade, sem estado\n" +
+            "- estado: a sigla UF de 2 letras maiúsculas (ex: SP, RJ, MG, RS, SC, PR, BA, PE, CE, GO). Procure por padrões como 'Cidade/UF', 'Cidade - UF' ou o nome do estado por extenso.\n" +
             "- experiencias: resumo curto das experiências profissionais (máx 500 caracteres)\n" +
             "Se algum campo não estiver presente, retorne null para ele.\n\nCURRÍCULO:\n" + cvText,
+
 
         });
         extracted = object;
@@ -115,8 +154,10 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
         telefone: telefoneFinal,
         email: emailFinal,
         cidade: extracted.cidade || "",
+        estado: normalizeUf(extracted.estado, cvText),
 
         experiencias: extracted.experiencias || null,
+
         observacoes,
         curriculo_url: `drive:${driveFileId}`,
         recrutador_id: userId,

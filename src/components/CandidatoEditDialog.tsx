@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUS_LABELS, STATUS_ORDER, type CandidatoRow, type CandidatoStatus } from "@/lib/auth";
+import { STATUS_LABELS, STATUS_ORDER, UF_LIST, type CandidatoRow, type CandidatoStatus } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +23,7 @@ interface Props {
 export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: Props) {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
-    nome: "", telefone: "", cidade: "", email: "",
+    nome: "", telefone: "", cidade: "", estado: "" as string, email: "",
     status: "aguardando_contato" as CandidatoStatus, observacoes: "",
   });
 
@@ -36,26 +36,29 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
         nome: candidato.nome,
         telefone: candidato.telefone ?? "",
         cidade: candidato.cidade ?? "",
+        estado: candidato.estado ?? "",
         email: candidato.email ?? "",
         status: candidato.status,
         observacoes: candidato.observacoes ?? "",
       });
     } else {
-      setForm({ nome: "", telefone: "", cidade: "", email: "", status: "aguardando_contato", observacoes: "" });
+      setForm({ nome: "", telefone: "", cidade: "", estado: "", email: "", status: "aguardando_contato", observacoes: "" });
     }
   }, [candidato, open]);
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     let error;
+    const payloadBase = { ...form, estado: form.estado || null };
     if (isNew) {
       const { data: u } = await supabase.auth.getUser();
-      const payload = { ...form, recrutador_id: u.user?.id ?? null };
-      ({ error } = await supabase.from("candidatos").insert(payload));
+      ({ error } = await supabase.from("candidatos").insert({ ...payloadBase, recrutador_id: u.user?.id ?? null }));
     } else {
-      ({ error } = await supabase.from("candidatos").update(form).eq("id", candidato!.id));
+      ({ error } = await supabase.from("candidatos").update(payloadBase).eq("id", candidato!.id));
     }
+
     setBusy(false);
     if (error) toast.error(error.message);
     else { toast.success(isNew ? "Criado" : "Atualizado"); onSaved(); onOpenChange(false); }
@@ -70,6 +73,17 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
             <div className="space-y-1.5 col-span-2"><Label>Nome</Label><Input required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Telefone</Label><Input value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></div>
             <div className="space-y-1.5"><Label>Cidade</Label><Input value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></div>
+            <div className="space-y-1.5 col-span-2">
+              <Label>Estado (UF)</Label>
+              <Select value={form.estado || "none"} onValueChange={(v) => setForm({ ...form, estado: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— não informado —</SelectItem>
+                  {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-1.5 col-span-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
             <div className="space-y-1.5 col-span-2">
               <Label>Status</Label>

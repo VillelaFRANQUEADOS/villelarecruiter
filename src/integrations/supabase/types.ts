@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           curriculo_url: string | null
           email: string | null
+          estado: string | null
           experiencias: string | null
           id: string
           nome: string
@@ -36,6 +37,7 @@ export type Database = {
           created_at?: string
           curriculo_url?: string | null
           email?: string | null
+          estado?: string | null
           experiencias?: string | null
           id?: string
           nome: string
@@ -52,6 +54,7 @@ export type Database = {
           created_at?: string
           curriculo_url?: string | null
           email?: string | null
+          estado?: string | null
           experiencias?: string | null
           id?: string
           nome?: string

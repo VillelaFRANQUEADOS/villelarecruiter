@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/select";
 import { Search, FileText, Pencil, Trash2 } from "lucide-react";
 import {
-  useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE,
+  useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE, UF_LIST,
   type CandidatoRow, type CandidatoStatus,
 } from "@/lib/auth";
+
 import {
   invalidateAtsQueries,
   useCandidatosQuery,
@@ -47,6 +48,8 @@ function CandidatosPage() {
   const [fVaga, setFVaga] = useState("");
   const [fStatus, setFStatus] = useState<string>("all");
   const [fRecrutador, setFRecrutador] = useState<string>("all");
+  const [fEstado, setFEstado] = useState<string>("all");
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useCandidatosRealtime();
 
@@ -56,19 +59,21 @@ function CandidatosPage() {
   const filtered = useMemo(() => rows.filter(r => {
     if (fStatus !== "all" && r.status !== fStatus) return false;
     if (fRecrutador !== "all" && (r.recrutador_id ?? "") !== fRecrutador) return false;
+    if (fEstado !== "all" && (r.estado ?? "") !== fEstado) return false;
     if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
     if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
     if (fCidade && !norm(r.cidade).includes(fCidade.toLowerCase())) return false;
     if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
     if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
     return true;
-  }), [rows, fNome, fTelefone, fCidade, fEmail, fVaga, fStatus, fRecrutador]);
+  }), [rows, fNome, fTelefone, fCidade, fEmail, fVaga, fStatus, fRecrutador, fEstado]);
 
-  const hasFilters = !!(fNome || fTelefone || fCidade || fEmail || fVaga) || fStatus !== "all" || fRecrutador !== "all";
+  const hasFilters = !!(fNome || fTelefone || fCidade || fEmail || fVaga) || fStatus !== "all" || fRecrutador !== "all" || fEstado !== "all";
   function clearFilters() {
     setFNome(""); setFTelefone(""); setFCidade(""); setFEmail(""); setFVaga("");
-    setFStatus("all"); setFRecrutador("all");
+    setFStatus("all"); setFRecrutador("all"); setFEstado("all");
   }
+
 
   async function handleDelete(id: string) {
     if (!confirm("Excluir este candidato?")) return;
@@ -199,9 +204,17 @@ function CandidatosPage() {
               {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={fEstado} onValueChange={setFEstado}>
+            <SelectTrigger className="h-9 w-36"><SelectValue placeholder="UF" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as UFs</SelectItem>
+              {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+            </SelectContent>
+          </Select>
           {hasFilters && (
             <Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
           )}
+
           {selected.size > 0 && (
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-xs text-muted-foreground">{selected.size} selecionado(s)</span>
@@ -238,6 +251,8 @@ function CandidatosPage() {
                 <th className="text-left px-3 py-2 font-medium">Nome</th>
                 <th className="text-left px-3 py-2 font-medium">Telefone</th>
                 <th className="text-left px-3 py-2 font-medium">Cidade</th>
+                <th className="text-left px-3 py-2 font-medium">UF</th>
+
                 <th className="text-left px-3 py-2 font-medium">Recrutador</th>
                 <th className="text-left px-3 py-2 font-medium">Status</th>
                 <th className="text-left px-3 py-2 font-medium">CV</th>
@@ -253,6 +268,8 @@ function CandidatosPage() {
                   <td className="px-3 py-2 font-medium">{r.nome}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.telefone || "—"}</td>
                   <td className="px-3 py-2">{r.cidade || "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{r.estado || "—"}</td>
+
                   <td className="px-3 py-2 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
                   <td className="px-3 py-2">
                     <Select value={r.status} onValueChange={(v) => changeStatus(r.id, v as CandidatoStatus)}>
@@ -286,7 +303,7 @@ function CandidatosPage() {
                 </tr>
               ))}
               {!filtered.length && (
-                <tr><td colSpan={8} className="px-4 py-10 text-center text-muted-foreground text-sm">Nenhum candidato. Arraste PDFs acima para começar.</td></tr>
+                <tr><td colSpan={9} className="px-4 py-10 text-center text-muted-foreground text-sm">Nenhum candidato. Arraste PDFs acima para começar.</td></tr>
               )}
             </tbody>
           </table>
