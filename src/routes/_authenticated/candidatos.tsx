@@ -14,9 +14,10 @@ import {
 } from "@/components/ui/select";
 import { Search, FileText, Pencil, Trash2 } from "lucide-react";
 import {
-  useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE,
+  useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE, UF_LIST,
   type CandidatoRow, type CandidatoStatus,
 } from "@/lib/auth";
+
 import {
   invalidateAtsQueries,
   useCandidatosQuery,
