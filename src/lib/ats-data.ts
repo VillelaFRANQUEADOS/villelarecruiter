@@ -18,7 +18,9 @@ const CANDIDATOS_SELECT = [
   "nome",
   "telefone",
   "cidade",
+  "estado",
   "regiao",
+
   "vaga",
   "email",
   "experiencias",
