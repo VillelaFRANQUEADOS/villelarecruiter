@@ -251,6 +251,8 @@ function CandidatosPage() {
                 <th className="text-left px-3 py-2 font-medium">Nome</th>
                 <th className="text-left px-3 py-2 font-medium">Telefone</th>
                 <th className="text-left px-3 py-2 font-medium">Cidade</th>
+                <th className="text-left px-3 py-2 font-medium">UF</th>
+
                 <th className="text-left px-3 py-2 font-medium">Recrutador</th>
                 <th className="text-left px-3 py-2 font-medium">Status</th>
                 <th className="text-left px-3 py-2 font-medium">CV</th>
