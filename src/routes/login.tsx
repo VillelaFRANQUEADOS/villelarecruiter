@@ -40,7 +40,7 @@ function LoginPage() {
         <div className="flex items-center gap-3 mb-8 justify-center">
           <img src={logoDark} alt="Grupo Villela" className="size-12 object-contain" />
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Grupo Villela</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Villela Recruiter</h1>
             <p className="text-xs text-muted-foreground">ATS · Recrutamento operacional</p>
           </div>
         </div>
