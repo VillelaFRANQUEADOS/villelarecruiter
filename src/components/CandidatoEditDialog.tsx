@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUS_LABELS, STATUS_ORDER, type CandidatoRow, type CandidatoStatus } from "@/lib/auth";
+import { STATUS_LABELS, STATUS_ORDER, UF_LIST, type CandidatoRow, type CandidatoStatus } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
