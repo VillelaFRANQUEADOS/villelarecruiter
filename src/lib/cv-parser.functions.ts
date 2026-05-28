@@ -5,13 +5,17 @@ import { uploadPdfToDrive } from "@/lib/curriculos.functions";
 import { generateObject } from "ai";
 import { z } from "zod";
 
+const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"] as const;
+
 const ExtractedSchema = z.object({
   nome: z.string().nullable().optional(),
   telefone: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   cidade: z.string().nullable().optional(),
+  estado: z.string().nullable().optional(),
   experiencias: z.string().nullable().optional(),
 });
+
 
 type Extracted = z.infer<typeof ExtractedSchema>;
 
