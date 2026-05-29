@@ -58,7 +58,7 @@ function LoginPage() {
               {busy ? "Entrando..." : "Entrar"}
             </Button>
             <p className="text-xs text-muted-foreground text-center pt-2">
-              Acesso restrito. Solicite credenciais ao Administrador.
+              Acesso restrito. Solicite credenciais ao Admin.
             </p>
           </form>
         </Card>
