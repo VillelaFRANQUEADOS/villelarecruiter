@@ -43,10 +43,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Grupo Villela ATS — Recrutamento Operacional" },
+      { title: "Villela Recruiter" },
       { name: "description", content: "ATS do Grupo Villela: candidatos e agendamento centralizados." },
-      { property: "og:title", content: "Grupo Villela ATS — Recrutamento Operacional" },
-      { name: "twitter:title", content: "Grupo Villela ATS — Recrutamento Operacional" },
+      { property: "og:title", content: "Villela Recruiter" },
+      { name: "twitter:title", content: "Villela Recruiter" },
       { property: "og:description", content: "ATS do Grupo Villela: candidatos e agendamento centralizados." },
       { name: "twitter:description", content: "ATS do Grupo Villela: candidatos e agendamento centralizados." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/bIaXhwLT4shAoMYbm7KqpFsh3zj1/social-images/social-1779126121892-logotipo_grupo-villela-vertical_(1).webp" },
