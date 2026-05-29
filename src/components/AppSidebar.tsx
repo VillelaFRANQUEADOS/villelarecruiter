@@ -81,7 +81,22 @@ export function AppSidebar() {
           );
         })}
       </nav>
+})}
 
+<Button
+  variant="ghost"
+  className="w-full justify-start"
+  onClick={() =>
+    window.open(
+      "https://canva.link/playbookvillelarecruiter",
+      "_blank"
+    )
+  }
+>
+  📖 Playbook
+</Button>
+
+</nav>
       <div className="p-2 border-t border-sidebar-border">
         {!collapsed && (
           <div className="px-3 py-2 mb-1">
