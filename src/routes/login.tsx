@@ -41,7 +41,7 @@ function LoginPage() {
           <img src={logoDark} alt="Grupo Villela" className="size-12 object-contain" />
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Villela Recruiter</h1>
-            <p className="text-xs text-muted-foreground">ATS · Recrutamento operacional</p>
+            <p className="text-xs text-muted-foreground">Plataforma ATS - Grupo Villela</p>
           </div>
         </div>
         <Card className="p-6">
@@ -58,7 +58,7 @@ function LoginPage() {
               {busy ? "Entrando..." : "Entrar"}
             </Button>
             <p className="text-xs text-muted-foreground text-center pt-2">
-              Acesso restrito. Solicite credenciais a um administrador.
+              Acesso restrito. Solicite credenciais ao Administrador.
             </p>
           </form>
         </Card>
