@@ -57,6 +57,9 @@ function LoginPage() {
             <Button type="submit" className="w-full" disabled={busy}>
               {busy ? "Entrando..." : "Entrar"}
             </Button>
+            <Button type="button" variant="outline" className="w-full" onClick={() => window.open("https://canva.link/playbookvillelarecruiter", "_blank")}>
+              📖 Acessar Playbook
+            </Button>
             <p className="text-xs text-muted-foreground text-center pt-2">
               Acesso restrito. Solicite credenciais ao Admin.
             </p>
