@@ -123,21 +123,11 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
       aiErrorMsg = "PDF sem texto legível (possivelmente escaneado)";
     }
 
-    // Upload PDF para o Google Drive
-    const safeName = data.fileName.replace(/[^\w.\-]/g, "_");
-    const driveName = `${Date.now()}-${safeName}`;
-    let driveFileId: string;
-    try {
-      const up = await uploadPdfToDrive({ filename: driveName, pdfBase64: data.pdfBase64 });
-      driveFileId = up.fileId;
-    } catch (e) {
-      throw new Error(`Upload Drive falhou: ${e instanceof Error ? e.message : String(e)}`);
-    }
-
     const nomeFinal = (extracted.nome && extracted.nome.trim()) || cleanFileName(data.fileName);
     const observacoes = aiFailed
       ? `Extração automática falhou (${aiErrorMsg}). Edite manualmente.`
       : null;
+
 
     // Fallbacks via regex sobre o texto bruto (telefone e email)
     let telefoneFinal = (extracted.telefone || "").replace(/\D/g, "");
