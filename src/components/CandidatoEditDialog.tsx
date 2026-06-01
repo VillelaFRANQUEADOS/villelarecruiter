@@ -20,8 +20,17 @@ interface Props {
   onSaved: () => void;
 }
 
+interface StatusLogRow {
+  id: string;
+  status_anterior: CandidatoStatus | null;
+  status_novo: CandidatoStatus;
+  changed_by_nome: string | null;
+  created_at: string;
+}
+
 export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: Props) {
   const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState<StatusLogRow[]>([]);
   const [form, setForm] = useState({
     nome: "", telefone: "", cidade: "", estado: "" as string, email: "",
     status: "aguardando_contato" as CandidatoStatus, observacoes: "",
