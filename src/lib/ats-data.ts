@@ -8,9 +8,16 @@ export interface ProfileLite {
   nome: string;
 }
 
+export interface LatestStatusChange {
+  candidato_id: string;
+  changed_by_nome: string | null;
+  created_at: string;
+}
+
 export const ATS_QUERY_KEYS = {
   candidatos: ["candidatos"] as const,
   profilesLite: ["profiles-lite"] as const,
+  latestStatusChanges: ["latest-status-changes"] as const,
 };
 
 const CANDIDATOS_SELECT = [
@@ -71,6 +78,36 @@ export function useProfilesLiteQuery() {
   });
 }
 
+export function useLatestStatusChangesQuery() {
+  return useQuery({
+    queryKey: ATS_QUERY_KEYS.latestStatusChanges,
+    queryFn: async () => {
+      const { data, error } = await (supabase as unknown as {
+        from: (t: string) => {
+          select: (s: string) => {
+            order: (c: string, o: { ascending: boolean }) => {
+              limit: (n: number) => Promise<{ data: LatestStatusChange[] | null; error: unknown }>;
+            };
+          };
+        };
+      })
+        .from("candidato_status_log")
+        .select("candidato_id,changed_by_nome,created_at")
+        .order("created_at", { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      const map = new Map<string, LatestStatusChange>();
+      for (const row of data ?? []) {
+        if (!map.has(row.candidato_id)) map.set(row.candidato_id, row);
+      }
+      return map;
+    },
+    staleTime: 30_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function useCandidatosRealtime() {
   const queryClient = useQueryClient();
 
@@ -79,6 +116,9 @@ export function useCandidatosRealtime() {
       .channel("candidatos-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "candidatos" }, () => {
         void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.candidatos });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "candidato_status_log" }, () => {
+        void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.latestStatusChanges });
       })
       .subscribe();
 
@@ -91,4 +131,5 @@ export function useCandidatosRealtime() {
 export function invalidateAtsQueries(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.candidatos });
   void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.profilesLite });
+  void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.latestStatusChanges });
 }
