@@ -126,6 +126,29 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
               </Select>
             </div>
             <div className="space-y-1.5 col-span-2"><Label>Observações</Label><Textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></div>
+            {!isNew && (
+              <div className="space-y-1.5 col-span-2">
+                <Label>Histórico de status</Label>
+                {history.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhuma alteração registrada.</p>
+                ) : (
+                  <ul className="max-h-40 overflow-y-auto space-y-1 rounded-md border border-border p-2 text-xs">
+                    {history.map((h) => (
+                      <li key={h.id} className="flex justify-between gap-2">
+                        <span>
+                          {h.status_anterior ? `${STATUS_LABELS[h.status_anterior]} → ` : ""}
+                          <strong>{STATUS_LABELS[h.status_novo]}</strong>
+                          {h.changed_by_nome ? ` · ${h.changed_by_nome}` : ""}
+                        </span>
+                        <span className="text-muted-foreground whitespace-nowrap">
+                          {new Date(h.created_at).toLocaleString("pt-BR")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
