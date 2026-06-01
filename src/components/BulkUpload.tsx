@@ -26,6 +26,11 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
       const base64 = await fileToBase64(item.file);
       setItem(item.id, { status: "ai" });
       const res = await parse({ data: { fileName: item.file.name, pdfBase64: base64, cvText: text } });
+      if (res?.duplicate) {
+        const ex = res.existing as { nome?: string } | null;
+        setItem(item.id, { status: "warn", message: `duplicado: ${ex?.nome ?? "já cadastrado"}` });
+        return;
+      }
       setItem(item.id, {
         status: res?.aiFailed ? "warn" : "done",
         message: res?.aiFailed ? "criado sem IA - edite" : undefined,
