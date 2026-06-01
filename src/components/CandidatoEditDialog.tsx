@@ -20,8 +20,17 @@ interface Props {
   onSaved: () => void;
 }
 
+interface StatusLogRow {
+  id: string;
+  status_anterior: CandidatoStatus | null;
+  status_novo: CandidatoStatus;
+  changed_by_nome: string | null;
+  created_at: string;
+}
+
 export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: Props) {
   const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState<StatusLogRow[]>([]);
   const [form, setForm] = useState({
     nome: "", telefone: "", cidade: "", estado: "" as string, email: "",
     status: "aguardando_contato" as CandidatoStatus, observacoes: "",
@@ -41,10 +50,32 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
         status: candidato.status,
         observacoes: candidato.observacoes ?? "",
       });
+      void loadHistory(candidato.id);
     } else {
       setForm({ nome: "", telefone: "", cidade: "", estado: "", email: "", status: "aguardando_contato", observacoes: "" });
+      setHistory([]);
     }
   }, [candidato, open]);
+
+  async function loadHistory(candidatoId: string) {
+    const { data } = await (supabase as unknown as {
+      from: (t: string) => {
+        select: (s: string) => {
+          eq: (c: string, v: string) => {
+            order: (c: string, o: { ascending: boolean }) => {
+              limit: (n: number) => Promise<{ data: StatusLogRow[] | null }>;
+            };
+          };
+        };
+      };
+    })
+      .from("candidato_status_log")
+      .select("id,status_anterior,status_novo,changed_by_nome,created_at")
+      .eq("candidato_id", candidatoId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setHistory(data ?? []);
+  }
 
 
   async function handleSubmit(e: React.FormEvent) {
@@ -95,6 +126,29 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
               </Select>
             </div>
             <div className="space-y-1.5 col-span-2"><Label>Observações</Label><Textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></div>
+            {!isNew && (
+              <div className="space-y-1.5 col-span-2">
+                <Label>Histórico de status</Label>
+                {history.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhuma alteração registrada.</p>
+                ) : (
+                  <ul className="max-h-40 overflow-y-auto space-y-1 rounded-md border border-border p-2 text-xs">
+                    {history.map((h) => (
+                      <li key={h.id} className="flex justify-between gap-2">
+                        <span>
+                          {h.status_anterior ? `${STATUS_LABELS[h.status_anterior]} → ` : ""}
+                          <strong>{STATUS_LABELS[h.status_novo]}</strong>
+                          {h.changed_by_nome ? ` · ${h.changed_by_nome}` : ""}
+                        </span>
+                        <span className="text-muted-foreground whitespace-nowrap">
+                          {new Date(h.created_at).toLocaleString("pt-BR")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>

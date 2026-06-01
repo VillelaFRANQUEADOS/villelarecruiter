@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      candidato_status_log: {
+        Row: {
+          candidato_id: string
+          changed_by: string | null
+          changed_by_nome: string | null
+          created_at: string
+          id: string
+          status_anterior:
+            | Database["public"]["Enums"]["candidato_status"]
+            | null
+          status_novo: Database["public"]["Enums"]["candidato_status"]
+        }
+        Insert: {
+          candidato_id: string
+          changed_by?: string | null
+          changed_by_nome?: string | null
+          created_at?: string
+          id?: string
+          status_anterior?:
+            | Database["public"]["Enums"]["candidato_status"]
+            | null
+          status_novo: Database["public"]["Enums"]["candidato_status"]
+        }
+        Update: {
+          candidato_id?: string
+          changed_by?: string | null
+          changed_by_nome?: string | null
+          created_at?: string
+          id?: string
+          status_anterior?:
+            | Database["public"]["Enums"]["candidato_status"]
+            | null
+          status_novo?: Database["public"]["Enums"]["candidato_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidato_status_log_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "candidatos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidatos: {
         Row: {
           cidade: string | null
