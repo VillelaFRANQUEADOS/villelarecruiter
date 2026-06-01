@@ -8,9 +8,16 @@ export interface ProfileLite {
   nome: string;
 }
 
+export interface LatestStatusChange {
+  candidato_id: string;
+  changed_by_nome: string | null;
+  created_at: string;
+}
+
 export const ATS_QUERY_KEYS = {
   candidatos: ["candidatos"] as const,
   profilesLite: ["profiles-lite"] as const,
+  latestStatusChanges: ["latest-status-changes"] as const,
 };
 
 const CANDIDATOS_SELECT = [
