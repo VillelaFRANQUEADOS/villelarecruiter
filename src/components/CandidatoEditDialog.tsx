@@ -50,10 +50,32 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
         status: candidato.status,
         observacoes: candidato.observacoes ?? "",
       });
+      void loadHistory(candidato.id);
     } else {
       setForm({ nome: "", telefone: "", cidade: "", estado: "", email: "", status: "aguardando_contato", observacoes: "" });
+      setHistory([]);
     }
   }, [candidato, open]);
+
+  async function loadHistory(candidatoId: string) {
+    const { data } = await (supabase as unknown as {
+      from: (t: string) => {
+        select: (s: string) => {
+          eq: (c: string, v: string) => {
+            order: (c: string, o: { ascending: boolean }) => {
+              limit: (n: number) => Promise<{ data: StatusLogRow[] | null }>;
+            };
+          };
+        };
+      };
+    })
+      .from("candidato_status_log")
+      .select("id,status_anterior,status_novo,changed_by_nome,created_at")
+      .eq("candidato_id", candidatoId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    setHistory(data ?? []);
+  }
 
 
   async function handleSubmit(e: React.FormEvent) {
