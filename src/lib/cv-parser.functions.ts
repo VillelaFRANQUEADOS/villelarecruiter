@@ -145,7 +145,34 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     if (telefoneFinal.length < 10 || telefoneFinal.length > 11) telefoneFinal = "";
     if (!telefoneFinal) telefoneFinal = extractPhoneFromText(cvText) || "";
 
-    const emailFinal = (extracted.email && extracted.email.trim()) || extractEmailFromText(cvText) || null;
+    const emailFinal = (extracted.email && extracted.email.trim().toLowerCase()) || extractEmailFromText(cvText)?.toLowerCase() || null;
+
+    // Anti-duplicata: checa por telefone ou email antes de subir ao Drive
+    if (telefoneFinal || emailFinal) {
+      const orParts: string[] = [];
+      if (telefoneFinal) orParts.push(`telefone.eq.${telefoneFinal}`);
+      if (emailFinal) orParts.push(`email.eq.${emailFinal}`);
+      const { data: existing } = await supabase
+        .from("candidatos")
+        .select("id,nome,telefone,email,created_at,recrutador_id")
+        .or(orParts.join(","))
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        return { candidato: null, aiFailed, duplicate: true, existing };
+      }
+    }
+
+    // Upload PDF para o Google Drive
+    const safeName = data.fileName.replace(/[^\w.\-]/g, "_");
+    const driveName = `${Date.now()}-${safeName}`;
+    let driveFileId: string;
+    try {
+      const up = await uploadPdfToDrive({ filename: driveName, pdfBase64: data.pdfBase64 });
+      driveFileId = up.fileId;
+    } catch (e) {
+      throw new Error(`Upload Drive falhou: ${e instanceof Error ? e.message : String(e)}`);
+    }
 
     const { data: inserted, error } = await supabase
       .from("candidatos")
@@ -155,9 +182,7 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
         email: emailFinal,
         cidade: extracted.cidade || "",
         estado: normalizeUf(extracted.estado, cvText),
-
         experiencias: extracted.experiencias || null,
-
         observacoes,
         curriculo_url: `drive:${driveFileId}`,
         recrutador_id: userId,
@@ -167,5 +192,5 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
 
-    return { candidato: inserted, aiFailed };
+    return { candidato: inserted, aiFailed, duplicate: false };
   });
