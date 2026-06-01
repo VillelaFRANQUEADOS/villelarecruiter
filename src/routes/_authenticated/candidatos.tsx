@@ -293,6 +293,17 @@ function CandidatosPage() {
                         {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    {(() => {
+                      const last = latestStatusMap?.get(r.id);
+                      if (!last) return null;
+                      const d = new Date(last.created_at);
+                      const when = d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+                      return (
+                        <div className="mt-1 text-[10px] leading-tight text-muted-foreground">
+                          {last.changed_by_nome ? `por ${last.changed_by_nome} · ` : ""}{when}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2">
                     {r.curriculo_url ? (
