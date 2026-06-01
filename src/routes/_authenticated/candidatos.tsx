@@ -22,6 +22,7 @@ import {
   invalidateAtsQueries,
   useCandidatosQuery,
   useCandidatosRealtime,
+  useLatestStatusChangesQuery,
   useProfilesLiteQuery,
 } from "@/lib/ats-data";
 import { toast } from "sonner";
