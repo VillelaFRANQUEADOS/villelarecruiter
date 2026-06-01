@@ -39,6 +39,7 @@ function CandidatosPage() {
   const queryClient = useQueryClient();
   const { data: rows = [] } = useCandidatosQuery();
   const { data: profiles = [] } = useProfilesLiteQuery();
+  const { data: latestStatusMap } = useLatestStatusChangesQuery();
   const fetchCv = useServerFn(getCurriculoContent);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
