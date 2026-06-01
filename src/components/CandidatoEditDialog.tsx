@@ -81,8 +81,32 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+
+    const telDigits = form.telefone.replace(/\D/g, "");
+    const emailNorm = form.email.trim().toLowerCase();
+
+    // Anti-duplicata: bloqueia telefone/email já cadastrado em OUTRO candidato
+    if (telDigits || emailNorm) {
+      const orParts: string[] = [];
+      if (telDigits) orParts.push(`telefone.eq.${telDigits}`);
+      if (emailNorm) orParts.push(`email.eq.${emailNorm}`);
+      let q = supabase.from("candidatos").select("id,nome").or(orParts.join(","));
+      if (!isNew) q = q.neq("id", candidato!.id);
+      const { data: dup } = await q.limit(1).maybeSingle();
+      if (dup) {
+        setBusy(false);
+        toast.error(`Já existe candidato com esse telefone/email: ${dup.nome}`);
+        return;
+      }
+    }
+
+    const payloadBase = {
+      ...form,
+      telefone: telDigits,
+      email: emailNorm || null,
+      estado: form.estado || null,
+    };
     let error;
-    const payloadBase = { ...form, estado: form.estado || null };
     if (isNew) {
       const { data: u } = await supabase.auth.getUser();
       ({ error } = await supabase.from("candidatos").insert({ ...payloadBase, recrutador_id: u.user?.id ?? null }));
