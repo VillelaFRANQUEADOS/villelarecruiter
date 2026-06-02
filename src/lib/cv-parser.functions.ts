@@ -13,19 +13,17 @@ const ExtractedSchema = z.object({
   email: z.string().nullable().optional(),
   cidade: z.string().nullable().optional(),
   estado: z.string().nullable().optional(),
-  experiencias: z.string().nullable().optional(),
 });
-
 
 type Extracted = z.infer<typeof ExtractedSchema>;
 
 function cleanFileName(name: string) {
-  return name.replace(/\.pdf$/i, "").replace(/[_\-]+/g, " ").trim() || "Candidato";
+  return name.replace(/\.(pdf|docx?|txt|png|jpe?g|webp|bmp|tiff?)$/i, "").replace(/[_\-]+/g, " ").trim() || "Candidato";
 }
 
 function hasEnoughText(text: string) {
   const letters = (text.match(/[a-zA-ZÀ-ÿ]/g) || []).length;
-  return letters >= 80;
+  return letters >= 40;
 }
 
 function extractPhoneFromText(text: string): string | null {
@@ -57,7 +55,6 @@ const UF_NAMES: Record<string, string> = {
 
 function extractUfFromText(text: string): string | null {
   if (!text) return null;
-  // Procura padrões "Cidade/SP", "Cidade - SP", " SP " ou " SP,"
   const m = text.match(/[\/\-,\s]\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)(?:[\s,.\)\/\-]|$)/);
   if (m) return m[1];
   const lower = text.toLowerCase();
@@ -77,11 +74,32 @@ function normalizeUf(value: string | null | undefined, cvText: string): string |
   return extractUfFromText(cvText);
 }
 
+function normalizeName(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
+function nameTokens(s: string): Set<string> {
+  return new Set(normalizeName(s).split(" ").filter((t) => t.length >= 3));
+}
+
+function nameSimilarity(a: string, b: string): number {
+  const ta = nameTokens(a);
+  const tb = nameTokens(b);
+  if (ta.size === 0 || tb.size === 0) return 0;
+  let inter = 0;
+  for (const t of ta) if (tb.has(t)) inter++;
+  return inter / Math.min(ta.size, tb.size);
+}
 
 export const parseAndCreateCandidato = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { fileName: string; pdfBase64: string; cvText: string }) => input)
+  .inputValidator((input: { fileName: string; pdfBase64: string; cvText: string; mimeType?: string }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const apiKey = process.env.LOVABLE_API_KEY;
@@ -100,18 +118,13 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
           model,
           schema: ExtractedSchema,
           prompt:
-            "Você extrai dados estruturados de currículos brasileiros. Retorne JSON com:\n" +
-            "- nome: nome completo do candidato\n" +
-            "- telefone: APENAS DÍGITOS, com DDD (10 ou 11 dígitos). Procure por padrões como " +
-            "'(35) 99117-1223', '+55 35 9 9117 1223', '35 99117 1223', '35.99117.1223'. " +
-            "Remova parênteses, traços, espaços, pontos e o DDI 55. Exemplo: '(35) 99117-1223' vira '35991171223'.\n" +
-            "- email: endereço de email\n" +
-            "- cidade: apenas o nome da cidade, sem estado\n" +
-            "- estado: a sigla UF de 2 letras maiúsculas (ex: SP, RJ, MG, RS, SC, PR, BA, PE, CE, GO). Procure por padrões como 'Cidade/UF', 'Cidade - UF' ou o nome do estado por extenso.\n" +
-            "- experiencias: resumo curto das experiências profissionais (máx 500 caracteres)\n" +
-            "Se algum campo não estiver presente, retorne null para ele.\n\nCURRÍCULO:\n" + cvText,
-
-
+            "Extraia APENAS estes campos de um currículo brasileiro. Não invente dados — se não encontrar, retorne null:\n" +
+            "- nome: nome completo\n" +
+            "- telefone: APENAS DÍGITOS com DDD (10 ou 11 dígitos). Remova +55, parênteses, traços, espaços.\n" +
+            "- email\n" +
+            "- cidade: apenas o nome da cidade\n" +
+            "- estado: sigla UF de 2 letras (SP, RJ, MG, RS, SC, PR, BA, PE, CE, GO etc.)\n\n" +
+            "CURRÍCULO:\n" + cvText,
         });
         extracted = object;
       } catch (e) {
@@ -120,49 +133,99 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
       }
     } else {
       aiFailed = true;
-      aiErrorMsg = "PDF sem texto legível (possivelmente escaneado)";
+      aiErrorMsg = "Arquivo sem texto legível";
     }
 
     const nomeFinal = (extracted.nome && extracted.nome.trim()) || cleanFileName(data.fileName);
-    const observacoes = aiFailed
-      ? `Extração automática falhou (${aiErrorMsg}). Edite manualmente.`
-      : null;
 
-
-    // Fallbacks via regex sobre o texto bruto (telefone e email)
     let telefoneFinal = (extracted.telefone || "").replace(/\D/g, "");
     if (telefoneFinal.startsWith("55") && telefoneFinal.length > 11) telefoneFinal = telefoneFinal.slice(2);
     if (telefoneFinal.length < 10 || telefoneFinal.length > 11) telefoneFinal = "";
     if (!telefoneFinal) telefoneFinal = extractPhoneFromText(cvText) || "";
 
     const emailFinal = (extracted.email && extracted.email.trim().toLowerCase()) || extractEmailFromText(cvText)?.toLowerCase() || null;
+    const cidadeFinal = (extracted.cidade && extracted.cidade.trim()) || "";
+    const estadoFinal = normalizeUf(extracted.estado, cvText);
 
-    // Anti-duplicata: checa por telefone ou email antes de subir ao Drive
+    // Buscar duplicata: telefone, email ou nome similar
+    let existing: { id: string; nome: string; telefone: string | null; email: string | null; cidade: string | null; estado: string | null; observacoes: string | null; curriculo_url: string | null } | null = null;
+
     if (telefoneFinal || emailFinal) {
       const orParts: string[] = [];
       if (telefoneFinal) orParts.push(`telefone.eq.${telefoneFinal}`);
       if (emailFinal) orParts.push(`email.eq.${emailFinal}`);
-      const { data: existing } = await supabase
+      const { data: byContact } = await supabase
         .from("candidatos")
-        .select("id,nome,telefone,email,created_at,recrutador_id")
+        .select("id,nome,telefone,email,cidade,estado,observacoes,curriculo_url")
         .or(orParts.join(","))
         .limit(1)
         .maybeSingle();
-      if (existing) {
-        return { candidato: null, aiFailed, duplicate: true, existing };
+      if (byContact) existing = byContact;
+    }
+
+    if (!existing) {
+      // Busca por nome similar (mesmas iniciais para reduzir varredura)
+      const firstToken = normalizeName(nomeFinal).split(" ")[0] ?? "";
+      if (firstToken.length >= 3) {
+        const { data: byName } = await supabase
+          .from("candidatos")
+          .select("id,nome,telefone,email,cidade,estado,observacoes,curriculo_url")
+          .ilike("nome", `%${firstToken}%`)
+          .limit(20);
+        if (byName && byName.length > 0) {
+          for (const c of byName) {
+            if (nameSimilarity(c.nome, nomeFinal) >= 0.8) {
+              existing = c;
+              break;
+            }
+          }
+        }
       }
     }
 
-    // Upload PDF para o Google Drive
+    // Quem está importando
+    const { data: profile } = await supabase.from("profiles").select("nome").eq("id", userId).maybeSingle();
+    const importerName = profile?.nome || "usuário";
+    const now = new Date().toLocaleString("pt-BR");
+
+    // Upload do arquivo para o Drive (sempre que tiver conteúdo novo)
     const safeName = data.fileName.replace(/[^\w.\-]/g, "_");
     const driveName = `${Date.now()}-${safeName}`;
-    let driveFileId: string;
+    let driveFileId: string | null = null;
     try {
       const up = await uploadPdfToDrive({ filename: driveName, pdfBase64: data.pdfBase64 });
       driveFileId = up.fileId;
     } catch (e) {
-      throw new Error(`Upload Drive falhou: ${e instanceof Error ? e.message : String(e)}`);
+      // Não bloqueia: segue sem currículo se Drive falhar
+      console.error("Drive upload falhou:", e);
     }
+
+    if (existing) {
+      // Atualiza apenas campos vazios + currículo + observação de importação
+      const updates: Record<string, unknown> = {};
+      if (!existing.telefone && telefoneFinal) updates.telefone = telefoneFinal;
+      if (!existing.email && emailFinal) updates.email = emailFinal;
+      if (!existing.cidade && cidadeFinal) updates.cidade = cidadeFinal;
+      if (!existing.estado && estadoFinal) updates.estado = estadoFinal;
+      if (driveFileId) updates.curriculo_url = `drive:${driveFileId}`;
+      const note = `[${now}] Reimportado por ${importerName}`;
+      updates.observacoes = existing.observacoes ? `${existing.observacoes}\n${note}` : note;
+
+      const { data: updated, error } = await supabase
+        .from("candidatos")
+        .update(updates)
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return { candidato: updated, aiFailed, duplicate: true, updated: true, existing };
+    }
+
+    if (!driveFileId) throw new Error("Upload do currículo falhou");
+
+    const observacoes = aiFailed
+      ? `Extração automática falhou (${aiErrorMsg}). Edite manualmente.\n[${now}] Importado por ${importerName}`
+      : `[${now}] Importado por ${importerName}`;
 
     const { data: inserted, error } = await supabase
       .from("candidatos")
@@ -170,9 +233,8 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
         nome: nomeFinal,
         telefone: telefoneFinal,
         email: emailFinal,
-        cidade: extracted.cidade || "",
-        estado: normalizeUf(extracted.estado, cvText),
-        experiencias: extracted.experiencias || null,
+        cidade: cidadeFinal,
+        estado: estadoFinal,
         observacoes,
         curriculo_url: `drive:${driveFileId}`,
         recrutador_id: userId,
@@ -182,5 +244,5 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
 
-    return { candidato: inserted, aiFailed, duplicate: false };
+    return { candidato: inserted, aiFailed, duplicate: false, updated: false };
   });
