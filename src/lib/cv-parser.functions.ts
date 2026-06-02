@@ -202,7 +202,14 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
 
     if (existing) {
       // Atualiza apenas campos vazios + currículo + observação de importação
-      const updates: Record<string, unknown> = {};
+      const updates: {
+        telefone?: string;
+        email?: string;
+        cidade?: string;
+        estado?: string;
+        curriculo_url?: string;
+        observacoes?: string;
+      } = {};
       if (!existing.telefone && telefoneFinal) updates.telefone = telefoneFinal;
       if (!existing.email && emailFinal) updates.email = emailFinal;
       if (!existing.cidade && cidadeFinal) updates.cidade = cidadeFinal;
