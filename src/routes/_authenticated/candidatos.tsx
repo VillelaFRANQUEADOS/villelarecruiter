@@ -100,6 +100,18 @@ function CandidatosPage() {
   }
 
   async function openCurriculo(ref: string) {
+    // Abre a aba SINCRONAMENTE para preservar o gesto do usuário (evita bloqueio de pop-up)
+    const win = window.open("about:blank", "_blank", "noopener,noreferrer");
+    if (!win) {
+      toast.error("Bloqueado pelo navegador. Permita pop-ups para visualizar o currículo.");
+      return;
+    }
+    try {
+      win.document.write(
+        '<!doctype html><title>Carregando currículo...</title><style>body{font:14px system-ui;color:#666;display:grid;place-items:center;height:100vh;margin:0}</style><body>Carregando currículo...</body>',
+      );
+    } catch { /* alguns navegadores bloqueiam document.write em about:blank */ }
+
     const toastId = toast.loading("Abrindo currículo...");
     try {
       let url: string;
@@ -107,30 +119,26 @@ function CandidatosPage() {
       if (ref.startsWith("drive:")) {
         const fileId = ref.slice(6);
         const { base64, mimeType } = await fetchCv({ data: { fileId } });
-        // Decodificação eficiente sem loop char-a-char
         const binary = atob(base64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         const blob = new Blob([bytes], { type: mimeType });
         url = URL.createObjectURL(blob);
       } else {
-        // legado: storage Lovable Cloud
         const { data, error } = await supabase.storage.from("curriculos").createSignedUrl(ref, 300);
         if (error) throw error;
         url = data.signedUrl;
         revokeAfterMs = 0;
       }
-      const win = window.open(url, "_blank", "noopener,noreferrer");
-      if (!win) {
-        toast.error("Bloqueado pelo navegador. Permita pop-ups para visualizar o currículo.", { id: toastId });
-        return;
-      }
+      win.location.href = url;
       toast.success("Currículo aberto", { id: toastId });
       if (revokeAfterMs > 0) setTimeout(() => URL.revokeObjectURL(url), revokeAfterMs);
     } catch (e) {
+      try { win.close(); } catch { /* noop */ }
       toast.error(e instanceof Error ? e.message : "Falha ao abrir currículo", { id: toastId });
     }
   }
+
 
   async function changeStatus(id: string, status: CandidatoStatus) {
     const { error } = await supabase.from("candidatos").update({ status }).eq("id", id);
