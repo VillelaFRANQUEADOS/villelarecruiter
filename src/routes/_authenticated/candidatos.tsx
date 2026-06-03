@@ -17,6 +17,7 @@ import {
   useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE, UF_LIST,
   type CandidatoRow, type CandidatoStatus,
 } from "@/lib/auth";
+import { MultiSelect } from "@/components/MultiSelect";
 
 import {
   invalidateAtsQueries,
@@ -45,36 +46,65 @@ function CandidatosPage() {
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
   const [fNome, setFNome] = useState("");
   const [fTelefone, setFTelefone] = useState("");
-  const [fCidade, setFCidade] = useState("");
   const [fEmail, setFEmail] = useState("");
   const [fVaga, setFVaga] = useState("");
-  const [fStatus, setFStatus] = useState<string>("all");
-  const [fRecrutador, setFRecrutador] = useState<string>("all");
-  const [fEstado, setFEstado] = useState<string>("all");
+
+  // Filtros multi-select
+  const [fStatus, setFStatus] = useState<string[]>([]);
+  const [fRecrutadores, setFRecrutadores] = useState<string[]>([]);
+  const [fEstados, setFEstados] = useState<string[]>([]);
+  const [fCidades, setFCidades] = useState<string[]>([]);
+
+  // Período (created_at) – combinável com os demais
+  const [fDateFrom, setFDateFrom] = useState<string>("");
+  const [fDateTo, setFDateTo] = useState<string>("");
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useCandidatosRealtime();
 
   const profMap = useMemo(() => new Map(profiles.map(p => [p.id, p.nome])), [profiles]);
 
+  // Cidades disponíveis vindas dos candidatos atuais
+  const cidadeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const c = (r.cidade || "").trim();
+      if (c) set.add(c);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [rows]);
+
   const norm = (s: string | null | undefined) => (s ?? "").toLowerCase();
+  const fromTs = fDateFrom ? new Date(fDateFrom + "T00:00:00").getTime() : null;
+  const toTs = fDateTo ? new Date(fDateTo + "T23:59:59").getTime() : null;
+
   const filtered = useMemo(() => rows.filter(r => {
-    if (fStatus !== "all" && r.status !== fStatus) return false;
-    if (fRecrutador !== "all" && (r.recrutador_id ?? "") !== fRecrutador) return false;
-    if (fEstado !== "all" && (r.estado ?? "") !== fEstado) return false;
+    if (fStatus.length && !fStatus.includes(r.status)) return false;
+    if (fRecrutadores.length && !fRecrutadores.includes(r.recrutador_id ?? "")) return false;
+    if (fEstados.length && !fEstados.includes(r.estado ?? "")) return false;
+    if (fCidades.length && !fCidades.includes((r.cidade ?? "").trim())) return false;
+    if (fromTs || toTs) {
+      const t = new Date(r.created_at).getTime();
+      if (fromTs && t < fromTs) return false;
+      if (toTs && t > toTs) return false;
+    }
     if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
     if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
-    if (fCidade && !norm(r.cidade).includes(fCidade.toLowerCase())) return false;
     if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
     if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
     return true;
-  }), [rows, fNome, fTelefone, fCidade, fEmail, fVaga, fStatus, fRecrutador, fEstado]);
+  }), [rows, fNome, fTelefone, fEmail, fVaga, fStatus, fRecrutadores, fEstados, fCidades, fromTs, toTs]);
 
-  const hasFilters = !!(fNome || fTelefone || fCidade || fEmail || fVaga) || fStatus !== "all" || fRecrutador !== "all" || fEstado !== "all";
+  const hasFilters =
+    !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo) ||
+    fStatus.length > 0 || fRecrutadores.length > 0 || fEstados.length > 0 || fCidades.length > 0;
+
   function clearFilters() {
-    setFNome(""); setFTelefone(""); setFCidade(""); setFEmail(""); setFVaga("");
-    setFStatus("all"); setFRecrutador("all"); setFEstado("all");
+    setFNome(""); setFTelefone(""); setFEmail(""); setFVaga("");
+    setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]);
+    setFDateFrom(""); setFDateTo("");
   }
+
 
 
   async function handleDelete(id: string) {
