@@ -361,11 +361,26 @@ function CandidatosPage() {
                     })()}
                   </td>
                   <td className="px-3 py-2">
-                    {r.curriculo_url ? (
-                      <button onClick={() => openCurriculo(r.curriculo_url!)} className="text-primary hover:underline inline-flex items-center gap-1">
-                        <FileText className="size-3.5" /> PDF
-                      </button>
-                    ) : <span className="text-muted-foreground">—</span>}
+                   {r.curriculo_url ? (
+  <div className="flex items-center gap-2">
+    <button
+      onClick={() => openCurriculo(r.curriculo_url!)}
+      className="text-primary hover:underline inline-flex items-center gap-1"
+    >
+      <FileText className="size-3.5" /> PDF
+    </button>
+
+    <button
+      className="font-bold text-primary hover:underline"
+      title="Reprocessar currículo"
+      onClick={() => alert("Reprocessar currículo")}
+    >
+      R
+    </button>
+  </div>
+) : (
+  <span className="text-muted-foreground">—</span>
+)}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-1 justify-end">
