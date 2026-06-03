@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_authenticated/candidatos")({
 });
 
 function CandidatosPage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const queryClient = useQueryClient();
   const { data: rows = [] } = useCandidatosQuery();
   const { data: profiles = [] } = useProfilesLiteQuery();
@@ -372,11 +372,19 @@ function CandidatosPage() {
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditing(r); setOpen(true); }}>
                         <Pencil className="size-3.5" />
                       </Button>
-                      {role === "admin" && (
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDelete(r.id)}>
-                          <Trash2 className="size-3.5 text-destructive" />
-                        </Button>
-                      )}
+                      {(
+  role === "admin" ||
+  (role === "recrutador" && r.recrutador_id === user?.id)
+) && (
+  <Button
+    size="icon"
+    variant="ghost"
+    className="h-7 w-7"
+    onClick={() => handleDelete(r.id)}
+  >
+    <Trash2 className="size-3.5 text-destructive" />
+  </Button>
+)}
                     </div>
                   </td>
                 </tr>
