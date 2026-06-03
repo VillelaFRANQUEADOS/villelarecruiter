@@ -7,42 +7,36 @@ import { z } from "zod";
 
 const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"] as const;
 
+// Schema rígido: somente os 5 campos. Sempre string ("" se ausente).
 const ExtractedSchema = z.object({
-  nome: z.string().nullable().optional(),
-  telefone: z.string().nullable().optional(),
-  email: z.string().nullable().optional(),
-  cidade: z.string().nullable().optional(),
-  estado: z.string().nullable().optional(),
-  experiencias: z.string().nullable().optional(),
+  nome: z.string(),
+  telefone: z.string(),
+  email: z.string(),
+  cidade: z.string(),
+  estado: z.string(),
 });
-
 
 type Extracted = z.infer<typeof ExtractedSchema>;
 
 function cleanFileName(name: string) {
-  return name.replace(/\.pdf$/i, "").replace(/[_\-]+/g, " ").trim() || "Candidato";
+  return name.replace(/\.[^.]+$/, "").replace(/[_\-]+/g, " ").trim() || "Candidato";
 }
 
-function hasEnoughText(text: string) {
-  const letters = (text.match(/[a-zA-ZÀ-ÿ]/g) || []).length;
-  return letters >= 80;
-}
-
-function extractPhoneFromText(text: string): string | null {
-  if (!text) return null;
+function extractPhoneFromText(text: string): string {
+  if (!text) return "";
   const re = /(?:\+?55[\s.\-]?)?\(?(\d{2})\)?[\s.\-]?(9?\d{4})[\s.\-]?(\d{4})/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const digits = (m[1] + m[2] + m[3]).replace(/\D/g, "");
     if (digits.length === 10 || digits.length === 11) return digits;
   }
-  return null;
+  return "";
 }
 
-function extractEmailFromText(text: string): string | null {
-  if (!text) return null;
+function extractEmailFromText(text: string): string {
+  if (!text) return "";
   const m = text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
-  return m ? m[0] : null;
+  return m ? m[0] : "";
 }
 
 const UF_NAMES: Record<string, string> = {
@@ -55,63 +49,96 @@ const UF_NAMES: Record<string, string> = {
   "sao paulo":"SP","são paulo":"SP","sergipe":"SE","tocantins":"TO",
 };
 
-function extractUfFromText(text: string): string | null {
-  if (!text) return null;
-  // Procura padrões "Cidade/SP", "Cidade - SP", " SP " ou " SP,"
+function extractUfFromText(text: string): string {
+  if (!text) return "";
   const m = text.match(/[\/\-,\s]\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)(?:[\s,.\)\/\-]|$)/);
   if (m) return m[1];
   const lower = text.toLowerCase();
   for (const [name, uf] of Object.entries(UF_NAMES)) {
     if (lower.includes(name)) return uf;
   }
-  return null;
+  return "";
 }
 
-function normalizeUf(value: string | null | undefined, cvText: string): string | null {
+function normalizeUf(value: string, fallbackText: string): string {
   if (value) {
     const v = value.trim().toUpperCase();
     if (UFS.includes(v as typeof UFS[number])) return v;
     const named = UF_NAMES[value.trim().toLowerCase()];
     if (named) return named;
   }
-  return extractUfFromText(cvText);
+  return extractUfFromText(fallbackText);
 }
 
+function normalizePhone(value: string, fallbackText: string): string {
+  let p = (value || "").replace(/\D/g, "");
+  if (p.startsWith("55") && p.length > 11) p = p.slice(2);
+  if (p.length === 10 || p.length === 11) return p;
+  return extractPhoneFromText(fallbackText);
+}
 
+function normalizeEmail(value: string, fallbackText: string): string {
+  const v = (value || "").trim().toLowerCase();
+  if (/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(v)) return v;
+  return extractEmailFromText(fallbackText).toLowerCase();
+}
+
+const STRICT_PROMPT =
+  "Você extrai DADOS LITERAIS de currículos brasileiros. Regras OBRIGATÓRIAS:\n" +
+  "1. Extraia EXCLUSIVAMENTE estes campos: nome, telefone, email, cidade, estado.\n" +
+  "2. NUNCA invente nem deduza informações. Se um campo NÃO estiver explícito no documento, retorne string vazia \"\".\n" +
+  "3. nome: nome completo do candidato exatamente como aparece.\n" +
+  "4. telefone: APENAS DÍGITOS, com DDD (10 ou 11 dígitos). Remova parênteses, traços, espaços, pontos e o DDI 55. Exemplo: '(35) 99117-1223' vira '35991171223'.\n" +
+  "5. email: endereço de email em minúsculas, exatamente como aparece.\n" +
+  "6. cidade: apenas o nome da cidade, sem estado nem país.\n" +
+  "7. estado: sigla UF de 2 letras maiúsculas (SP, RJ, MG, RS, SC, PR, BA, PE, CE, GO, etc). Se aparecer por extenso, converta. Se não aparecer, retorne \"\".\n" +
+  "8. Se o documento for uma imagem ou PDF escaneado, faça OCR e siga as mesmas regras.\n" +
+  "Retorne JSON com exatamente essas 5 chaves.";
 
 export const parseAndCreateCandidato = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { fileName: string; pdfBase64: string; cvText: string }) => input)
+  .inputValidator((input: {
+    fileName: string;
+    fileBase64: string;
+    mimeType: string;
+    cvText: string;
+    images?: string[]; // data URIs for vision OCR
+  }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY ausente");
 
-    const cvText = (data.cvText || "").slice(0, 12000);
-    let extracted: Extracted = {};
+    const cvText = (data.cvText || "").slice(0, 14000);
+    const images = (data.images || []).slice(0, 3);
+    let extracted: Extracted = { nome: "", telefone: "", email: "", cidade: "", estado: "" };
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
 
-    if (hasEnoughText(cvText)) {
+    const hasText = cvText.replace(/\s/g, "").length >= 80;
+    const hasImages = images.length > 0;
+
+    if (hasText || hasImages) {
       try {
         const gateway = createLovableAiGatewayProvider(apiKey);
         const model = gateway("google/gemini-3-flash-preview");
+
+        const userContent: Array<
+          | { type: "text"; text: string }
+          | { type: "image"; image: string }
+        > = [{ type: "text", text: STRICT_PROMPT }];
+
+        if (hasText) {
+          userContent.push({ type: "text", text: `CURRÍCULO (texto extraído):\n${cvText}` });
+        }
+        for (const img of images) {
+          userContent.push({ type: "image", image: img });
+        }
+
         const { object } = await generateObject({
           model,
           schema: ExtractedSchema,
-          prompt:
-            "Você extrai dados estruturados de currículos brasileiros. Retorne JSON com:\n" +
-            "- nome: nome completo do candidato\n" +
-            "- telefone: APENAS DÍGITOS, com DDD (10 ou 11 dígitos). Procure por padrões como " +
-            "'(35) 99117-1223', '+55 35 9 9117 1223', '35 99117 1223', '35.99117.1223'. " +
-            "Remova parênteses, traços, espaços, pontos e o DDI 55. Exemplo: '(35) 99117-1223' vira '35991171223'.\n" +
-            "- email: endereço de email\n" +
-            "- cidade: apenas o nome da cidade, sem estado\n" +
-            "- estado: a sigla UF de 2 letras maiúsculas (ex: SP, RJ, MG, RS, SC, PR, BA, PE, CE, GO). Procure por padrões como 'Cidade/UF', 'Cidade - UF' ou o nome do estado por extenso.\n" +
-            "- experiencias: resumo curto das experiências profissionais (máx 500 caracteres)\n" +
-            "Se algum campo não estiver presente, retorne null para ele.\n\nCURRÍCULO:\n" + cvText,
-
-
+          messages: [{ role: "user", content: userContent }],
         });
         extracted = object;
       } catch (e) {
@@ -120,24 +147,21 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
       }
     } else {
       aiFailed = true;
-      aiErrorMsg = "PDF sem texto legível (possivelmente escaneado)";
+      aiErrorMsg = "Documento sem conteúdo legível";
     }
 
-    const nomeFinal = (extracted.nome && extracted.nome.trim()) || cleanFileName(data.fileName);
+    // Normalização sem inventar: cai para regex sobre o texto bruto se a IA falhou.
+    const telefoneFinal = normalizePhone(extracted.telefone, cvText);
+    const emailFinal = normalizeEmail(extracted.email, cvText) || null;
+    const cidadeFinal = (extracted.cidade || "").trim();
+    const estadoFinal = normalizeUf(extracted.estado, cvText) || null;
+    const nomeFinal = (extracted.nome || "").trim() || cleanFileName(data.fileName);
+
     const observacoes = aiFailed
       ? `Extração automática falhou (${aiErrorMsg}). Edite manualmente.`
       : null;
 
-
-    // Fallbacks via regex sobre o texto bruto (telefone e email)
-    let telefoneFinal = (extracted.telefone || "").replace(/\D/g, "");
-    if (telefoneFinal.startsWith("55") && telefoneFinal.length > 11) telefoneFinal = telefoneFinal.slice(2);
-    if (telefoneFinal.length < 10 || telefoneFinal.length > 11) telefoneFinal = "";
-    if (!telefoneFinal) telefoneFinal = extractPhoneFromText(cvText) || "";
-
-    const emailFinal = (extracted.email && extracted.email.trim().toLowerCase()) || extractEmailFromText(cvText)?.toLowerCase() || null;
-
-    // Anti-duplicata: checa por telefone ou email antes de subir ao Drive
+    // Anti-duplicata por telefone ou email
     if (telefoneFinal || emailFinal) {
       const orParts: string[] = [];
       if (telefoneFinal) orParts.push(`telefone.eq.${telefoneFinal}`);
@@ -153,12 +177,16 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
       }
     }
 
-    // Upload PDF para o Google Drive
+    // Upload do arquivo original para o Drive (qualquer mime suportado)
     const safeName = data.fileName.replace(/[^\w.\-]/g, "_");
     const driveName = `${Date.now()}-${safeName}`;
     let driveFileId: string;
     try {
-      const up = await uploadPdfToDrive({ filename: driveName, pdfBase64: data.pdfBase64 });
+      const up = await uploadPdfToDrive({
+        filename: driveName,
+        pdfBase64: data.fileBase64,
+        mimeType: data.mimeType || "application/octet-stream",
+      });
       driveFileId = up.fileId;
     } catch (e) {
       throw new Error(`Upload Drive falhou: ${e instanceof Error ? e.message : String(e)}`);
@@ -170,9 +198,8 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
         nome: nomeFinal,
         telefone: telefoneFinal,
         email: emailFinal,
-        cidade: extracted.cidade || "",
-        estado: normalizeUf(extracted.estado, cvText),
-        experiencias: extracted.experiencias || null,
+        cidade: cidadeFinal,
+        estado: estadoFinal,
         observacoes,
         curriculo_url: `drive:${driveFileId}`,
         recrutador_id: userId,

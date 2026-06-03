@@ -1,14 +1,22 @@
 import { useCallback, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { parseAndCreateCandidato } from "@/lib/cv-parser.functions";
-import { extractPdfText, fileToBase64 } from "@/lib/pdf-extract";
+import { extractFromFile, fileToBase64 } from "@/lib/file-extract";
 import { Upload, FileText, CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type Status = "pending" | "extracting" | "ai" | "done" | "warn" | "error";
 interface Item { id: string; file: File; status: Status; message?: string }
 
-const CONCURRENCY = 3;
+const CONCURRENCY = 2;
+
+const ACCEPTED_EXTS = [".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".webp"];
+const ACCEPT_ATTR = ACCEPTED_EXTS.join(",") + ",application/pdf,image/*";
+
+function isAcceptedFile(f: File) {
+  const lname = f.name.toLowerCase();
+  return ACCEPTED_EXTS.some((ext) => lname.endsWith(ext));
+}
 
 export function BulkUpload({ onCreated }: { onCreated: () => void }) {
   const parse = useServerFn(parseAndCreateCandidato);
@@ -22,10 +30,18 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
   const processOne = useCallback(async (item: Item) => {
     try {
       setItem(item.id, { status: "extracting" });
-      const text = await extractPdfText(item.file);
-      const base64 = await fileToBase64(item.file);
+      const extracted = await extractFromFile(item.file);
+      const fileBase64 = await fileToBase64(item.file);
       setItem(item.id, { status: "ai" });
-      const res = await parse({ data: { fileName: item.file.name, pdfBase64: base64, cvText: text } });
+      const res = await parse({
+        data: {
+          fileName: item.file.name,
+          fileBase64,
+          mimeType: extracted.mimeType,
+          cvText: extracted.text,
+          images: extracted.images,
+        },
+      });
       if (res?.duplicate) {
         const ex = res.existing as { nome?: string } | null;
         setItem(item.id, { status: "warn", message: `duplicado: ${ex?.nome ?? "já cadastrado"}` });
@@ -38,19 +54,32 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
     } catch (e) {
       setItem(item.id, { status: "error", message: e instanceof Error ? e.message : "Erro" });
     }
-  }, [parse, onCreated]);
+  }, [parse]);
 
   const enqueue = useCallback(async (files: File[]) => {
-    const pdfs = files.filter((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
-    if (!pdfs.length) return;
-    const newItems: Item[] = pdfs.map((f) => ({
+    const accepted = files.filter(isAcceptedFile);
+    const rejected = files.length - accepted.length;
+    if (!accepted.length) return;
+    const newItems: Item[] = accepted.map((f) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       file: f,
       status: "pending",
     }));
-    setItems((arr) => [...newItems, ...arr]);
+    setItems((arr) => [
+      ...newItems,
+      ...arr,
+      ...(rejected > 0
+        ? [{
+            id: `rej-${Date.now()}`,
+            file: new File([], `${rejected} arquivo(s) ignorado(s) — formato não suportado`),
+            status: "error" as Status,
+            message: "formato não suportado",
+          }]
+        : []),
+    ]);
 
-    // simple pool
+    // Pool simples: cada upload é processado individualmente, mantendo a
+    // associação arquivo→candidato. Failures isoladas não derrubam o lote.
     let idx = 0;
     const workers = Array.from({ length: Math.min(CONCURRENCY, newItems.length) }, async () => {
       while (idx < newItems.length) {
@@ -60,7 +89,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
     });
     await Promise.all(workers);
     onCreated();
-  }, [processOne]);
+  }, [processOne, onCreated]);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -80,12 +109,14 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
         }`}
       >
         <Upload className="size-6 mx-auto text-muted-foreground mb-2" />
-        <p className="text-sm font-medium">Arraste PDFs aqui ou clique para selecionar</p>
-        <p className="text-xs text-muted-foreground mt-1">A IA extrai nome, telefone, email, cidade e experiência</p>
+        <p className="text-sm font-medium">Arraste arquivos aqui ou clique para selecionar</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          PDF, DOC, DOCX, JPG, JPEG, PNG, WEBP · OCR automático para imagens e PDFs escaneados
+        </p>
         <input
           ref={inputRef}
           type="file"
-          accept="application/pdf"
+          accept={ACCEPT_ATTR}
           multiple
           className="hidden"
           onChange={(e) => {
@@ -106,7 +137,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
               <FileText className="size-4 text-muted-foreground shrink-0" />
               <span className="flex-1 truncate">{it.file.name}</span>
               <StatusIcon status={it.status} />
-              <span className="text-xs text-muted-foreground w-32 text-right truncate" title={it.message}>
+              <span className="text-xs text-muted-foreground w-40 text-right truncate" title={it.message}>
                 {labelOf(it)}
               </span>
             </div>
@@ -128,7 +159,7 @@ function StatusIcon({ status }: { status: Status }) {
 function labelOf(it: Item) {
   switch (it.status) {
     case "pending": return "aguardando";
-    case "extracting": return "lendo PDF";
+    case "extracting": return "lendo arquivo";
     case "ai": return "extraindo com IA";
     case "done": return "criado";
     case "warn": return it.message || "criado sem IA";

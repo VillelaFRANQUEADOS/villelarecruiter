@@ -18,11 +18,13 @@ function authHeaders() {
 export async function uploadPdfToDrive(opts: {
   filename: string;
   pdfBase64: string;
+  mimeType?: string;
 }): Promise<{ fileId: string }> {
   const headers = authHeaders();
   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  const mimeType = opts.mimeType || "application/pdf";
 
-  const metadata: Record<string, unknown> = { name: opts.filename, mimeType: "application/pdf" };
+  const metadata: Record<string, unknown> = { name: opts.filename, mimeType };
   if (folderId) metadata.parents = [folderId];
 
   const boundary = `----lov${Date.now().toString(36)}`;
@@ -30,7 +32,7 @@ export async function uploadPdfToDrive(opts: {
   const enc = new TextEncoder();
   const head = enc.encode(
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
-      `--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`,
+      `--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`,
   );
   const tail = enc.encode(`\r\n--${boundary}--`);
   const body = new Uint8Array(head.length + bytes.length + tail.length);
@@ -53,6 +55,7 @@ export async function uploadPdfToDrive(opts: {
   const json = (await res.json()) as { id: string };
   return { fileId: json.id };
 }
+
 
 export const getCurriculoContent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

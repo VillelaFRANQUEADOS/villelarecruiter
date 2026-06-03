@@ -17,6 +17,7 @@ import {
   useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE, UF_LIST,
   type CandidatoRow, type CandidatoStatus,
 } from "@/lib/auth";
+import { MultiSelect } from "@/components/MultiSelect";
 
 import {
   invalidateAtsQueries,
@@ -45,36 +46,65 @@ function CandidatosPage() {
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
   const [fNome, setFNome] = useState("");
   const [fTelefone, setFTelefone] = useState("");
-  const [fCidade, setFCidade] = useState("");
   const [fEmail, setFEmail] = useState("");
   const [fVaga, setFVaga] = useState("");
-  const [fStatus, setFStatus] = useState<string>("all");
-  const [fRecrutador, setFRecrutador] = useState<string>("all");
-  const [fEstado, setFEstado] = useState<string>("all");
+
+  // Filtros multi-select
+  const [fStatus, setFStatus] = useState<string[]>([]);
+  const [fRecrutadores, setFRecrutadores] = useState<string[]>([]);
+  const [fEstados, setFEstados] = useState<string[]>([]);
+  const [fCidades, setFCidades] = useState<string[]>([]);
+
+  // Período (created_at) – combinável com os demais
+  const [fDateFrom, setFDateFrom] = useState<string>("");
+  const [fDateTo, setFDateTo] = useState<string>("");
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useCandidatosRealtime();
 
   const profMap = useMemo(() => new Map(profiles.map(p => [p.id, p.nome])), [profiles]);
 
+  // Cidades disponíveis vindas dos candidatos atuais
+  const cidadeOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const c = (r.cidade || "").trim();
+      if (c) set.add(c);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [rows]);
+
   const norm = (s: string | null | undefined) => (s ?? "").toLowerCase();
+  const fromTs = fDateFrom ? new Date(fDateFrom + "T00:00:00").getTime() : null;
+  const toTs = fDateTo ? new Date(fDateTo + "T23:59:59").getTime() : null;
+
   const filtered = useMemo(() => rows.filter(r => {
-    if (fStatus !== "all" && r.status !== fStatus) return false;
-    if (fRecrutador !== "all" && (r.recrutador_id ?? "") !== fRecrutador) return false;
-    if (fEstado !== "all" && (r.estado ?? "") !== fEstado) return false;
+    if (fStatus.length && !fStatus.includes(r.status)) return false;
+    if (fRecrutadores.length && !fRecrutadores.includes(r.recrutador_id ?? "")) return false;
+    if (fEstados.length && !fEstados.includes(r.estado ?? "")) return false;
+    if (fCidades.length && !fCidades.includes((r.cidade ?? "").trim())) return false;
+    if (fromTs || toTs) {
+      const t = new Date(r.created_at).getTime();
+      if (fromTs && t < fromTs) return false;
+      if (toTs && t > toTs) return false;
+    }
     if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
     if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
-    if (fCidade && !norm(r.cidade).includes(fCidade.toLowerCase())) return false;
     if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
     if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
     return true;
-  }), [rows, fNome, fTelefone, fCidade, fEmail, fVaga, fStatus, fRecrutador, fEstado]);
+  }), [rows, fNome, fTelefone, fEmail, fVaga, fStatus, fRecrutadores, fEstados, fCidades, fromTs, toTs]);
 
-  const hasFilters = !!(fNome || fTelefone || fCidade || fEmail || fVaga) || fStatus !== "all" || fRecrutador !== "all" || fEstado !== "all";
+  const hasFilters =
+    !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo) ||
+    fStatus.length > 0 || fRecrutadores.length > 0 || fEstados.length > 0 || fCidades.length > 0;
+
   function clearFilters() {
-    setFNome(""); setFTelefone(""); setFCidade(""); setFEmail(""); setFVaga("");
-    setFStatus("all"); setFRecrutador("all"); setFEstado("all");
+    setFNome(""); setFTelefone(""); setFEmail(""); setFVaga("");
+    setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]);
+    setFDateFrom(""); setFDateTo("");
   }
+
 
 
   async function handleDelete(id: string) {
@@ -181,38 +211,62 @@ function CandidatosPage() {
       </Card>
 
       <Card className="p-3 mb-3 space-y-2">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-7">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
           <div className="relative lg:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input className="pl-8 h-9" placeholder="Nome" value={fNome} onChange={(e) => setFNome(e.target.value)} />
           </div>
           <Input className="h-9" placeholder="Telefone" value={fTelefone} onChange={(e) => setFTelefone(e.target.value)} />
-          <Input className="h-9" placeholder="Cidade" value={fCidade} onChange={(e) => setFCidade(e.target.value)} />
           <Input className="h-9" placeholder="Email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} />
           <Input className="h-9" placeholder="Vaga" value={fVaga} onChange={(e) => setFVaga(e.target.value)} />
-          <Select value={fStatus} onValueChange={setFStatus}>
-            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os status</SelectItem>
-              {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <MultiSelect
+            className="w-full"
+            placeholder="Status"
+            value={fStatus}
+            onChange={setFStatus}
+            options={STATUS_ORDER.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+            searchable={false}
+          />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={fRecrutador} onValueChange={setFRecrutador}>
-            <SelectTrigger className="h-9 w-56"><SelectValue placeholder="Recrutador" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os recrutadores</SelectItem>
-              {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={fEstado} onValueChange={setFEstado}>
-            <SelectTrigger className="h-9 w-36"><SelectValue placeholder="UF" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as UFs</SelectItem>
-              {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <MultiSelect
+            className="w-56"
+            placeholder="Recrutadores"
+            value={fRecrutadores}
+            onChange={setFRecrutadores}
+            options={profiles.map((p) => ({ value: p.id, label: p.nome }))}
+          />
+          <MultiSelect
+            className="w-40"
+            placeholder="UFs"
+            value={fEstados}
+            onChange={setFEstados}
+            options={UF_LIST.map((uf) => ({ value: uf, label: uf }))}
+          />
+          <MultiSelect
+            className="w-56"
+            placeholder="Cidades"
+            value={fCidades}
+            onChange={setFCidades}
+            options={cidadeOptions.map((c) => ({ value: c, label: c }))}
+            emptyLabel="Sem cidades cadastradas"
+          />
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">Período:</span>
+            <Input
+              type="date"
+              className="h-9 w-[140px]"
+              value={fDateFrom}
+              onChange={(e) => setFDateFrom(e.target.value)}
+            />
+            <span className="text-xs text-muted-foreground">→</span>
+            <Input
+              type="date"
+              className="h-9 w-[140px]"
+              value={fDateTo}
+              onChange={(e) => setFDateTo(e.target.value)}
+            />
+          </div>
           {hasFilters && (
             <Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
           )}
@@ -231,6 +285,7 @@ function CandidatosPage() {
           )}
         </div>
       </Card>
+
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
