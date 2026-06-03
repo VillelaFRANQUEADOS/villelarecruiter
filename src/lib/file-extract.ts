@@ -10,7 +10,7 @@ export type ExtractKind = "pdf" | "docx" | "image";
 export interface Extracted {
   kind: ExtractKind;
   text: string;
-  images: string[]; // data URIs (image/jpeg) for vision OCR
+  images: string[];
   mimeType: string;
 }
 
@@ -28,21 +28,21 @@ export async function extractFromFile(file: File): Promise<Extracted> {
   if (type === "application/pdf" || lname.endsWith(".pdf")) {
     const buf = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+
     let text = "";
-    const maxText = Math.min(pdf.numPages, 10);
-    for (let i = 1; i <= maxText; i++) {
+    for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
       text += content.items.map((it) => ("str" in it ? it.str : "")).join(" ") + "\n";
     }
-    let images: string[] = [];
+
+    const images: string[] = [];
     if (!hasEnoughText(text)) {
-      // OCR fallback: render first pages to images
-      const ocrMax = Math.min(pdf.numPages, 3);
-      for (let i = 1; i <= ocrMax; i++) {
+      for (let i = 1; i <= pdf.numPages; i++) {
         images.push(await renderPdfPageToDataUri(pdf, i));
       }
     }
+
     return { kind: "pdf", text, images, mimeType: "application/pdf" };
   }
 
@@ -78,10 +78,7 @@ function guessImageMime(name: string) {
   return "image/jpeg";
 }
 
-async function renderPdfPageToDataUri(
-  pdf: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>,
-  pageNum: number,
-): Promise<string> {
+async function renderPdfPageToDataUri(pdf: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>, pageNum: number): Promise<string> {
   const page = await pdf.getPage(pageNum);
   const viewport = page.getViewport({ scale: 1.6 });
   const canvas = document.createElement("canvas");
