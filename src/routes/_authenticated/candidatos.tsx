@@ -363,44 +363,57 @@ function CandidatosPage() {
                   <td className="px-3 py-2">
                    {r.curriculo_url ? (
   <div className="flex items-center gap-2">
-    <button
-      onClick={() => openCurriculo(r.curriculo_url!)}
-      className="text-primary hover:underline inline-flex items-center gap-1"
-    >
-      <FileText className="size-3.5" /> PDF
-    </button>
-
-    <div className="flex items-center gap-2">
- 
-  </div>
+  <button
+    onClick={() => openCurriculo(r.curriculo_url!)}
+    className="text-primary hover:underline inline-flex items-center gap-1"
+  >
+    <FileText className="size-3.5" /> PDF
+  </button>
+</div>
 ) : (
   <span className="text-muted-foreground">—</span>
 )}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-1 justify-end">
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditing(r); setOpen(true); }}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setEditing(r);
+                          setOpen(true);
+                        }}
+                      >
                         <Pencil className="size-3.5" />
                       </Button>
+
                       {(
-  role === "admin" ||
-  (role === "recrutador" && r.recrutador_id === user?.id)
-) && (
-  <Button
-    size="icon"
-    variant="ghost"
-    className="h-7 w-7"
-    onClick={() => handleDelete(r.id)}
-  >
-    <Trash2 className="size-3.5 text-destructive" />
-  </Button>
-)}
+                        role === "admin" ||
+                        (role === "recrutador" && r.recrutador_id === user?.id)
+                      ) && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => handleDelete(r.id)}
+                        >
+                          <Trash2 className="size-3.5 text-destructive" />
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
               {!filtered.length && (
-                <tr><td colSpan={9} className="px-4 py-10 text-center text-muted-foreground text-sm">Nenhum candidato. Arraste PDFs acima para começar.</td></tr>
+                <tr>
+                  <td
+                    colSpan={9}
+                    className="px-4 py-10 text-center text-muted-foreground text-sm"
+                  >
+                    Nenhum candidato. Arraste PDFs acima para começar.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -408,7 +421,12 @@ function CandidatosPage() {
       </Card>
 
       <Suspense fallback={null}>
-        <CandidatoEditDialog open={open} onOpenChange={setOpen} candidato={editing} onSaved={() => invalidateAtsQueries(queryClient)} />
+        <CandidatoEditDialog
+          open={open}
+          onOpenChange={setOpen}
+          candidato={editing}
+          onSaved={() => invalidateAtsQueries(queryClient)}
+        />
       </Suspense>
     </div>
   );
