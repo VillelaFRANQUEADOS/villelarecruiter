@@ -370,13 +370,14 @@ function CandidatosPage() {
       <FileText className="size-3.5" /> PDF
     </button>
 
-    <button
-      className="font-bold text-primary hover:underline"
-      title="Reprocessar currículo"
-      onClick={() => alert("Reprocessar currículo")}
-    >
-      R
-    </button>
+    <div className="flex items-center gap-2">
+  <button
+    onClick={() => openCurriculo(r.curriculo_url!)}
+    className="text-primary hover:underline inline-flex items-center gap-1"
+  >
+    <FileText className="size-3.5" /> PDF
+  </button>
+</div>
   </div>
 ) : (
   <span className="text-muted-foreground">—</span>
