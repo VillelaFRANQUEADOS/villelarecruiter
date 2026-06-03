@@ -96,7 +96,7 @@ function DashboardPage() {
       {isAdmin && (
         <Card className="p-4 mb-6">
           <h2 className="text-sm font-medium mb-3 flex items-center gap-2">
-            <Trophy className="size-4 text-primary" /> Ranking de recrutadores
+            <Trophy className="size-4 text-primary" /> Controle de Currículos
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
