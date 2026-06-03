@@ -42,8 +42,7 @@ async function fetchCandidatos() {
   const { data, error } = await supabase
     .from("candidatos")
     .select(CANDIDATOS_SELECT)
-    .order("created_at", { ascending: false })
-    .limit(500);
+    .order("created_at", { ascending: false });
 
   if (error) throw error;
   return ((data ?? []) as unknown) as CandidatoRow[];
