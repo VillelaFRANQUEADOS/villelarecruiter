@@ -431,6 +431,16 @@ function CandidatosPage() {
                         </div>
                       );
                     })()}
+                    {r.status === "agendado" && r.data_entrevista && (
+                      <div className="mt-1 text-[11px] leading-tight text-primary font-medium">
+                        📅 {(() => {
+                          const [y, m, d] = r.data_entrevista!.split("-");
+                          return `${d}/${m}/${y}`;
+                        })()}
+                        {r.horario_entrevista ? ` às ${r.horario_entrevista.slice(0, 5)}` : ""}
+                        {r.entrevistador ? ` · ${r.entrevistador}` : ""}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                    {r.curriculo_url ? (
