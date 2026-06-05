@@ -311,13 +311,24 @@ function CandidatosPage() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <MultiSelect
-            className="w-56"
-            placeholder="Recrutadores"
-            value={fRecrutadores}
-            onChange={setFRecrutadores}
-            options={profiles.map((p) => ({ value: p.id, label: p.nome }))}
-          />
+         <MultiSelect
+  className="w-56"
+  placeholder="Recrutadores"
+  value={fRecrutadores}
+  onChange={setFRecrutadores}
+  options={profiles
+    .slice()
+    .sort((a, b) =>
+      a.nome.localeCompare(b.nome, "pt-BR", {
+        sensitivity: "base",
+      })
+    )
+    .map((p) => ({
+      value: p.id,
+      label: p.nome.toUpperCase(),
+    }))
+  }
+/>
           <MultiSelect
             className="w-40"
             placeholder="UFs"
