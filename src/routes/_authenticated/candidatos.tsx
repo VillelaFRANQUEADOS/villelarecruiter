@@ -199,16 +199,55 @@ function CandidatosPage() {
   }
 
   async function changeStatus(id: string, status: CandidatoStatus) {
-    const { error } = await supabase.from("candidatos").update({ status }).eq("id", id);
+    if (status === "agendado") {
+      const row = rows.find((r) => r.id === id) ?? null;
+      setAgendarTarget({ ids: [id], nome: row?.nome ?? null, initial: row ? {
+        data_entrevista: row.data_entrevista ?? "",
+        horario_entrevista: row.horario_entrevista ?? "",
+        entrevistador: row.entrevistador ?? "",
+      } : undefined });
+      setAgendarOpen(true);
+      return;
+    }
+    const { error } = await supabase.from("candidatos").update({
+      status,
+      data_entrevista: null,
+      horario_entrevista: null,
+      entrevistador: null,
+    }).eq("id", id);
     if (error) toast.error(error.message);
   }
 
   async function bulkChange(status: CandidatoStatus) {
     if (!selected.size) return;
     const ids = [...selected];
-    const { error } = await supabase.from("candidatos").update({ status }).in("id", ids);
+    if (status === "agendado") {
+      setAgendarTarget({ ids, nome: ids.length === 1 ? rows.find((r) => r.id === ids[0])?.nome ?? null : `${ids.length} candidatos` });
+      setAgendarOpen(true);
+      return;
+    }
+    const { error } = await supabase.from("candidatos").update({
+      status,
+      data_entrevista: null,
+      horario_entrevista: null,
+      entrevistador: null,
+    }).in("id", ids);
     if (error) toast.error(error.message);
     else { toast.success(`${ids.length} candidato(s) movidos`); setSelected(new Set()); }
+  }
+
+  async function confirmAgendamento(data: { data_entrevista: string; horario_entrevista: string; entrevistador: string }) {
+    if (!agendarTarget) return;
+    const { error } = await supabase.from("candidatos").update({
+      status: "agendado",
+      data_entrevista: data.data_entrevista,
+      horario_entrevista: data.horario_entrevista,
+      entrevistador: data.entrevistador,
+    }).in("id", agendarTarget.ids);
+    if (error) { toast.error(error.message); return; }
+    toast.success(agendarTarget.ids.length > 1 ? `${agendarTarget.ids.length} candidato(s) agendados` : "Entrevista agendada");
+    if (agendarTarget.ids.length > 1) setSelected(new Set());
+    setAgendarTarget(null);
   }
 
   function toggle(id: string) {
