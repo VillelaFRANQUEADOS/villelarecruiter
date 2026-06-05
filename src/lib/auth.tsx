@@ -143,6 +143,9 @@ export interface CandidatoRow {
   curriculo_url: string | null;
   recrutador_id: string | null;
   created_at: string;
+  data_entrevista: string | null;
+  horario_entrevista: string | null;
+  entrevistador: string | null;
 }
 
 export const UF_LIST: string[] = [
