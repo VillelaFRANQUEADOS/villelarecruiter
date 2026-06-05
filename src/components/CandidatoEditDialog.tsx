@@ -166,6 +166,22 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
                 </SelectContent>
               </Select>
             </div>
+            {form.status === "agendado" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Data da entrevista *</Label>
+                  <Input type="date" required value={form.data_entrevista} onChange={(e) => setForm({ ...form, data_entrevista: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Horário *</Label>
+                  <Input type="time" required value={form.horario_entrevista} onChange={(e) => setForm({ ...form, horario_entrevista: e.target.value })} />
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <Label>Entrevistador responsável *</Label>
+                  <Input required value={form.entrevistador} onChange={(e) => setForm({ ...form, entrevistador: e.target.value })} placeholder="Nome do entrevistador" />
+                </div>
+              </>
+            )}
             <div className="space-y-1.5 col-span-2"><Label>Observações</Label><Textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></div>
             {!isNew && (
               <div className="space-y-1.5 col-span-2">
