@@ -63,9 +63,12 @@ export type Database = {
           cidade: string | null
           created_at: string
           curriculo_url: string | null
+          data_entrevista: string | null
           email: string | null
+          entrevistador: string | null
           estado: string | null
           experiencias: string | null
+          horario_entrevista: string | null
           id: string
           nome: string
           observacoes: string | null
@@ -80,9 +83,12 @@ export type Database = {
           cidade?: string | null
           created_at?: string
           curriculo_url?: string | null
+          data_entrevista?: string | null
           email?: string | null
+          entrevistador?: string | null
           estado?: string | null
           experiencias?: string | null
+          horario_entrevista?: string | null
           id?: string
           nome: string
           observacoes?: string | null
@@ -97,9 +103,12 @@ export type Database = {
           cidade?: string | null
           created_at?: string
           curriculo_url?: string | null
+          data_entrevista?: string | null
           email?: string | null
+          entrevistador?: string | null
           estado?: string | null
           experiencias?: string | null
+          horario_entrevista?: string | null
           id?: string
           nome?: string
           observacoes?: string | null
