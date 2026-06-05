@@ -36,6 +36,9 @@ const CANDIDATOS_SELECT = [
   "curriculo_url",
   "recrutador_id",
   "created_at",
+  "data_entrevista",
+  "horario_entrevista",
+  "entrevistador",
 ].join(",");
 
 async function fetchCandidatos() {

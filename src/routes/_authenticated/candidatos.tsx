@@ -59,6 +59,11 @@ function CandidatosPage() {
   const [fDateFrom, setFDateFrom] = useState<string>("");
   const [fDateTo, setFDateTo] = useState<string>("");
 
+  // Filtros de entrevista
+  const [fEntrevistaData, setFEntrevistaData] = useState<string>("");
+  const [fEntrevistadores, setFEntrevistadores] = useState<string[]>([]);
+  const [fEntrevistaQuando, setFEntrevistaQuando] = useState<"" | "hoje" | "semana">("");
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useCandidatosRealtime();
 
@@ -74,9 +79,30 @@ function CandidatosPage() {
     return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [rows]);
 
+  const entrevistadorOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const e = (r.entrevistador || "").trim();
+      if (e) set.add(e);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [rows]);
+
   const norm = (s: string | null | undefined) => (s ?? "").toLowerCase();
   const fromTs = fDateFrom ? new Date(fDateFrom + "T00:00:00").getTime() : null;
   const toTs = fDateTo ? new Date(fDateTo + "T23:59:59").getTime() : null;
+
+  // Janela hoje / semana (segunda a domingo, horário local)
+  const { weekStart, weekEnd, todayStr } = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const day = today.getDay(); // 0=dom
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const ws = new Date(today); ws.setDate(today.getDate() + diffToMonday);
+    const we = new Date(ws); we.setDate(ws.getDate() + 6);
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return { weekStart: fmt(ws), weekEnd: fmt(we), todayStr: fmt(today) };
+  }, []);
 
   const filtered = useMemo(() => rows.filter(r => {
     if (fStatus.length && !fStatus.includes(r.status)) return false;
@@ -88,21 +114,31 @@ function CandidatosPage() {
       if (fromTs && t < fromTs) return false;
       if (toTs && t > toTs) return false;
     }
+    // Filtros de entrevista (usam data_entrevista, não status)
+    if (fEntrevistaData && r.data_entrevista !== fEntrevistaData) return false;
+    if (fEntrevistadores.length && !fEntrevistadores.includes((r.entrevistador ?? "").trim())) return false;
+    if (fEntrevistaQuando === "hoje") {
+      if (r.data_entrevista !== todayStr) return false;
+    } else if (fEntrevistaQuando === "semana") {
+      if (!r.data_entrevista || r.data_entrevista < weekStart || r.data_entrevista > weekEnd) return false;
+    }
     if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
     if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
     if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
     if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
     return true;
-  }), [rows, fNome, fTelefone, fEmail, fVaga, fStatus, fRecrutadores, fEstados, fCidades, fromTs, toTs]);
+  }), [rows, fNome, fTelefone, fEmail, fVaga, fStatus, fRecrutadores, fEstados, fCidades, fromTs, toTs, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, todayStr, weekStart, weekEnd]);
 
   const hasFilters =
-    !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo) ||
-    fStatus.length > 0 || fRecrutadores.length > 0 || fEstados.length > 0 || fCidades.length > 0;
+    !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando) ||
+    fStatus.length > 0 || fRecrutadores.length > 0 || fEstados.length > 0 || fCidades.length > 0 ||
+    fEntrevistadores.length > 0;
 
   function clearFilters() {
     setFNome(""); setFTelefone(""); setFEmail(""); setFVaga("");
     setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]);
     setFDateFrom(""); setFDateTo("");
+    setFEntrevistaData(""); setFEntrevistadores([]); setFEntrevistaQuando("");
   }
 
 
@@ -267,6 +303,42 @@ function CandidatosPage() {
               onChange={(e) => setFDateTo(e.target.value)}
             />
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/60">
+          <span className="text-xs font-medium text-muted-foreground mr-1">Entrevistas:</span>
+          <Button
+            size="sm"
+            variant={fEntrevistaQuando === "hoje" ? "default" : "outline"}
+            className="h-8"
+            onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "hoje" ? "" : "hoje")}
+          >
+            Hoje
+          </Button>
+          <Button
+            size="sm"
+            variant={fEntrevistaQuando === "semana" ? "default" : "outline"}
+            className="h-8"
+            onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "semana" ? "" : "semana")}
+          >
+            Esta semana
+          </Button>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">Data:</span>
+            <Input
+              type="date"
+              className="h-9 w-[150px]"
+              value={fEntrevistaData}
+              onChange={(e) => setFEntrevistaData(e.target.value)}
+            />
+          </div>
+          <MultiSelect
+            className="w-56"
+            placeholder="Entrevistador"
+            value={fEntrevistadores}
+            onChange={setFEntrevistadores}
+            options={entrevistadorOptions.map((e) => ({ value: e, label: e }))}
+            emptyLabel="Sem entrevistadores"
+          />
           {hasFilters && (
             <Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
           )}
@@ -359,6 +431,16 @@ function CandidatosPage() {
                         </div>
                       );
                     })()}
+                    {r.status === "agendado" && r.data_entrevista && (
+                      <div className="mt-1 text-[11px] leading-tight text-primary font-medium">
+                        📅 {(() => {
+                          const [y, m, d] = r.data_entrevista!.split("-");
+                          return `${d}/${m}/${y}`;
+                        })()}
+                        {r.horario_entrevista ? ` às ${r.horario_entrevista.slice(0, 5)}` : ""}
+                        {r.entrevistador ? ` · ${r.entrevistador}` : ""}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                    {r.curriculo_url ? (
