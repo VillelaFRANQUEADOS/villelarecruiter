@@ -478,13 +478,10 @@ function CandidatosPage() {
                       );
                     })()}
                     {r.status === "agendado" && r.data_entrevista && (
-                      <div className="mt-1 text-[11px] leading-tight text-primary font-medium">
-                        📅 {(() => {
-                          const [y, m, d] = r.data_entrevista!.split("-");
-                          return `${d}/${m}/${y}`;
-                        })()}
-                        {r.horario_entrevista ? ` às ${r.horario_entrevista.slice(0, 5)}` : ""}
-                        {r.entrevistador ? ` · ${r.entrevistador}` : ""}
+                      <div className="mt-1 space-y-0.5 text-[11px] leading-tight text-primary font-medium">
+                        <div>📅 {(() => { const [y, m, d] = r.data_entrevista!.split("-"); return `${d}/${m}/${y}`; })()}</div>
+                        {r.horario_entrevista && <div>🕒 {r.horario_entrevista.slice(0, 5)}</div>}
+                        {r.entrevistador && <div>👤 {r.entrevistador}</div>}
                       </div>
                     )}
                   </td>
