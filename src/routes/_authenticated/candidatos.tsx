@@ -555,6 +555,14 @@ function CandidatosPage() {
           candidato={editing}
           onSaved={() => invalidateAtsQueries(queryClient)}
         />
+        <AgendarEntrevistaDialog
+          open={agendarOpen}
+          onOpenChange={(o) => { setAgendarOpen(o); if (!o) setAgendarTarget(null); }}
+          candidatoNome={agendarTarget?.nome ?? undefined}
+          profiles={profiles}
+          initial={agendarTarget?.initial}
+          onConfirm={confirmAgendamento}
+        />
       </Suspense>
     </div>
   );
