@@ -303,6 +303,42 @@ function CandidatosPage() {
               onChange={(e) => setFDateTo(e.target.value)}
             />
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/60">
+          <span className="text-xs font-medium text-muted-foreground mr-1">Entrevistas:</span>
+          <Button
+            size="sm"
+            variant={fEntrevistaQuando === "hoje" ? "default" : "outline"}
+            className="h-8"
+            onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "hoje" ? "" : "hoje")}
+          >
+            Hoje
+          </Button>
+          <Button
+            size="sm"
+            variant={fEntrevistaQuando === "semana" ? "default" : "outline"}
+            className="h-8"
+            onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "semana" ? "" : "semana")}
+          >
+            Esta semana
+          </Button>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">Data:</span>
+            <Input
+              type="date"
+              className="h-9 w-[150px]"
+              value={fEntrevistaData}
+              onChange={(e) => setFEntrevistaData(e.target.value)}
+            />
+          </div>
+          <MultiSelect
+            className="w-56"
+            placeholder="Entrevistador"
+            value={fEntrevistadores}
+            onChange={setFEntrevistadores}
+            options={entrevistadorOptions.map((e) => ({ value: e, label: e }))}
+            emptyLabel="Sem entrevistadores"
+          />
           {hasFilters && (
             <Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
           )}
