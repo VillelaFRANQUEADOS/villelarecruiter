@@ -34,6 +34,7 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
   const [form, setForm] = useState({
     nome: "", telefone: "", cidade: "", estado: "" as string, email: "",
     status: "aguardando_contato" as CandidatoStatus, observacoes: "",
+    data_entrevista: "", horario_entrevista: "", entrevistador: "",
   });
 
   const isNew = !candidato;
@@ -49,10 +50,13 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
         email: candidato.email ?? "",
         status: candidato.status,
         observacoes: candidato.observacoes ?? "",
+        data_entrevista: candidato.data_entrevista ?? "",
+        horario_entrevista: (candidato.horario_entrevista ?? "").slice(0, 5),
+        entrevistador: candidato.entrevistador ?? "",
       });
       void loadHistory(candidato.id);
     } else {
-      setForm({ nome: "", telefone: "", cidade: "", estado: "", email: "", status: "aguardando_contato", observacoes: "" });
+      setForm({ nome: "", telefone: "", cidade: "", estado: "", email: "", status: "aguardando_contato", observacoes: "", data_entrevista: "", horario_entrevista: "", entrevistador: "" });
       setHistory([]);
     }
   }, [candidato, open]);
@@ -80,6 +84,15 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Campos obrigatórios quando status = agendado
+    if (form.status === "agendado") {
+      if (!form.data_entrevista || !form.horario_entrevista || !form.entrevistador.trim()) {
+        toast.error("Para agendar, informe data, horário e entrevistador.");
+        return;
+      }
+    }
+
     setBusy(true);
 
     const telDigits = form.telefone.replace(/\D/g, "");
@@ -100,11 +113,15 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
       }
     }
 
+    const isAgendado = form.status === "agendado";
     const payloadBase = {
       ...form,
       telefone: telDigits,
       email: emailNorm || null,
       estado: form.estado || null,
+      data_entrevista: isAgendado ? form.data_entrevista : null,
+      horario_entrevista: isAgendado ? form.horario_entrevista : null,
+      entrevistador: isAgendado ? form.entrevistador.trim() : null,
     };
     let error;
     if (isNew) {
