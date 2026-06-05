@@ -30,6 +30,7 @@ import { toast } from "sonner";
 
 const BulkUpload = lazy(async () => import("@/components/BulkUpload").then((mod) => ({ default: mod.BulkUpload })));
 const CandidatoEditDialog = lazy(async () => import("@/components/CandidatoEditDialog").then((mod) => ({ default: mod.CandidatoEditDialog })));
+const AgendarEntrevistaDialog = lazy(async () => import("@/components/AgendarEntrevistaDialog").then((mod) => ({ default: mod.AgendarEntrevistaDialog })));
 
 export const Route = createFileRoute("/_authenticated/candidatos")({
   component: CandidatosPage,
@@ -65,6 +66,12 @@ function CandidatosPage() {
   const [fEntrevistaQuando, setFEntrevistaQuando] = useState<"" | "hoje" | "semana">("");
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [agendarOpen, setAgendarOpen] = useState(false);
+  const [agendarTarget, setAgendarTarget] = useState<{
+    ids: string[];
+    nome: string | null;
+    initial?: { data_entrevista: string; horario_entrevista: string; entrevistador: string };
+  } | null>(null);
   useCandidatosRealtime();
 
   const profMap = useMemo(() => new Map(profiles.map(p => [p.id, p.nome])), [profiles]);
