@@ -514,19 +514,36 @@ function CandidatosPage() {
                     )}
                   </td>
                   <td className="px-3 py-2">
-                   {r.curriculo_url ? (
-  <div className="flex items-center gap-2">
-  <button
-    onClick={() => openCurriculo(r.curriculo_url!)}
-    className="text-primary hover:underline inline-flex items-center gap-1"
-  >
-    <FileText className="size-3.5" /> PDF
-  </button>
-</div>
-) : (
-  <span className="text-muted-foreground">—</span>
-)}
+                    {r.curriculo_url ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => openCurriculo(r.curriculo_url!)}
+                            className="text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            <FileText className="size-3.5" /> PDF
+                          </button>
+                          <button
+                            onClick={() => handleReprocess(r.id)}
+                            disabled={reprocessing.has(r.id)}
+                            title="Reprocessar (análise profunda) — preenche apenas campos vazios"
+                            className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 disabled:opacity-60"
+                          >
+                            <RefreshCw className={`size-3.5 ${reprocessing.has(r.id) ? "animate-spin" : ""}`} />
+                            Reprocessar
+                          </button>
+                        </div>
+                        {r.ultimo_reprocessamento_at && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Reprocessado em {new Date(r.ultimo_reprocessamento_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
+
                   <td className="px-3 py-2">
                     <div className="flex gap-1 justify-end">
                       <Button
