@@ -323,7 +323,44 @@ if (
   updatedFields.push("nome");
 }
 
-if (isEmpty(cand.telefone) && telefoneNew) { patch.telefone = telefoneNew; updatedFields.push("telefone"); }
-if (isEmpty(cand.email) && emailNew) { patch.email = emailNew; updatedFields.push("email"); }
-if (isEmpty(cand.cidade) && cidadeNew) { patch.cidade = cidadeNew; updatedFields.push("cidade"); }
-if (isEmpty(cand.estado) && estadoNew) { patch.estado = estadoNew; updatedFields.push("estado"); }
+if (isEmpty(cand.telefone) && telefoneNew) {
+  patch.telefone = telefoneNew;
+  updatedFields.push("telefone");
+}
+
+if (isEmpty(cand.email) && emailNew) {
+  patch.email = emailNew;
+  updatedFields.push("email");
+}
+
+if (isEmpty(cand.cidade) && cidadeNew) {
+  patch.cidade = cidadeNew;
+  updatedFields.push("cidade");
+}
+
+if (isEmpty(cand.estado) && estadoNew) {
+  patch.estado = estadoNew;
+  updatedFields.push("estado");
+}
+
+const nowIso = new Date().toISOString();
+patch.ultimo_reprocessamento_at = nowIso;
+
+const { error: updErr } = await supabase
+  .from("candidatos")
+  .update(patch as never)
+  .eq("id", data.candidatoId);
+
+if (updErr) throw new Error(updErr.message);
+
+return {
+  updatedFields,
+  ultimo_reprocessamento_at: nowIso,
+  extracted: {
+    nome: nomeNew,
+    telefone: telefoneNew,
+    email: emailNew,
+    cidade: cidadeNew,
+    estado: estadoNew,
+  },
+};
