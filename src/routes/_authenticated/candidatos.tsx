@@ -153,15 +153,26 @@ function CandidatosPage() {
 
 
 
-  async function handleDelete(id: string) {
-    if (!confirm("Excluir este candidato?")) return;
-    const { error } = await supabase.from("candidatos").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Excluído");
-      invalidateAtsQueries(queryClient);
-    }
+ async function handleDelete(id: string) {
+  if (!confirm("Excluir este candidato?")) return;
+
+  const { error } = await supabase
+    .from("candidatos")
+    .delete()
+    .eq("id", id);
+
+  console.log("DELETE ERROR:", error);
+  console.log("USER:", user);
+  console.log("ROLE:", role);
+  console.log("CANDIDATO ID:", id);
+
+  if (error) {
+    toast.error(error.message);
+  } else {
+    toast.success("Excluído");
+    invalidateAtsQueries(queryClient);
   }
+}
 
   async function handleDeleteAll() {
     const txt = prompt(`Excluir TODOS os ${rows.length} candidatos? Digite EXCLUIR para confirmar.`);
