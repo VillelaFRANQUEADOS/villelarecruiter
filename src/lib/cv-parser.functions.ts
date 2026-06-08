@@ -330,4 +330,4 @@ if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
       extracted: { nome: nomeNew, telefone: telefoneNew, email: emailNew, cidade: cidadeNew, estado: estadoNew },
     };
   });
-~
+
