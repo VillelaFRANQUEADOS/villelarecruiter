@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getCurriculoContent } from "@/lib/curriculos.functions";
+import { reprocessCandidato } from "@/lib/cv-parser.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
