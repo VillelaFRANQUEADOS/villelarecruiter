@@ -306,61 +306,28 @@ if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
     const nomeNew = (extracted.nome || "").trim();
 
     // 5. Merge NÃO-destrutivo: só preenche campos vazios/null
-const isEmpty = (v: string | null | undefined) => !v || !String(v).trim();
-const patch: Record<string, string | null> = {};
-const updatedFields: string[] = [];
+    const isEmpty = (v: string | null | undefined) => !v || !String(v).trim();
+    const patch: Record<string, string | null> = {};
+    const updatedFields: string[] = [];
+    if (isEmpty(cand.nome) && nomeNew) { patch.nome = nomeNew; updatedFields.push("nome"); }
+    if (isEmpty(cand.telefone) && telefoneNew) { patch.telefone = telefoneNew; updatedFields.push("telefone"); }
+    if (isEmpty(cand.email) && emailNew) { patch.email = emailNew; updatedFields.push("email"); }
+    if (isEmpty(cand.cidade) && cidadeNew) { patch.cidade = cidadeNew; updatedFields.push("cidade"); }
+    if (isEmpty(cand.estado) && estadoNew) { patch.estado = estadoNew; updatedFields.push("estado"); }
 
-const nomeAtual = (cand.nome || "").trim();
+    const nowIso = new Date().toISOString();
+    patch.ultimo_reprocessamento_at = nowIso;
 
-if (
-  nomeNew &&
-  (
-    isEmpty(cand.nome) ||
-    nomeAtual.startsWith("Profile (")
-  )
-) {
-  patch.nome = nomeNew;
-  updatedFields.push("nome");
-}
+    const { error: updErr } = await supabase
+      .from("candidatos")
+      .update(patch as never)
+      .eq("id", data.candidatoId);
+    if (updErr) throw new Error(updErr.message);
 
-if (isEmpty(cand.telefone) && telefoneNew) {
-  patch.telefone = telefoneNew;
-  updatedFields.push("telefone");
-}
-
-if (isEmpty(cand.email) && emailNew) {
-  patch.email = emailNew;
-  updatedFields.push("email");
-}
-
-if (isEmpty(cand.cidade) && cidadeNew) {
-  patch.cidade = cidadeNew;
-  updatedFields.push("cidade");
-}
-
-if (isEmpty(cand.estado) && estadoNew) {
-  patch.estado = estadoNew;
-  updatedFields.push("estado");
-}
-
-const nowIso = new Date().toISOString();
-patch.ultimo_reprocessamento_at = nowIso;
-
-const { error: updErr } = await supabase
-  .from("candidatos")
-  .update(patch as never)
-  .eq("id", data.candidatoId);
-
-if (updErr) throw new Error(updErr.message);
-
-return {
-  updatedFields,
-  ultimo_reprocessamento_at: nowIso,
-  extracted: {
-    nome: nomeNew,
-    telefone: telefoneNew,
-    email: emailNew,
-    cidade: cidadeNew,
-    estado: estadoNew,
-  },
-};
+    return {
+      updatedFields,
+      ultimo_reprocessamento_at: nowIso,
+      extracted: { nome: nomeNew, telefone: telefoneNew, email: emailNew, cidade: cidadeNew, estado: estadoNew },
+    };
+  });
+~
