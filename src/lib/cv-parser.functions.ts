@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway";
+import { google } from "@ai-sdk/google";
 import { uploadPdfToDrive } from "@/lib/curriculos.functions";
 import { generateObject } from "ai";
 import { z } from "zod";
@@ -107,8 +107,8 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
   }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY ausente");
+   const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
 
     const cvText = (data.cvText || "").slice(0, 24000);
     const images = (data.images || []).slice(0, 8);
@@ -121,8 +121,7 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
 
     if (hasText || hasImages) {
       try {
-        const gateway = createLovableAiGatewayProvider(apiKey);
-        const model = gateway("google/gemini-3-flash-preview");
+        const model = google("gemini-2.5-flash");
 
         const userContent: Array<
           | { type: "text"; text: string }
@@ -251,8 +250,8 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY ausente");
+    const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
 
     // 1. Buscar candidato (RLS aplica)
     const { data: cand, error: fetchErr } = await supabase
@@ -274,8 +273,7 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
     let extracted: Extracted = { nome: "", telefone: "", email: "", cidade: "", estado: "" };
     let aiErrorMsg: string | null = null;
     try {
-      const gateway = createLovableAiGatewayProvider(apiKey);
-      const model = gateway("google/gemini-2.5-pro");
+      const model = google("gemini-2.5-flash");
 
       // AI SDK aceita parts type:"file" com base64 + mediaType (imagens e PDF).
       type Part =
