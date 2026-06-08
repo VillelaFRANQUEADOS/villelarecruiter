@@ -1,0 +1,1 @@
+ALTER TABLE public.candidatos ADD COLUMN IF NOT EXISTS ultimo_reprocessamento_at TIMESTAMPTZ;

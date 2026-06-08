@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getCurriculoContent } from "@/lib/curriculos.functions";
+import { reprocessCandidato } from "@/lib/cv-parser.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, FileText, Pencil, Trash2 } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, RefreshCw } from "lucide-react";
 import {
   useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE, UF_LIST,
   type CandidatoRow, type CandidatoStatus,
@@ -43,6 +44,8 @@ function CandidatosPage() {
   const { data: profiles = [] } = useProfilesLiteQuery();
   const { data: latestStatusMap } = useLatestStatusChangesQuery();
   const fetchCv = useServerFn(getCurriculoContent);
+  const reprocessFn = useServerFn(reprocessCandidato);
+  const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
   const [fNome, setFNome] = useState("");
@@ -204,6 +207,31 @@ function CandidatosPage() {
       toast.error(e instanceof Error ? e.message : "Falha ao abrir currículo", { id: toastId });
     }
   }
+
+  async function handleReprocess(id: string) {
+    if (reprocessing.has(id)) return;
+    setReprocessing((s) => new Set(s).add(id));
+    const toastId = toast.loading("Reprocessando currículo (análise profunda)...");
+    try {
+      const res = await reprocessFn({ data: { candidatoId: id } });
+      const n = res.updatedFields.length;
+      if (n > 0) {
+        toast.success(`Reprocessado: ${n} campo(s) preenchido(s) (${res.updatedFields.join(", ")})`, { id: toastId });
+      } else {
+        toast.success("Reprocessado. Nenhum campo vazio para preencher.", { id: toastId });
+      }
+      invalidateAtsQueries(queryClient);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao reprocessar", { id: toastId });
+    } finally {
+      setReprocessing((s) => {
+        const n = new Set(s);
+        n.delete(id);
+        return n;
+      });
+    }
+  }
+
 
   async function changeStatus(id: string, status: CandidatoStatus) {
     if (status === "agendado") {
@@ -486,19 +514,36 @@ function CandidatosPage() {
                     )}
                   </td>
                   <td className="px-3 py-2">
-                   {r.curriculo_url ? (
-  <div className="flex items-center gap-2">
-  <button
-    onClick={() => openCurriculo(r.curriculo_url!)}
-    className="text-primary hover:underline inline-flex items-center gap-1"
-  >
-    <FileText className="size-3.5" /> PDF
-  </button>
-</div>
-) : (
-  <span className="text-muted-foreground">—</span>
-)}
+                    {r.curriculo_url ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => openCurriculo(r.curriculo_url!)}
+                            className="text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            <FileText className="size-3.5" /> PDF
+                          </button>
+                          <button
+                            onClick={() => handleReprocess(r.id)}
+                            disabled={reprocessing.has(r.id)}
+                            title="Reprocessar (análise profunda) — preenche apenas campos vazios"
+                            className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 disabled:opacity-60"
+                          >
+                            <RefreshCw className={`size-3.5 ${reprocessing.has(r.id) ? "animate-spin" : ""}`} />
+                            Reprocessar
+                          </button>
+                        </div>
+                        {r.ultimo_reprocessamento_at && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Reprocessado em {new Date(r.ultimo_reprocessamento_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
+
                   <td className="px-3 py-2">
                     <div className="flex gap-1 justify-end">
                       <Button

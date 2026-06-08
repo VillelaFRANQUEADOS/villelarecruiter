@@ -1,43 +1,74 @@
-## Reduzir os status
+# Melhorar IA de extração + botão "Reprocessar"
 
-Hoje há 7 status. Reduzir para 5: **Triagem, Aguardando contato, Remarcar, Sem interesse, Agendado**.
+Dois eixos: (1) elevar a qualidade da leitura padrão sem perder velocidade; (2) adicionar um modo "deep" acionado manualmente pelo botão Reprocessar na listagem.
 
-Remover: `compareceu`, `contratado`.
+## 1. Extração padrão mais robusta (mantendo performance)
 
-### O que muda
-1. **Migração SQL**: criar novo enum `candidato_status` só com os 5 valores. Antes, mapear registros existentes — qualquer `compareceu`/`contratado` vira `agendado` (ou outro à sua escolha) para não perder histórico.
-2. **`src/lib/auth.tsx`**: ajustar `CandidatoStatus`, `STATUS_LABELS`, `STATUS_ORDER`, `STATUS_TONE` (remover 2 entradas).
-3. **`dashboard.tsx`**: remover métricas/colunas que referenciavam os removidos; manter "Agendado" como estado final do funil.
-4. **`pipeline.tsx`**: remover as colunas eliminadas do kanban.
-5. **Filtro em Candidatos**: o select de Status atualiza automaticamente via `STATUS_ORDER`.
+`src/lib/file-extract.ts`
+- PDF: extrair texto de **todas as páginas** (já faz) mas elevar limiar `hasEnoughText` de 120 para ~250 caracteres por página média (detecta PDFs parcialmente escaneados). Quando texto fraco → renderizar páginas como imagem (cap: até 6 páginas, hoje sem limite — adicionar guarda).
+- Render: aumentar `scale` de 1.6 → 2.0 para OCR mais nítido; JPEG quality 0.9.
+- DOCX: além de `extractRawText`, fazer fallback para `convertToHtml` quando texto < 100 chars (alguns DOCX guardam tudo em tabelas).
+- Adicionar utilitário `extractFromFileDeep(file)` que sempre renderiza todas as páginas do PDF como imagem (mesmo com texto), retornando texto + imagens para análise multimodal completa.
 
----
+`src/lib/cv-parser.functions.ts`
+- Aumentar `cvText` de 14000 → 24000 chars e `images` de 3 → 8 (capa do currículo costuma estar nas primeiras páginas, mas precisamos cobrir múltiplas).
+- Reforçar prompt com exemplos negativos e regras anti-alucinação para nome (não confundir com nome de empresa/curso) e cidade/UF (priorizar bloco de contato/endereço).
+- Já existem fallbacks por regex (telefone/email/UF) — manter.
 
-## Melhorias sugeridas (escolha as que quiser)
+## 2. Modo "Reprocessar" (deep, sob demanda)
 
-Olhando o app hoje, essas têm bom custo/benefício:
+### Backend — nova server function
 
-1. **Histórico de status por candidato** — tabela `candidato_status_log` (status anterior, novo, quem mudou, quando). Aparece como timeline no `CandidatoEditDialog`. Útil para auditoria e para ver quanto tempo cada candidato ficou em cada etapa.
+`src/lib/cv-parser.functions.ts` → `reprocessCandidato`
+- Input: `{ candidatoId: string }`.
+- Fluxo:
+  1. Buscar candidato no banco (RLS aplica). Se sem `curriculo_url` ou não `drive:` → erro amigável.
+  2. Baixar arquivo do Drive (reutiliza lógica de `getCurriculoContent`).
+  3. Extração **deep**: chamar Gemini multimodal direto com o **arquivo original como anexo** (PDF/imagem via base64 `file` part da AI SDK), além do texto extraído server-side simples. Usar `google/gemini-2.5-pro` (mais robusto que o flash preview padrão).
+  4. Normalizar (telefone/email/UF) como hoje.
+  5. **Merge não-destrutivo**: para cada campo (`nome`, `telefone`, `email`, `cidade`, `estado`), só sobrescrever se o valor atual estiver vazio/null OU se a IA retornou valor e o atual nunca foi editado manualmente. Como heurística simples e segura: **só preencher campos vazios** (o usuário marcou caixas; respeitamos o que ele já editou). Documentar isso no toast ("preenchidos N campos vazios").
+  6. Atualizar `ultimo_reprocessamento_at` (timestamptz) — nova coluna.
+  7. Retornar `{ updatedFields: string[], ultimo_reprocessamento_at }`.
 
-2. **Campo "Data do agendamento"** no candidato — quando status vira `agendado`, abrir um date/time picker. Permite uma aba/visão "Agenda de hoje/semana" com os agendamentos.
+### Migration
 
-3. **Vagas como entidade própria** — hoje `vaga` é texto livre na tabela `candidatos`. Criar tabela `vagas` (título, cidade, status aberto/fechado, recrutador responsável) e referenciar por FK. Habilita filtrar candidatos por vaga real e ver pipeline por vaga.
+Adicionar coluna na tabela `candidatos`:
+- `ultimo_reprocessamento_at timestamptz null`
 
-4. **Tags/etiquetas livres** no candidato (ex.: "CNH", "disponível imediato", "experiência com X") para enriquecer a busca sem virar campo fixo.
+(sem alteração de RLS — herda das policies existentes da tabela.)
 
-5. **Exportar lista filtrada para CSV/Excel** — botão na aba Candidatos que exporta exatamente o que o filtro mostra.
+### Tipos
 
-6. **Dedupe na importação em lote** — quando o BulkUpload extrair telefone/email, checar se já existe candidato com o mesmo telefone e mostrar aviso ("já cadastrado por Fulano em DD/MM") em vez de criar duplicata.
+- `src/lib/auth.tsx` `CandidatoRow`: adicionar `ultimo_reprocessamento_at: string | null`.
+- `src/lib/ats-data.ts` `CANDIDATOS_SELECT`: adicionar campo.
 
-7. **Notas/comentários internos** com timestamp e autor (separado de `observacoes`, que vira mais um campo livre fixo). Igual ao histórico de status, vira timeline.
+### UI — botão na listagem
 
-8. **Notificações leves** quando um candidato é marcado como "Remarcar" ou "Aguardando contato" há > N dias — destaque visual em Candidatos ou lista "Pendências".
+`src/routes/_authenticated/candidatos.tsx`, célula PDF (linhas 489–500):
+- Adicionar botão "Reprocessar" (ícone `RefreshCw`) ao lado do PDF, visível apenas quando `r.curriculo_url` existir.
+- Estado local `reprocessing: Set<string>` para spinner por linha.
+- Click → confirma rapidamente (toast loading), chama `reprocessCandidato({ data: { candidatoId: r.id } })`, ao concluir mostra toast com nº de campos atualizados e invalida queries.
+- Abaixo do botão (texto pequeno mute), quando `r.ultimo_reprocessamento_at` existir: "Reprocessado em DD/MM HH:mm".
 
-9. **Foto / avatar do candidato** extraída do PDF (a IA já lê o currículo; pedir para devolver foto base64 quando houver) ou upload manual.
+### Erros
 
-10. **Página de perfil pública do candidato** (`/candidatos/:id`) com tudo: dados, histórico, currículo embed do Drive, notas. Hoje só dá pra editar em modal.
+- 429 (rate limit) / 402 (créditos) / falha Drive → toast com mensagem clara, sem alterar dados.
 
-## Perguntas antes de implementar
+## Resumo de arquivos
 
-1. **Quais melhorias você quer dessa lista?** (Pode marcar várias — implemento em sequência.)
-2. **Migração dos status removidos**: candidatos que estão hoje em "Compareceu" ou "Contratado" devem virar `agendado`, `triagem`, ou prefere que eu liste eles primeiro para você decidir manualmente?
+**Criar:**
+- migration: adiciona `ultimo_reprocessamento_at` em `candidatos`.
+
+**Editar:**
+- `src/lib/file-extract.ts` — limiar OCR, scale, fallback DOCX, novo `extractFromFileDeep`.
+- `src/lib/cv-parser.functions.ts` — prompt reforçado, limites maiores, nova função `reprocessCandidato` (modo deep, merge não-destrutivo).
+- `src/lib/auth.tsx` — adicionar campo `ultimo_reprocessamento_at`.
+- `src/lib/ats-data.ts` — incluir campo no SELECT.
+- `src/routes/_authenticated/candidatos.tsx` — botão Reprocessar + indicador + timestamp.
+
+Nada muda no fluxo de bulk upload — continua usando a extração rápida atual já melhorada.
+
+## Perguntas (responda antes de implementar se quiser ajustar)
+
+1. **Merge**: confirmar que o reprocessamento só preenche campos **vazios** (nunca sobrescreve dados existentes, mesmo que pareçam errados)? Alternativa: sobrescrever sempre, mantendo histórico.
+2. **Modelo deep**: usar `google/gemini-2.5-pro` (mais caro/lento mas melhor)? Ou manter `gemini-3-flash-preview` e apenas enviar o arquivo completo como anexo?

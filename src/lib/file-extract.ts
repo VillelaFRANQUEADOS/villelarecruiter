@@ -16,12 +16,25 @@ export interface Extracted {
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
 
-function hasEnoughText(text: string) {
+function hasEnoughText(text: string, pages = 1) {
   const letters = (text.match(/[a-zA-ZÀ-ÿ]/g) || []).length;
-  return letters >= 120;
+  return letters >= Math.max(250, pages * 200);
 }
 
+const MAX_OCR_PAGES_FAST = 6;
+const MAX_OCR_PAGES_DEEP = 12;
+
 export async function extractFromFile(file: File): Promise<Extracted> {
+  return extractInternal(file, false);
+}
+
+// Deep mode: força OCR de TODAS as páginas (até cap) mesmo quando há texto.
+// Usado pelo botão "Reprocessar" para máxima precisão.
+export async function extractFromFileDeep(file: File): Promise<Extracted> {
+  return extractInternal(file, true);
+}
+
+async function extractInternal(file: File, deep: boolean): Promise<Extracted> {
   const lname = file.name.toLowerCase();
   const type = file.type;
 
@@ -37,9 +50,12 @@ export async function extractFromFile(file: File): Promise<Extracted> {
     }
 
     const images: string[] = [];
-    if (!hasEnoughText(text)) {
-      for (let i = 1; i <= pdf.numPages; i++) {
-        images.push(await renderPdfPageToDataUri(pdf, i));
+    const needsOcr = deep || !hasEnoughText(text, pdf.numPages);
+    if (needsOcr) {
+      const cap = deep ? MAX_OCR_PAGES_DEEP : MAX_OCR_PAGES_FAST;
+      const pageCount = Math.min(pdf.numPages, cap);
+      for (let i = 1; i <= pageCount; i++) {
+        images.push(await renderPdfPageToDataUri(pdf, i, deep ? 2.2 : 2.0));
       }
     }
 
@@ -52,9 +68,19 @@ export async function extractFromFile(file: File): Promise<Extracted> {
   ) {
     const buf = await file.arrayBuffer();
     const res = await mammoth.extractRawText({ arrayBuffer: buf });
+    let text = res.value || "";
+    // Fallback: alguns DOCX guardam tudo em tabelas/elementos não capturados
+    // pelo extractRawText. Tenta HTML e descarta tags.
+    if (text.replace(/\s/g, "").length < 100) {
+      try {
+        const html = await mammoth.convertToHtml({ arrayBuffer: buf });
+        const stripped = (html.value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        if (stripped.length > text.length) text = stripped;
+      } catch { /* mantém o que tem */ }
+    }
     return {
       kind: "docx",
-      text: res.value || "",
+      text,
       images: [],
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     };
@@ -78,16 +104,16 @@ function guessImageMime(name: string) {
   return "image/jpeg";
 }
 
-async function renderPdfPageToDataUri(pdf: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>, pageNum: number): Promise<string> {
+async function renderPdfPageToDataUri(pdf: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>, pageNum: number, scale = 2.0): Promise<string> {
   const page = await pdf.getPage(pageNum);
-  const viewport = page.getViewport({ scale: 1.6 });
+  const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
   canvas.width = Math.ceil(viewport.width);
   canvas.height = Math.ceil(viewport.height);
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas indisponível");
   await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-  return canvas.toDataURL("image/jpeg", 0.85);
+  return canvas.toDataURL("image/jpeg", 0.9);
 }
 
 export async function fileToDataUri(file: File): Promise<string> {

@@ -76,6 +76,7 @@ export type Database = {
           regiao: string | null
           status: Database["public"]["Enums"]["candidato_status"]
           telefone: string | null
+          ultimo_reprocessamento_at: string | null
           updated_at: string
           vaga: string | null
         }
@@ -96,6 +97,7 @@ export type Database = {
           regiao?: string | null
           status?: Database["public"]["Enums"]["candidato_status"]
           telefone?: string | null
+          ultimo_reprocessamento_at?: string | null
           updated_at?: string
           vaga?: string | null
         }
@@ -116,6 +118,7 @@ export type Database = {
           regiao?: string | null
           status?: Database["public"]["Enums"]["candidato_status"]
           telefone?: string | null
+          ultimo_reprocessamento_at?: string | null
           updated_at?: string
           vaga?: string | null
         }

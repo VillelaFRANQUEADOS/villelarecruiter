@@ -146,6 +146,7 @@ export interface CandidatoRow {
   data_entrevista: string | null;
   horario_entrevista: string | null;
   entrevistador: string | null;
+  ultimo_reprocessamento_at: string | null;
 }
 
 export const UF_LIST: string[] = [
