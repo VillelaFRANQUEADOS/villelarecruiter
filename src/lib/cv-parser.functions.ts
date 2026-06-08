@@ -322,7 +322,7 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
 
     const { error: updErr } = await supabase
       .from("candidatos")
-      .update(patch)
+      .update(patch as never)
       .eq("id", data.candidatoId);
     if (updErr) throw new Error(updErr.message);
 
