@@ -110,8 +110,8 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY ausente");
 
-    const cvText = (data.cvText || "").slice(0, 14000);
-    const images = (data.images || []).slice(0, 3);
+    const cvText = (data.cvText || "").slice(0, 24000);
+    const images = (data.images || []).slice(0, 8);
     let extracted: Extracted = { nome: "", telefone: "", email: "", cidade: "", estado: "" };
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
