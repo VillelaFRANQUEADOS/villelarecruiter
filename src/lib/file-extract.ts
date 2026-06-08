@@ -104,16 +104,16 @@ function guessImageMime(name: string) {
   return "image/jpeg";
 }
 
-async function renderPdfPageToDataUri(pdf: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>, pageNum: number): Promise<string> {
+async function renderPdfPageToDataUri(pdf: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>, pageNum: number, scale = 2.0): Promise<string> {
   const page = await pdf.getPage(pageNum);
-  const viewport = page.getViewport({ scale: 1.6 });
+  const viewport = page.getViewport({ scale });
   const canvas = document.createElement("canvas");
   canvas.width = Math.ceil(viewport.width);
   canvas.height = Math.ceil(viewport.height);
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas indisponível");
   await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-  return canvas.toDataURL("image/jpeg", 0.85);
+  return canvas.toDataURL("image/jpeg", 0.9);
 }
 
 export async function fileToDataUri(file: File): Promise<string> {
