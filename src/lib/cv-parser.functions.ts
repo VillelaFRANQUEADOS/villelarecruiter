@@ -84,16 +84,17 @@ function normalizeEmail(value: string, fallbackText: string): string {
 }
 
 const STRICT_PROMPT =
-  "Você extrai DADOS LITERAIS de currículos brasileiros. Regras OBRIGATÓRIAS:\n" +
-  "1. Extraia EXCLUSIVAMENTE estes campos: nome, telefone, email, cidade, estado.\n" +
-  "2. NUNCA invente nem deduza informações. Se um campo NÃO estiver explícito no documento, retorne string vazia \"\".\n" +
-  "3. nome: nome completo do candidato exatamente como aparece.\n" +
-  "4. telefone: APENAS DÍGITOS, com DDD (10 ou 11 dígitos). Remova parênteses, traços, espaços, pontos e o DDI 55. Exemplo: '(35) 99117-1223' vira '35991171223'.\n" +
-  "5. email: endereço de email em minúsculas, exatamente como aparece.\n" +
-  "6. cidade: apenas o nome da cidade, sem estado nem país.\n" +
-  "7. estado: sigla UF de 2 letras maiúsculas (SP, RJ, MG, RS, SC, PR, BA, PE, CE, GO, etc). Se aparecer por extenso, converta. Se não aparecer, retorne \"\".\n" +
-  "8. Se o documento for uma imagem ou PDF escaneado, faça OCR e siga as mesmas regras.\n" +
-  "Retorne JSON com exatamente essas 5 chaves.";
+  "Você extrai DADOS LITERAIS de currículos brasileiros. Leia TODO o documento (todas as páginas e imagens). Regras OBRIGATÓRIAS:\n" +
+  "1. Extraia EXCLUSIVAMENTE: nome, telefone, email, cidade, estado.\n" +
+  "2. NUNCA invente nem deduza. Se um campo NÃO estiver explícito, retorne string vazia \"\".\n" +
+  "3. nome: nome completo da PESSOA candidata. NÃO confunda com nome de empresa, escola, curso, cargo ou referência. Geralmente aparece no topo, em destaque, ou ao lado da foto.\n" +
+  "4. telefone: APENAS DÍGITOS, com DDD (10 ou 11 dígitos). Remova (), -, ., espaços e o DDI 55. Ex.: '(35) 99117-1223' -> '35991171223'. Se houver vários números, prefira celular (11 dígitos começando com 9 no terceiro dígito).\n" +
+  "5. email: minúsculas, como aparece. Se houver vários, prefira o pessoal (gmail, hotmail, outlook, yahoo, icloud) sobre o corporativo.\n" +
+  "6. cidade: apenas o nome da cidade onde o candidato RESIDE (bloco contato/endereço/dados pessoais). NÃO use cidade de emprego/faculdade.\n" +
+  "7. estado: sigla UF de 2 letras (SP, RJ, MG, RS, SC, PR, BA, PE, CE, GO, DF, ES, MT, MS, PA, MA, PB, RN, AL, SE, PI, TO, RO, AC, AM, AP, RR). Converta nomes por extenso. Se ausente, \"\".\n" +
+  "8. Para imagens / PDF escaneado faça OCR cuidadoso e siga as MESMAS regras.\n" +
+  "9. Retorne EXATAMENTE JSON com essas 5 chaves, sem texto extra.";
+
 
 export const parseAndCreateCandidato = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
