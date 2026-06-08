@@ -208,6 +208,31 @@ function CandidatosPage() {
     }
   }
 
+  async function handleReprocess(id: string) {
+    if (reprocessing.has(id)) return;
+    setReprocessing((s) => new Set(s).add(id));
+    const toastId = toast.loading("Reprocessando currículo (análise profunda)...");
+    try {
+      const res = await reprocessFn({ data: { candidatoId: id } });
+      const n = res.updatedFields.length;
+      if (n > 0) {
+        toast.success(`Reprocessado: ${n} campo(s) preenchido(s) (${res.updatedFields.join(", ")})`, { id: toastId });
+      } else {
+        toast.success("Reprocessado. Nenhum campo vazio para preencher.", { id: toastId });
+      }
+      invalidateAtsQueries(queryClient);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao reprocessar", { id: toastId });
+    } finally {
+      setReprocessing((s) => {
+        const n = new Set(s);
+        n.delete(id);
+        return n;
+      });
+    }
+  }
+
+
   async function changeStatus(id: string, status: CandidatoStatus) {
     if (status === "agendado") {
       const row = rows.find((r) => r.id === id) ?? null;
