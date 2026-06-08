@@ -39,6 +39,7 @@ const CANDIDATOS_SELECT = [
   "data_entrevista",
   "horario_entrevista",
   "entrevistador",
+  "ultimo_reprocessamento_at",
 ].join(",");
 
 async function fetchCandidatos() {
