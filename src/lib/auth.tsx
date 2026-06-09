@@ -140,6 +140,9 @@ export interface CandidatoRow {
   experiencias: string | null;
   status: CandidatoStatus;
   observacoes: string | null;
+  observacoes_updated_at: string | null;
+  observacoes_updated_by: string | null;
+  observacoes_updated_by_nome: string | null;
   curriculo_url: string | null;
   recrutador_id: string | null;
   created_at: string;

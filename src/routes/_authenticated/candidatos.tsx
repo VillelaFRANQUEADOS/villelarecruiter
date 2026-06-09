@@ -68,6 +68,16 @@ function CandidatosPage() {
   const [fEntrevistadores, setFEntrevistadores] = useState<string[]>([]);
   const [fEntrevistaQuando, setFEntrevistaQuando] = useState<"" | "hoje" | "semana">("");
 
+  // Filtro de observação
+  const [fObs, setFObs] = useState<"" | "com" | "sem">("");
+  // Ordenação por observação
+  const [obsSort, setObsSort] = useState<"none" | "asc" | "desc">("none");
+
+  // Edição inline de observação
+  const [editingObsId, setEditingObsId] = useState<string | null>(null);
+  const [editingObsValue, setEditingObsValue] = useState<string>("");
+  const [savingObsId, setSavingObsId] = useState<string | null>(null);
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [agendarOpen, setAgendarOpen] = useState(false);
   const [agendarTarget, setAgendarTarget] = useState<{
@@ -114,33 +124,48 @@ function CandidatosPage() {
     return { weekStart: fmt(ws), weekEnd: fmt(we), todayStr: fmt(today) };
   }, []);
 
-  const filtered = useMemo(() => rows.filter(r => {
-    if (fStatus.length && !fStatus.includes(r.status)) return false;
-    if (fRecrutadores.length && !fRecrutadores.includes(r.recrutador_id ?? "")) return false;
-    if (fEstados.length && !fEstados.includes(r.estado ?? "")) return false;
-    if (fCidades.length && !fCidades.includes((r.cidade ?? "").trim())) return false;
-    if (fromTs || toTs) {
-      const t = new Date(r.created_at).getTime();
-      if (fromTs && t < fromTs) return false;
-      if (toTs && t > toTs) return false;
+  const filtered = useMemo(() => {
+    const out = rows.filter(r => {
+      if (fStatus.length && !fStatus.includes(r.status)) return false;
+      if (fRecrutadores.length && !fRecrutadores.includes(r.recrutador_id ?? "")) return false;
+      if (fEstados.length && !fEstados.includes(r.estado ?? "")) return false;
+      if (fCidades.length && !fCidades.includes((r.cidade ?? "").trim())) return false;
+      if (fromTs || toTs) {
+        const t = new Date(r.created_at).getTime();
+        if (fromTs && t < fromTs) return false;
+        if (toTs && t > toTs) return false;
+      }
+      if (fEntrevistaData && r.data_entrevista !== fEntrevistaData) return false;
+      if (fEntrevistadores.length && !fEntrevistadores.includes((r.entrevistador ?? "").trim())) return false;
+      if (fEntrevistaQuando === "hoje") {
+        if (r.data_entrevista !== todayStr) return false;
+      } else if (fEntrevistaQuando === "semana") {
+        if (!r.data_entrevista || r.data_entrevista < weekStart || r.data_entrevista > weekEnd) return false;
+      }
+      if (fObs === "com" && !(r.observacoes && r.observacoes.trim())) return false;
+      if (fObs === "sem" && r.observacoes && r.observacoes.trim()) return false;
+      if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
+      if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
+      if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
+      if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
+      return true;
+    });
+    if (obsSort !== "none") {
+      const dir = obsSort === "asc" ? 1 : -1;
+      out.sort((a, b) => {
+        const av = (a.observacoes ?? "").trim().toLowerCase();
+        const bv = (b.observacoes ?? "").trim().toLowerCase();
+        if (!av && !bv) return 0;
+        if (!av) return 1; // vazios sempre no fim
+        if (!bv) return -1;
+        return av.localeCompare(bv, "pt-BR") * dir;
+      });
     }
-    // Filtros de entrevista (usam data_entrevista, não status)
-    if (fEntrevistaData && r.data_entrevista !== fEntrevistaData) return false;
-    if (fEntrevistadores.length && !fEntrevistadores.includes((r.entrevistador ?? "").trim())) return false;
-    if (fEntrevistaQuando === "hoje") {
-      if (r.data_entrevista !== todayStr) return false;
-    } else if (fEntrevistaQuando === "semana") {
-      if (!r.data_entrevista || r.data_entrevista < weekStart || r.data_entrevista > weekEnd) return false;
-    }
-    if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
-    if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
-    if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
-    if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
-    return true;
-  }), [rows, fNome, fTelefone, fEmail, fVaga, fStatus, fRecrutadores, fEstados, fCidades, fromTs, toTs, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, todayStr, weekStart, weekEnd]);
+    return out;
+  }, [rows, fNome, fTelefone, fEmail, fVaga, fStatus, fRecrutadores, fEstados, fCidades, fromTs, toTs, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, todayStr, weekStart, weekEnd, fObs, obsSort]);
 
   const hasFilters =
-    !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando) ||
+    !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando || fObs) ||
     fStatus.length > 0 || fRecrutadores.length > 0 || fEstados.length > 0 || fCidades.length > 0 ||
     fEntrevistadores.length > 0;
 
@@ -149,6 +174,21 @@ function CandidatosPage() {
     setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]);
     setFDateFrom(""); setFDateTo("");
     setFEntrevistaData(""); setFEntrevistadores([]); setFEntrevistaQuando("");
+    setFObs("");
+  }
+
+  async function saveObservacao(id: string, value: string) {
+    setSavingObsId(id);
+    const newVal = value.trim() ? value : null;
+    const { error } = await supabase.from("candidatos").update({ observacoes: newVal }).eq("id", id);
+    setSavingObsId(null);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Observação atualizada");
+      setEditingObsId(null);
+      invalidateAtsQueries(queryClient);
+    }
   }
 
 
@@ -413,6 +453,23 @@ function CandidatosPage() {
             options={entrevistadorOptions.map((e) => ({ value: e, label: e }))}
             emptyLabel="Sem entrevistadores"
           />
+          <span className="text-xs font-medium text-muted-foreground ml-2">Observação:</span>
+          <Button
+            size="sm"
+            variant={fObs === "com" ? "default" : "outline"}
+            className="h-8"
+            onClick={() => setFObs(fObs === "com" ? "" : "com")}
+          >
+            Com observação
+          </Button>
+          <Button
+            size="sm"
+            variant={fObs === "sem" ? "default" : "outline"}
+            className="h-8"
+            onClick={() => setFObs(fObs === "sem" ? "" : "sem")}
+          >
+            Sem observação
+          </Button>
           {hasFilters && (
             <Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
           )}
@@ -458,6 +515,17 @@ function CandidatosPage() {
 
                 <th className="text-left px-3 py-2 font-medium">Recrutador</th>
                 <th className="text-left px-3 py-2 font-medium">Status</th>
+                <th className="text-left px-3 py-2 font-medium">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => setObsSort(obsSort === "none" ? "asc" : obsSort === "asc" ? "desc" : "none")}
+                    title="Ordenar por observação"
+                  >
+                    Observação
+                    <span className="text-[10px]">{obsSort === "asc" ? "▲" : obsSort === "desc" ? "▼" : "↕"}</span>
+                  </button>
+                </th>
                 <th className="text-left px-3 py-2 font-medium">CV</th>
                 <th className="px-3 py-2"></th>
               </tr>
@@ -513,6 +581,67 @@ function CandidatosPage() {
                       </div>
                     )}
                   </td>
+                  <td className="px-3 py-2 align-top max-w-[260px]">
+                    {(() => {
+                      const obs = (r.observacoes ?? "").trim();
+                      const isEditing = editingObsId === r.id;
+                      const updatedAt = r.observacoes_updated_at ? new Date(r.observacoes_updated_at) : null;
+                      const isRecent = updatedAt ? (Date.now() - updatedAt.getTime()) < 3 * 24 * 60 * 60 * 1000 : false;
+                      const truncated = obs.length > 80 ? `${obs.slice(0, 80)}...` : obs;
+                      if (isEditing) {
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <textarea
+                              autoFocus
+                              rows={3}
+                              className="w-full text-xs rounded border border-input bg-background p-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                              value={editingObsValue}
+                              onChange={(e) => setEditingObsValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape") { setEditingObsId(null); }
+                                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { void saveObservacao(r.id, editingObsValue); }
+                              }}
+                              disabled={savingObsId === r.id}
+                            />
+                            <div className="flex gap-1">
+                              <Button size="sm" className="h-6 px-2 text-[11px]" onClick={() => saveObservacao(r.id, editingObsValue)} disabled={savingObsId === r.id}>
+                                {savingObsId === r.id ? "Salvando..." : "Salvar"}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => setEditingObsId(null)} disabled={savingObsId === r.id}>
+                                Cancelar
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className={`group rounded px-1 py-0.5 -mx-1 ${isRecent ? "bg-warning/10 border-l-2 border-warning" : ""}`}>
+                          <div className="flex items-start gap-1">
+                            <span
+                              className={`text-xs leading-tight flex-1 ${obs ? "" : "text-muted-foreground italic"}`}
+                              title={obs || "Sem observações"}
+                            >
+                              {obs ? truncated : "Sem observações"}
+                            </span>
+                            <button
+                              type="button"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
+                              title="Editar observação"
+                              onClick={() => { setEditingObsId(r.id); setEditingObsValue(obs); }}
+                            >
+                              <Pencil className="size-3" />
+                            </button>
+                          </div>
+                          {updatedAt && (
+                            <div className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                              {r.observacoes_updated_by_nome ? `${r.observacoes_updated_by_nome} · ` : ""}
+                              {updatedAt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="px-3 py-2">
                     {r.curriculo_url ? (
                       <div className="flex flex-col gap-1">
@@ -523,15 +652,17 @@ function CandidatosPage() {
                           >
                             <FileText className="size-3.5" /> PDF
                           </button>
-                          <button
-                            onClick={() => handleReprocess(r.id)}
-                            disabled={reprocessing.has(r.id)}
-                            title="Reprocessar (análise profunda) — preenche apenas campos vazios"
-                            className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 disabled:opacity-60"
-                          >
-                            <RefreshCw className={`size-3.5 ${reprocessing.has(r.id) ? "animate-spin" : ""}`} />
-                            Reprocessar
-                          </button>
+                          {role === "admin" && (
+                            <button
+                              onClick={() => handleReprocess(r.id)}
+                              disabled={reprocessing.has(r.id)}
+                              title="Reprocessar (análise profunda) — preenche apenas campos vazios"
+                              className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 disabled:opacity-60"
+                            >
+                              <RefreshCw className={`size-3.5 ${reprocessing.has(r.id) ? "animate-spin" : ""}`} />
+                              Reprocessar
+                            </button>
+                          )}
                         </div>
                         {r.ultimo_reprocessamento_at && (
                           <span className="text-[10px] text-muted-foreground">
@@ -578,7 +709,7 @@ function CandidatosPage() {
               {!filtered.length && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-4 py-10 text-center text-muted-foreground text-sm"
                   >
                     Nenhum candidato. Arraste PDFs acima para começar.

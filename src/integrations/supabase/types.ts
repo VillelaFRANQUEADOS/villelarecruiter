@@ -72,6 +72,9 @@ export type Database = {
           id: string
           nome: string
           observacoes: string | null
+          observacoes_updated_at: string | null
+          observacoes_updated_by: string | null
+          observacoes_updated_by_nome: string | null
           recrutador_id: string | null
           regiao: string | null
           status: Database["public"]["Enums"]["candidato_status"]
@@ -93,6 +96,9 @@ export type Database = {
           id?: string
           nome: string
           observacoes?: string | null
+          observacoes_updated_at?: string | null
+          observacoes_updated_by?: string | null
+          observacoes_updated_by_nome?: string | null
           recrutador_id?: string | null
           regiao?: string | null
           status?: Database["public"]["Enums"]["candidato_status"]
@@ -114,6 +120,9 @@ export type Database = {
           id?: string
           nome?: string
           observacoes?: string | null
+          observacoes_updated_at?: string | null
+          observacoes_updated_by?: string | null
+          observacoes_updated_by_nome?: string | null
           recrutador_id?: string | null
           regiao?: string | null
           status?: Database["public"]["Enums"]["candidato_status"]
