@@ -709,7 +709,7 @@ function CandidatosPage() {
               {!filtered.length && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-4 py-10 text-center text-muted-foreground text-sm"
                   >
                     Nenhum candidato. Arraste PDFs acima para começar.
