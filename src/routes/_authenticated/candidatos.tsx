@@ -453,6 +453,23 @@ function CandidatosPage() {
             options={entrevistadorOptions.map((e) => ({ value: e, label: e }))}
             emptyLabel="Sem entrevistadores"
           />
+          <span className="text-xs font-medium text-muted-foreground ml-2">Observação:</span>
+          <Button
+            size="sm"
+            variant={fObs === "com" ? "default" : "outline"}
+            className="h-8"
+            onClick={() => setFObs(fObs === "com" ? "" : "com")}
+          >
+            Com observação
+          </Button>
+          <Button
+            size="sm"
+            variant={fObs === "sem" ? "default" : "outline"}
+            className="h-8"
+            onClick={() => setFObs(fObs === "sem" ? "" : "sem")}
+          >
+            Sem observação
+          </Button>
           {hasFilters && (
             <Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
           )}
