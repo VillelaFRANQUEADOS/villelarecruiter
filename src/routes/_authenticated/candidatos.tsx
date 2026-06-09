@@ -581,6 +581,67 @@ function CandidatosPage() {
                       </div>
                     )}
                   </td>
+                  <td className="px-3 py-2 align-top max-w-[260px]">
+                    {(() => {
+                      const obs = (r.observacoes ?? "").trim();
+                      const isEditing = editingObsId === r.id;
+                      const updatedAt = r.observacoes_updated_at ? new Date(r.observacoes_updated_at) : null;
+                      const isRecent = updatedAt ? (Date.now() - updatedAt.getTime()) < 3 * 24 * 60 * 60 * 1000 : false;
+                      const truncated = obs.length > 80 ? `${obs.slice(0, 80)}...` : obs;
+                      if (isEditing) {
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <textarea
+                              autoFocus
+                              rows={3}
+                              className="w-full text-xs rounded border border-input bg-background p-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                              value={editingObsValue}
+                              onChange={(e) => setEditingObsValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape") { setEditingObsId(null); }
+                                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { void saveObservacao(r.id, editingObsValue); }
+                              }}
+                              disabled={savingObsId === r.id}
+                            />
+                            <div className="flex gap-1">
+                              <Button size="sm" className="h-6 px-2 text-[11px]" onClick={() => saveObservacao(r.id, editingObsValue)} disabled={savingObsId === r.id}>
+                                {savingObsId === r.id ? "Salvando..." : "Salvar"}
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => setEditingObsId(null)} disabled={savingObsId === r.id}>
+                                Cancelar
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className={`group rounded px-1 py-0.5 -mx-1 ${isRecent ? "bg-warning/10 border-l-2 border-warning" : ""}`}>
+                          <div className="flex items-start gap-1">
+                            <span
+                              className={`text-xs leading-tight flex-1 ${obs ? "" : "text-muted-foreground italic"}`}
+                              title={obs || "Sem observações"}
+                            >
+                              {obs ? truncated : "Sem observações"}
+                            </span>
+                            <button
+                              type="button"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
+                              title="Editar observação"
+                              onClick={() => { setEditingObsId(r.id); setEditingObsValue(obs); }}
+                            >
+                              <Pencil className="size-3" />
+                            </button>
+                          </div>
+                          {updatedAt && (
+                            <div className="mt-0.5 text-[10px] leading-tight text-muted-foreground">
+                              {r.observacoes_updated_by_nome ? `${r.observacoes_updated_by_nome} · ` : ""}
+                              {updatedAt.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="px-3 py-2">
                     {r.curriculo_url ? (
                       <div className="flex flex-col gap-1">
