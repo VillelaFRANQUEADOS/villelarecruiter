@@ -652,15 +652,17 @@ function CandidatosPage() {
                           >
                             <FileText className="size-3.5" /> PDF
                           </button>
-                          <button
-                            onClick={() => handleReprocess(r.id)}
-                            disabled={reprocessing.has(r.id)}
-                            title="Reprocessar (análise profunda) — preenche apenas campos vazios"
-                            className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 disabled:opacity-60"
-                          >
-                            <RefreshCw className={`size-3.5 ${reprocessing.has(r.id) ? "animate-spin" : ""}`} />
-                            Reprocessar
-                          </button>
+                          {role === "admin" && (
+                            <button
+                              onClick={() => handleReprocess(r.id)}
+                              disabled={reprocessing.has(r.id)}
+                              title="Reprocessar (análise profunda) — preenche apenas campos vazios"
+                              className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 disabled:opacity-60"
+                            >
+                              <RefreshCw className={`size-3.5 ${reprocessing.has(r.id) ? "animate-spin" : ""}`} />
+                              Reprocessar
+                            </button>
+                          )}
                         </div>
                         {r.ultimo_reprocessamento_at && (
                           <span className="text-[10px] text-muted-foreground">
