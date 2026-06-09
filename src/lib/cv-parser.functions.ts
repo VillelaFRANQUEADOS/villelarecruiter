@@ -249,7 +249,16 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
     z.object({ candidatoId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    // Permissão: somente administradores podem reprocessar
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleRow) throw new Error("Acesso negado: apenas administradores podem reprocessar currículos.");
+
     const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
 
