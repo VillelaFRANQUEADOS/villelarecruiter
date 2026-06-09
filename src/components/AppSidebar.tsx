@@ -59,7 +59,7 @@ export function AppSidebar() {
       </div>
 
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-        {[...baseItems, ...(role === "admin" ? adminItems : [])].map((it) => {
+        {[...baseItems, ...((role === "admin" || role === "recrutador") ? adminItems : [])].map((it) => {
           const active = path.startsWith(it.to);
 
           return (
