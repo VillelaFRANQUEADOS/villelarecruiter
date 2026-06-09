@@ -124,33 +124,48 @@ function CandidatosPage() {
     return { weekStart: fmt(ws), weekEnd: fmt(we), todayStr: fmt(today) };
   }, []);
 
-  const filtered = useMemo(() => rows.filter(r => {
-    if (fStatus.length && !fStatus.includes(r.status)) return false;
-    if (fRecrutadores.length && !fRecrutadores.includes(r.recrutador_id ?? "")) return false;
-    if (fEstados.length && !fEstados.includes(r.estado ?? "")) return false;
-    if (fCidades.length && !fCidades.includes((r.cidade ?? "").trim())) return false;
-    if (fromTs || toTs) {
-      const t = new Date(r.created_at).getTime();
-      if (fromTs && t < fromTs) return false;
-      if (toTs && t > toTs) return false;
+  const filtered = useMemo(() => {
+    const out = rows.filter(r => {
+      if (fStatus.length && !fStatus.includes(r.status)) return false;
+      if (fRecrutadores.length && !fRecrutadores.includes(r.recrutador_id ?? "")) return false;
+      if (fEstados.length && !fEstados.includes(r.estado ?? "")) return false;
+      if (fCidades.length && !fCidades.includes((r.cidade ?? "").trim())) return false;
+      if (fromTs || toTs) {
+        const t = new Date(r.created_at).getTime();
+        if (fromTs && t < fromTs) return false;
+        if (toTs && t > toTs) return false;
+      }
+      if (fEntrevistaData && r.data_entrevista !== fEntrevistaData) return false;
+      if (fEntrevistadores.length && !fEntrevistadores.includes((r.entrevistador ?? "").trim())) return false;
+      if (fEntrevistaQuando === "hoje") {
+        if (r.data_entrevista !== todayStr) return false;
+      } else if (fEntrevistaQuando === "semana") {
+        if (!r.data_entrevista || r.data_entrevista < weekStart || r.data_entrevista > weekEnd) return false;
+      }
+      if (fObs === "com" && !(r.observacoes && r.observacoes.trim())) return false;
+      if (fObs === "sem" && r.observacoes && r.observacoes.trim()) return false;
+      if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
+      if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
+      if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
+      if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
+      return true;
+    });
+    if (obsSort !== "none") {
+      const dir = obsSort === "asc" ? 1 : -1;
+      out.sort((a, b) => {
+        const av = (a.observacoes ?? "").trim().toLowerCase();
+        const bv = (b.observacoes ?? "").trim().toLowerCase();
+        if (!av && !bv) return 0;
+        if (!av) return 1; // vazios sempre no fim
+        if (!bv) return -1;
+        return av.localeCompare(bv, "pt-BR") * dir;
+      });
     }
-    // Filtros de entrevista (usam data_entrevista, não status)
-    if (fEntrevistaData && r.data_entrevista !== fEntrevistaData) return false;
-    if (fEntrevistadores.length && !fEntrevistadores.includes((r.entrevistador ?? "").trim())) return false;
-    if (fEntrevistaQuando === "hoje") {
-      if (r.data_entrevista !== todayStr) return false;
-    } else if (fEntrevistaQuando === "semana") {
-      if (!r.data_entrevista || r.data_entrevista < weekStart || r.data_entrevista > weekEnd) return false;
-    }
-    if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
-    if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
-    if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
-    if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
-    return true;
-  }), [rows, fNome, fTelefone, fEmail, fVaga, fStatus, fRecrutadores, fEstados, fCidades, fromTs, toTs, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, todayStr, weekStart, weekEnd]);
+    return out;
+  }, [rows, fNome, fTelefone, fEmail, fVaga, fStatus, fRecrutadores, fEstados, fCidades, fromTs, toTs, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, todayStr, weekStart, weekEnd, fObs, obsSort]);
 
   const hasFilters =
-    !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando) ||
+    !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando || fObs) ||
     fStatus.length > 0 || fRecrutadores.length > 0 || fEstados.length > 0 || fCidades.length > 0 ||
     fEntrevistadores.length > 0;
 
@@ -159,6 +174,21 @@ function CandidatosPage() {
     setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]);
     setFDateFrom(""); setFDateTo("");
     setFEntrevistaData(""); setFEntrevistadores([]); setFEntrevistaQuando("");
+    setFObs("");
+  }
+
+  async function saveObservacao(id: string, value: string) {
+    setSavingObsId(id);
+    const newVal = value.trim() ? value : null;
+    const { error } = await supabase.from("candidatos").update({ observacoes: newVal }).eq("id", id);
+    setSavingObsId(null);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Observação atualizada");
+      setEditingObsId(null);
+      invalidateAtsQueries(queryClient);
+    }
   }
 
 
