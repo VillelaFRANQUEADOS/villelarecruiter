@@ -68,6 +68,16 @@ function CandidatosPage() {
   const [fEntrevistadores, setFEntrevistadores] = useState<string[]>([]);
   const [fEntrevistaQuando, setFEntrevistaQuando] = useState<"" | "hoje" | "semana">("");
 
+  // Filtro de observação
+  const [fObs, setFObs] = useState<"" | "com" | "sem">("");
+  // Ordenação por observação
+  const [obsSort, setObsSort] = useState<"none" | "asc" | "desc">("none");
+
+  // Edição inline de observação
+  const [editingObsId, setEditingObsId] = useState<string | null>(null);
+  const [editingObsValue, setEditingObsValue] = useState<string>("");
+  const [savingObsId, setSavingObsId] = useState<string | null>(null);
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [agendarOpen, setAgendarOpen] = useState(false);
   const [agendarTarget, setAgendarTarget] = useState<{
