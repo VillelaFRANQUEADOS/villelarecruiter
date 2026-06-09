@@ -186,8 +186,7 @@ function CandidatosPage() {
       toast.error(error.message);
     } else {
       toast.success("Observação atualizada");
-      setEditingObsId(null);
-      invalidateAtsQueries(queryClient);
+setEditingObsId(null);
     }
   }
 
