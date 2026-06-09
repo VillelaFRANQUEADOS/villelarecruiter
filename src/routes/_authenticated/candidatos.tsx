@@ -515,6 +515,17 @@ function CandidatosPage() {
 
                 <th className="text-left px-3 py-2 font-medium">Recrutador</th>
                 <th className="text-left px-3 py-2 font-medium">Status</th>
+                <th className="text-left px-3 py-2 font-medium">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => setObsSort(obsSort === "none" ? "asc" : obsSort === "asc" ? "desc" : "none")}
+                    title="Ordenar por observação"
+                  >
+                    Observação
+                    <span className="text-[10px]">{obsSort === "asc" ? "▲" : obsSort === "desc" ? "▼" : "↕"}</span>
+                  </button>
+                </th>
                 <th className="text-left px-3 py-2 font-medium">CV</th>
                 <th className="px-3 py-2"></th>
               </tr>
