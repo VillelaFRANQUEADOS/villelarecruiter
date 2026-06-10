@@ -39,6 +39,20 @@ function extractEmailFromText(text: string): string {
   return m ? m[0] : "";
 }
 
+function extractCityFromText(text: string): string {
+  if (!text) return "";
+
+  const match = text.match(
+    /([A-Za-zÀ-ÿ\s]+)\s*-\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)/
+  );
+
+  if (!match) return "";
+
+  return match[1]
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const UF_NAMES: Record<string, string> = {
   "acre":"AC","alagoas":"AL","amapa":"AP","amapá":"AP","amazonas":"AM","bahia":"BA",
   "ceara":"CE","ceará":"CE","distrito federal":"DF","espirito santo":"ES","espírito santo":"ES",
@@ -119,18 +133,19 @@ if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
     const hasText = cvText.replace(/\s/g, "").length >= 80;
     const hasImages = images.length > 0;
 
-    const regexEmail = extractEmailFromText(cvText);
+   const regexEmail = extractEmailFromText(cvText);
 const regexTelefone = extractPhoneFromText(cvText);
 const regexEstado = extractUfFromText(cvText);
+const regexCidade = extractCityFromText(cvText);
     
     if (regexEmail || regexTelefone) {
-  extracted = {
-    nome: cleanFileName(data.fileName),
-    telefone: regexTelefone,
-    email: regexEmail,
-    cidade: "",
-    estado: regexEstado,
-  };
+ extracted = {
+  nome: cleanFileName(data.fileName),
+  telefone: regexTelefone,
+  email: regexEmail,
+  cidade: regexCidade,
+  estado: regexEstado,
+};
 } else if (hasText || hasImages) {
   try {
     const model = google("gemini-2.5-flash");
