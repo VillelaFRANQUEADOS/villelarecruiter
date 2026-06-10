@@ -119,14 +119,26 @@ if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
     const hasText = cvText.replace(/\s/g, "").length >= 80;
     const hasImages = images.length > 0;
 
-    if (hasText || hasImages) {
-      try {
-        const model = google("gemini-2.5-flash");
+    const regexEmail = extractEmailFromText(cvText);
+const regexTelefone = extractPhoneFromText(cvText);
+const regexEstado = extractUfFromText(cvText);
+    
+    if (regexEmail || regexTelefone) {
+  extracted = {
+    nome: cleanFileName(data.fileName),
+    telefone: regexTelefone,
+    email: regexEmail,
+    cidade: "",
+    estado: regexEstado,
+  };
+} else if (hasText || hasImages) {
+  try {
+    const model = google("gemini-2.5-flash");
 
-        const userContent: Array<
-          | { type: "text"; text: string }
-          | { type: "image"; image: string }
-        > = [{ type: "text", text: STRICT_PROMPT }];
+    const userContent: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; image: string }
+    > = [{ type: "text", text: STRICT_PROMPT }];
 
         if (hasText) {
           userContent.push({ type: "text", text: `CURRÍCULO (texto extraído):\n${cvText}` });
