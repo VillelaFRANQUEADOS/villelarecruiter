@@ -42,15 +42,59 @@ function extractEmailFromText(text: string): string {
 function extractCityFromText(text: string): string {
   if (!text) return "";
 
-  const match = text.match(
-    /([A-Za-zÀ-ÿ\s]+)\s*-\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)/
+  const matches = text.matchAll(
+    /([A-Za-zÀ-ÿ]{2,}(?:\s+[A-Za-zÀ-ÿ]{2,}){0,4})\s*-\s*(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)/g
   );
 
-  if (!match) return "";
+  for (const match of matches) {
+    const cidade = match[1].trim();
 
-  return match[1]
-    .replace(/\s+/g, " ")
-    .trim();
+    if (
+      cidade.length > 2 &&
+      !cidade.toLowerCase().includes("rua") &&
+      !cidade.toLowerCase().includes("avenida") &&
+      !cidade.toLowerCase().includes("av ")
+    ) {
+      return cidade;
+    }
+  }
+
+  return "";
+}
+
+function extractNameFromText(text: string): string {
+  if (!text) return "";
+
+  const linhas = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 50);
+
+  for (const linha of linhas) {
+    if (
+      linha.includes("@") ||
+      /\d{8,}/.test(linha) ||
+      linha.toLowerCase().includes("linkedin") ||
+      linha.toLowerCase().includes("currículo") ||
+      linha.toLowerCase().includes("curriculum") ||
+      linha.toLowerCase().includes("dados pessoais")
+    ) {
+      continue;
+    }
+
+    const palavras = linha.split(/\s+/);
+
+    if (
+      palavras.length >= 2 &&
+      palavras.length <= 5 &&
+      palavras.every((p) => /^[A-ZÀ-Ý][a-zà-ÿ]+$/u.test(p))
+    ) {
+      return linha;
+    }
+  }
+
+  return "";
 }
 
 const UF_NAMES: Record<string, string> = {
@@ -133,14 +177,15 @@ if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
     const hasText = cvText.replace(/\s/g, "").length >= 80;
     const hasImages = images.length > 0;
 
-   const regexEmail = extractEmailFromText(cvText);
+const regexEmail = extractEmailFromText(cvText);
 const regexTelefone = extractPhoneFromText(cvText);
 const regexEstado = extractUfFromText(cvText);
 const regexCidade = extractCityFromText(cvText);
+const regexNome = extractNameFromText(cvText);
     
     if (regexEmail || regexTelefone) {
  extracted = {
-  nome: cleanFileName(data.fileName),
+nome: regexNome || cleanFileName(data.fileName),
   telefone: regexTelefone,
   email: regexEmail,
   cidade: regexCidade,
