@@ -41,7 +41,7 @@ function CandidatosPage() {
   const { role, user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const pageSize = 100;
+  const pageSize = 1000;
   const { data: candidatosPage, isFetching } = useCandidatosQuery(page, pageSize);
   const rows = useMemo(() => candidatosPage?.candidatos ?? [], [candidatosPage]);
   const total = candidatosPage?.total ?? 0;
