@@ -37,6 +37,9 @@ async function fetchCandidatos(page: number, pageSize: number): Promise<Candidat
 
   const allRows = ((data ?? []) as unknown) as CandidatoRow[];
 
+  console.log("TOTAL RECEBIDO:", allRows.length);
+console.log("COUNT:", count);
+  
   return {
     candidatos: allRows,
     total: count ?? allRows.length,
