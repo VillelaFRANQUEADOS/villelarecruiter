@@ -21,128 +21,63 @@ export const ATS_QUERY_KEYS = {
 };
 
 const CANDIDATOS_SELECT = [
-  "id",
-  "nome",
-  "telefone",
-  "cidade",
-  "estado",
-  "regiao",
-
-  "vaga",
-  "email",
-  "experiencias",
-  "observacoes",
-  "observacoes_updated_at",
-  "observacoes_updated_by",
-  "observacoes_updated_by_nome",
-  "status",
-  "curriculo_url",
-  "recrutador_id",
-  "created_at",
-  "data_entrevista",
-  "horario_entrevista",
-  "entrevistador",
-  "ultimo_reprocessamento_at",
+  "id","nome","telefone","cidade","estado","regiao","vaga","email","experiencias","observacoes","observacoes_updated_at","observacoes_updated_by","observacoes_updated_by_nome","status","curriculo_url","recrutador_id","created_at","data_entrevista","horario_entrevista","entrevistador","ultimo_reprocessamento_at",
 ].join(",");
 
-export interface CandidatosPage {
-  candidatos: CandidatoRow[];
-  total: number;
-}
+export interface CandidatosPage { candidatos: CandidatoRow[]; total: number; }
 
 async function fetchCandidatos(page: number, pageSize: number): Promise<CandidatosPage> {
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
   const { data, error, count } = await supabase
     .from("candidatos")
     .select(CANDIDATOS_SELECT, { count: "exact" })
     .order("created_at", { ascending: false })
-    .range(from, to);
+    .range(0, 4999);
 
   if (error) throw error;
+
+  const allRows = ((data ?? []) as unknown) as CandidatoRow[];
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize;
+
   return {
-    candidatos: ((data ?? []) as unknown) as CandidatoRow[],
-    total: count ?? 0,
+    candidatos: allRows.slice(from, to),
+    total: count ?? allRows.length,
   };
 }
 
 async function fetchProfilesLite() {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id,nome");
-
+  const { data, error } = await supabase.from("profiles").select("id,nome");
   if (error) throw error;
   return (data ?? []) as ProfileLite[];
 }
 
 export function useCandidatosQuery(page: number, pageSize: number) {
-  return useQuery({
-    queryKey: [...ATS_QUERY_KEYS.candidatos, page, pageSize],
-    queryFn: () => fetchCandidatos(page, pageSize),
-    placeholderData: keepPreviousData,
-    staleTime: 60_000,
-    gcTime: 10 * 60_000,
-    refetchOnWindowFocus: false,
-  });
+  return useQuery({ queryKey: [...ATS_QUERY_KEYS.candidatos, page, pageSize], queryFn: () => fetchCandidatos(page, pageSize), placeholderData: keepPreviousData, staleTime: 60000, gcTime: 10 * 60000, refetchOnWindowFocus: false });
 }
 
 export function useProfilesLiteQuery() {
-  return useQuery({
-    queryKey: ATS_QUERY_KEYS.profilesLite,
-    queryFn: fetchProfilesLite,
-    staleTime: 10 * 60_000,
-    gcTime: 30 * 60_000,
-    refetchOnWindowFocus: false,
-  });
+  return useQuery({ queryKey: ATS_QUERY_KEYS.profilesLite, queryFn: fetchProfilesLite, staleTime: 10 * 60000, gcTime: 30 * 60000, refetchOnWindowFocus: false });
 }
 
 export function useLatestStatusChangesQuery() {
-  return useQuery({
-    queryKey: ATS_QUERY_KEYS.latestStatusChanges,
-    queryFn: async () => {
-      const { data, error } = await (supabase as unknown as {
-        from: (t: string) => {
-          select: (s: string) => {
-            order: (c: string, o: { ascending: boolean }) => {
-              limit: (n: number) => Promise<{ data: LatestStatusChange[] | null; error: unknown }>;
-            };
-          };
-        };
-      })
-        .from("candidato_status_log")
-        .select("candidato_id,changed_by_nome,created_at")
-        .order("created_at", { ascending: false })
-        .limit(2000);
-      if (error) throw error;
-      const map = new Map<string, LatestStatusChange>();
-      for (const row of data ?? []) {
-        if (!map.has(row.candidato_id)) map.set(row.candidato_id, row);
-      }
-      return map;
-    },
-    staleTime: 30_000,
-    gcTime: 10 * 60_000,
-    refetchOnWindowFocus: false,
-  });
+  return useQuery({ queryKey: ATS_QUERY_KEYS.latestStatusChanges, queryFn: async () => {
+    const { data, error } = await (supabase as unknown as { from: (t: string) => { select: (s: string) => { order: (c: string, o: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: LatestStatusChange[] | null; error: unknown }> } } } })
+      .from("candidato_status_log").select("candidato_id,changed_by_nome,created_at").order("created_at", { ascending: false }).limit(2000);
+    if (error) throw error;
+    const map = new Map<string, LatestStatusChange>();
+    for (const row of data ?? []) if (!map.has(row.candidato_id)) map.set(row.candidato_id, row);
+    return map;
+  }, staleTime: 30000, gcTime: 10 * 60000, refetchOnWindowFocus: false });
 }
 
 export function useCandidatosRealtime() {
   const queryClient = useQueryClient();
-
   useEffect(() => {
-    const channel = supabase
-      .channel("candidatos-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "candidatos" }, () => {
-        void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.candidatos });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "candidato_status_log" }, () => {
-        void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.latestStatusChanges });
-      })
+    const channel = supabase.channel("candidatos-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "candidatos" }, () => { void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.candidatos }); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "candidato_status_log" }, () => { void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.latestStatusChanges }); })
       .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    return () => { void supabase.removeChannel(channel); };
   }, [queryClient]);
 }
 
