@@ -36,11 +36,9 @@ async function fetchCandidatos(page: number, pageSize: number): Promise<Candidat
   if (error) throw error;
 
   const allRows = ((data ?? []) as unknown) as CandidatoRow[];
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize;
 
   return {
-    candidatos: allRows.slice(from, to),
+    candidatos: allRows,
     total: count ?? allRows.length,
   };
 }
