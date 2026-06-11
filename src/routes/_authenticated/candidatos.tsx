@@ -44,6 +44,7 @@ function CandidatosPage() {
   const pageSize = 1000;
   const { data: candidatosPage, isFetching } = useCandidatosQuery(page, pageSize);
   const rows = useMemo(() => candidatosPage?.candidatos ?? [], [candidatosPage]);
+  console.log("ROWS:", rows.length);
   const total = candidatosPage?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const { data: profiles = [] } = useProfilesLiteQuery();
@@ -170,6 +171,7 @@ function CandidatosPage() {
         return av.localeCompare(bv, "pt-BR") * dir;
       });
     }
+    console.log("FILTERED:", out.length);
     return out;
   }, [rows, fNome, fTelefone, fEmail, fVaga, fStatus, fRecrutadores, fEstados, fCidades, fromTs, toTs, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, todayStr, weekStart, weekEnd, fObs, obsSort]);
 
