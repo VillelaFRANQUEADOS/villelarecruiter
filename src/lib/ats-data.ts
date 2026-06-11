@@ -27,22 +27,41 @@ const CANDIDATOS_SELECT = [
 export interface CandidatosPage { candidatos: CandidatoRow[]; total: number; }
 
 async function fetchCandidatos(page: number, pageSize: number): Promise<CandidatosPage> {
-  const { data, error, count } = await supabase
-    .from("candidatos")
-    .select(CANDIDATOS_SELECT, { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(0, 4999);
+  const chunkSize = 1000;
+  let from = 0;
+  let totalCount = 0;
+  const allRows: CandidatoRow[] = [];
 
-  if (error) throw error;
+  while (true) {
+    const { data, error, count } = await supabase
+      .from("candidatos")
+      .select(CANDIDATOS_SELECT, { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(from, from + chunkSize - 1);
 
-  const allRows = ((data ?? []) as unknown) as CandidatoRow[];
+    if (error) throw error;
+
+    if (from === 0) {
+      totalCount = count ?? 0;
+    }
+
+    const rows = ((data ?? []) as unknown) as CandidatoRow[];
+
+    allRows.push(...rows);
+
+    if (rows.length < chunkSize) {
+      break;
+    }
+
+    from += chunkSize;
+  }
 
   console.log("TOTAL RECEBIDO:", allRows.length);
-console.log("COUNT:", count);
-  
+  console.log("COUNT:", totalCount);
+
   return {
     candidatos: allRows,
-    total: count ?? allRows.length,
+    total: totalCount,
   };
 }
 
