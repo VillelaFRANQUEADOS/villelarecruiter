@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { CandidatoRow } from "@/lib/auth";
 
@@ -45,15 +45,25 @@ const CANDIDATOS_SELECT = [
   "ultimo_reprocessamento_at",
 ].join(",");
 
-async function fetchCandidatos() {
-  const { data, error } = await supabase
+export interface CandidatosPage {
+  candidatos: CandidatoRow[];
+  total: number;
+}
+
+async function fetchCandidatos(page: number, pageSize: number): Promise<CandidatosPage> {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  const { data, error, count } = await supabase
     .from("candidatos")
-    .select(CANDIDATOS_SELECT)
+    .select(CANDIDATOS_SELECT, { count: "exact" })
     .order("created_at", { ascending: false })
-    .range(0, 4999);
+    .range(from, to);
 
   if (error) throw error;
-  return ((data ?? []) as unknown) as CandidatoRow[];
+  return {
+    candidatos: ((data ?? []) as unknown) as CandidatoRow[],
+    total: count ?? 0,
+  };
 }
 
 async function fetchProfilesLite() {
@@ -65,10 +75,11 @@ async function fetchProfilesLite() {
   return (data ?? []) as ProfileLite[];
 }
 
-export function useCandidatosQuery() {
+export function useCandidatosQuery(page: number, pageSize: number) {
   return useQuery({
-    queryKey: ATS_QUERY_KEYS.candidatos,
-    queryFn: fetchCandidatos,
+    queryKey: [...ATS_QUERY_KEYS.candidatos, page, pageSize],
+    queryFn: () => fetchCandidatos(page, pageSize),
+    placeholderData: keepPreviousData,
     staleTime: 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,

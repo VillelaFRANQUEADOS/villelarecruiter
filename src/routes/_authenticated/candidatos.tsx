@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getCurriculoContent } from "@/lib/curriculos.functions";
 import { reprocessCandidato } from "@/lib/cv-parser.functions";
@@ -40,7 +40,12 @@ export const Route = createFileRoute("/_authenticated/candidatos")({
 function CandidatosPage() {
   const { role, user } = useAuth();
   const queryClient = useQueryClient();
-  const { data: rows = [] } = useCandidatosQuery();
+  const [page, setPage] = useState(1);
+  const pageSize = 100;
+  const { data: candidatosPage, isFetching } = useCandidatosQuery(page, pageSize);
+  const rows = useMemo(() => candidatosPage?.candidatos ?? [], [candidatosPage]);
+  const total = candidatosPage?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const { data: profiles = [] } = useProfilesLiteQuery();
   const { data: latestStatusMap } = useLatestStatusChangesQuery();
   const fetchCv = useServerFn(getCurriculoContent);
@@ -86,6 +91,10 @@ function CandidatosPage() {
     initial?: { data_entrevista: string; horario_entrevista: string; entrevistador: string };
   } | null>(null);
   useCandidatosRealtime();
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const profMap = useMemo(() => new Map(profiles.map(p => [p.id, p.nome])), [profiles]);
 
@@ -203,7 +212,7 @@ setEditingObsId(null);
   }
 
   async function handleDeleteAll() {
-    const txt = prompt(`Excluir TODOS os ${rows.length} candidatos? Digite EXCLUIR para confirmar.`);
+    const txt = prompt(`Excluir TODOS os ${total} candidatos? Digite EXCLUIR para confirmar.`);
     if (txt !== "EXCLUIR") return;
     const { error } = await supabase.from("candidatos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     if (error) toast.error(error.message);
@@ -327,7 +336,8 @@ setEditingObsId(null);
   function toggle(id: string) {
     setSelected((s) => {
       const n = new Set(s);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
       return n;
     });
   }
@@ -339,10 +349,12 @@ setEditingObsId(null);
       <header className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Candidatos</h1>
-          <p className="text-xs text-muted-foreground">{filtered.length} de {rows.length}</p>
+          <p className="text-xs text-muted-foreground">
+            {filtered.length} nesta página · {total} no total
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          {role === "admin" && rows.length > 0 && (
+          {role === "admin" && total > 0 && (
             <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={handleDeleteAll}>
               <Trash2 className="size-3.5 mr-1" /> Excluir todos
             </Button>
@@ -719,6 +731,37 @@ setEditingObsId(null);
           </table>
         </div>
       </Card>
+
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-muted-foreground">
+          {total > 0
+            ? `Exibindo ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} de ${total}`
+            : "Nenhum candidato"}
+        </p>
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={page === 1 || isFetching}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            Anterior
+          </Button>
+          <span className="min-w-28 text-center text-sm text-muted-foreground">
+            Página {page} de {totalPages}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={page >= totalPages || isFetching}
+            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+          >
+            Próxima
+          </Button>
+        </div>
+      </div>
 
       <Suspense fallback={null}>
         <CandidatoEditDialog

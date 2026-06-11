@@ -14,7 +14,8 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 
 function DashboardPage() {
-  const { data: rows = [] } = useCandidatosQuery();
+  const { data: candidatosPage } = useCandidatosQuery(1, 5000);
+  const rows = useMemo(() => candidatosPage?.candidatos ?? [], [candidatosPage]);
   const { data: profiles = [] } = useProfilesLiteQuery();
   const { user, role } = useAuth();
   useCandidatosRealtime();
