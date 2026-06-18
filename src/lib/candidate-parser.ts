@@ -215,7 +215,7 @@ export function calculateNameScore(line: string, lineIndex: number, totalLines: 
   const words = line.split(/\s+/).filter(Boolean);
   if (words.length < 2 || words.length > 5) return 0;
 
-  const CONNECTORS = new Set([   "de",   "da",   "do",   "das",   "dos",   "e" ]);  const allLetters = words.every((w) => {     const lower = w.toLowerCase();      if (CONNECTORS.has(lower)) {         return true;     }      return /^[A-Za-zÀ-ÿ]+$/.test(w); });
+  const allLetters = words.every((w) => /^[A-Za-zÀ-ÿ]+$/.test(w));
   if (!allLetters) return 0;
 
   const allCapitalized = words.every((w) =>
@@ -294,36 +294,7 @@ export function normalizePhone(raw: string): string {
 }
 
 // ─── Função principal ─────────────────────────────────────────────────────────
-function findHeaderEnd(lines: string[]): number {
-  const markers = [
-    "resumo",
-    "summary",
-    "objetivo",
-    "objective",
-    "experiência",
-    "experiencia",
-    "experience",
-    "formação",
-    "formacao",
-    "education",
-    "histórico profissional",
-    "historico profissional",
-    "professional experience"
-  ];
 
-  for (let i = 0; i < Math.min(lines.length, 40); i++) {
-    const line = lines[i]
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-
-    if (markers.some(marker => line.includes(marker))) {
-      return i;
-    }
-  }
-
-  return Math.min(lines.length, 20);
-}
 export function extractCandidateIdentity(text: string): CandidateIdentity {
   if (!text || text.replace(/\s/g, "").length < 5) {
     return { nome: "", telefone: "", cidade: "", estado: "", confidence: 0 };
@@ -331,29 +302,9 @@ export function extractCandidateIdentity(text: string): CandidateIdentity {
 
   const lines = normalizeLines(text);
 
-const headerEnd = findHeaderEnd(lines);
-
-// Analisa apenas o cabeçalho
-const headerLines = lines.slice(0, headerEnd + 5);
-
-let phones = findPhones(headerLines);
-let cities = findCities(headerLines);
-let names = findNames(headerLines);
-  
-  // Se não encontrou no cabeçalho,
-// procura no documento inteiro.
-
-if (phones.length === 0) {
-    phones = findPhones(lines);
-}
-
-if (cities.length === 0) {
-    cities = findCities(lines);
-}
-
-if (names.length === 0) {
-    names = findNames(lines);
-}
+  const phones = findPhones(lines);
+  const cities = findCities(lines);
+  const names = findNames(lines);
 
   // Melhor telefone = maior score (considera posição no topo)
   const bestPhone =
