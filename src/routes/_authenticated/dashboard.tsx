@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { STATUS_LABELS, STATUS_TONE, useAuth } from "@/lib/auth";
 import {
-  useCandidatosQuery,
+  useAllCandidatosQuery,
   useCandidatosRealtime,
   useProfilesLiteQuery,
 } from "@/lib/ats-data";
@@ -29,11 +29,7 @@ const WEEK_MS = 7 * DAY_MS;
 const MONTH_MS = 30 * DAY_MS;
 
 function DashboardPage() {
-  const { data: candidatosPage } = useCandidatosQuery(1, 5000, {});
-  const rows = useMemo(
-    () => candidatosPage?.candidatos ?? [],
-    [candidatosPage],
-  );
+  const { data: rows = [] } = useAllCandidatosQuery();
   const { data: profiles = [] } = useProfilesLiteQuery();
   const { user, role } = useAuth();
   useCandidatosRealtime();
