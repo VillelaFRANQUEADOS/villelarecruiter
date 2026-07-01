@@ -23,9 +23,11 @@ import { MultiSelect } from "@/components/MultiSelect";
 import {
   invalidateAtsQueries,
   useCandidatosQuery,
+  useCandidatosOptionsQuery,
   useCandidatosRealtime,
   useLatestStatusChangesQuery,
   useProfilesLiteQuery,
+  type CandidatosFilters,
 } from "@/lib/ats-data";
 import { toast } from "sonner";
 
