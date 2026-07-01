@@ -43,14 +43,10 @@ function CandidatosPage() {
   const { role, user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const pageSize = 1000;
-  const { data: candidatosPage, isFetching } = useCandidatosQuery(page, pageSize);
-  const rows = useMemo(() => candidatosPage?.candidatos ?? [], [candidatosPage]);
-  console.log("ROWS:", rows.length);
-  const total = candidatosPage?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const [pageSize, setPageSize] = useState<number>(20);
   const { data: profiles = [] } = useProfilesLiteQuery();
   const { data: latestStatusMap } = useLatestStatusChangesQuery();
+  const { data: options } = useCandidatosOptionsQuery();
   const fetchCv = useServerFn(getCurriculoContent);
   const reprocessFn = useServerFn(reprocessCandidato);
   const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
@@ -95,34 +91,10 @@ function CandidatosPage() {
   } | null>(null);
   useCandidatosRealtime();
 
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
-
   const profMap = useMemo(() => new Map(profiles.map(p => [p.id, p.nome])), [profiles]);
 
-  // Cidades disponíveis vindas dos candidatos atuais
-  const cidadeOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of rows) {
-      const c = (r.cidade || "").trim();
-      if (c) set.add(c);
-    }
-    return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [rows]);
-
-  const entrevistadorOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of rows) {
-      const e = (r.entrevistador || "").trim();
-      if (e) set.add(e);
-    }
-    return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [rows]);
-
-  const norm = (s: string | null | undefined) => (s ?? "").toLowerCase();
-  const fromTs = fDateFrom ? new Date(fDateFrom + "T00:00:00").getTime() : null;
-  const toTs = fDateTo ? new Date(fDateTo + "T23:59:59").getTime() : null;
+  const cidadeOptions = options?.cidades ?? [];
+  const entrevistadorOptions = options?.entrevistadores ?? [];
 
   // Janela hoje / semana (segunda a domingo, horário local)
   const { weekStart, weekEnd, todayStr } = useMemo(() => {
@@ -136,51 +108,56 @@ function CandidatosPage() {
     return { weekStart: fmt(ws), weekEnd: fmt(we), todayStr: fmt(today) };
   }, []);
 
-  const filtered = useMemo(() => {
-    const out = rows.filter(r => {
-      if (fStatus.length && !fStatus.includes(r.status)) return false;
-      if (fRecrutadores.length && !fRecrutadores.includes(r.recrutador_id ?? "")) return false;
-      if (fEstados.length && !fEstados.includes(r.estado ?? "")) return false;
-      if (fCidades.length && !fCidades.includes((r.cidade ?? "").trim())) return false;
-      if (fromTs || toTs) {
-        const t = new Date(r.created_at).getTime();
-        if (fromTs && t < fromTs) return false;
-        if (toTs && t > toTs) return false;
-      }
-      if (fEntrevistaData && r.data_entrevista !== fEntrevistaData) return false;
-      if (fEntrevistadores.length && !fEntrevistadores.includes((r.entrevistador ?? "").trim())) return false;
-      if (fEntrevistaQuando === "hoje") {
-        if (r.data_entrevista !== todayStr) return false;
-      } else if (fEntrevistaQuando === "semana") {
-        if (!r.data_entrevista || r.data_entrevista < weekStart || r.data_entrevista > weekEnd) return false;
-      }
-      if (fObs === "com" && !(r.observacoes && r.observacoes.trim())) return false;
-      if (fObs === "sem" && r.observacoes && r.observacoes.trim()) return false;
-      if (fNome && !norm(r.nome).includes(fNome.toLowerCase())) return false;
-      if (fTelefone && !norm(r.telefone).includes(fTelefone.toLowerCase())) return false;
-      if (fEmail && !norm(r.email).includes(fEmail.toLowerCase())) return false;
-      if (fVaga && !norm(r.vaga).includes(fVaga.toLowerCase())) return false;
-      return true;
-    });
-    if (obsSort !== "none") {
-      const dir = obsSort === "asc" ? 1 : -1;
-      out.sort((a, b) => {
-        const av = (a.observacoes ?? "").trim().toLowerCase();
-        const bv = (b.observacoes ?? "").trim().toLowerCase();
-        if (!av && !bv) return 0;
-        if (!av) return 1; // vazios sempre no fim
-        if (!bv) return -1;
-        return av.localeCompare(bv, "pt-BR") * dir;
-      });
-    }
-    console.log("FILTERED:", out.length);
-    return out;
-  }, [rows, fNome, fTelefone, fEmail, fVaga, fStatus, fRecrutadores, fEstados, fCidades, fromTs, toTs, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, todayStr, weekStart, weekEnd, fObs, obsSort]);
+  // Debounce dos filtros de texto para evitar consulta a cada tecla.
+  const [debNome, setDebNome] = useState(fNome);
+  const [debTelefone, setDebTelefone] = useState(fTelefone);
+  const [debEmail, setDebEmail] = useState(fEmail);
+  const [debVaga, setDebVaga] = useState(fVaga);
+  useEffect(() => { const t = setTimeout(() => setDebNome(fNome), 300); return () => clearTimeout(t); }, [fNome]);
+  useEffect(() => { const t = setTimeout(() => setDebTelefone(fTelefone), 300); return () => clearTimeout(t); }, [fTelefone]);
+  useEffect(() => { const t = setTimeout(() => setDebEmail(fEmail), 300); return () => clearTimeout(t); }, [fEmail]);
+  useEffect(() => { const t = setTimeout(() => setDebVaga(fVaga), 300); return () => clearTimeout(t); }, [fVaga]);
+
+  const filters: CandidatosFilters = useMemo(() => ({
+    nome: debNome,
+    telefone: debTelefone,
+    email: debEmail,
+    vaga: debVaga,
+    status: fStatus,
+    recrutadores: fRecrutadores,
+    estados: fEstados,
+    cidades: fCidades,
+    dateFrom: fDateFrom,
+    dateTo: fDateTo,
+    entrevistaData: fEntrevistaData,
+    entrevistadores: fEntrevistadores,
+    entrevistaQuando: fEntrevistaQuando,
+    obs: fObs,
+    obsSort,
+    todayStr,
+    weekStart,
+    weekEnd,
+  }), [debNome, debTelefone, debEmail, debVaga, fStatus, fRecrutadores, fEstados, fCidades, fDateFrom, fDateTo, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, fObs, obsSort, todayStr, weekStart, weekEnd]);
+
+  const { data: candidatosPage, isFetching } = useCandidatosQuery(page, pageSize, filters);
+  const rows = useMemo(() => candidatosPage?.candidatos ?? [], [candidatosPage]);
+  const total = candidatosPage?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // Voltar para a página 1 sempre que filtros, ordenação ou tamanho mudarem.
+  useEffect(() => { setPage(1); }, [filters, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const filtered = rows;
 
   const hasFilters =
     !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando || fObs) ||
     fStatus.length > 0 || fRecrutadores.length > 0 || fEstados.length > 0 || fCidades.length > 0 ||
     fEntrevistadores.length > 0;
+
 
   function clearFilters() {
     setFNome(""); setFTelefone(""); setFEmail(""); setFVaga("");
