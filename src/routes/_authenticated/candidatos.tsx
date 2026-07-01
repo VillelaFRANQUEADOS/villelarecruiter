@@ -482,8 +482,13 @@ setEditingObsId(null);
       </Card>
 
 
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
+      <Card className="overflow-hidden relative">
+        {isFetching && (
+          <div className="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary/20 overflow-hidden">
+            <div className="h-full w-1/3 bg-primary animate-pulse" />
+          </div>
+        )}
+        <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
           <table className="w-full text-sm">
             <thead className="bg-accent/30 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
