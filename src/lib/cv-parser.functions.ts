@@ -4,8 +4,16 @@ import { google } from "@ai-sdk/google";
 import { uploadPdfToDrive } from "@/lib/curriculos.functions";
 import { generateObject } from "ai";
 import { z } from "zod";
+import {
+  extractName as parserExtractName,
+  extractPhone as parserExtractPhone,
+  extractEmail as parserExtractEmail,
+  extractCity as parserExtractCity,
+  extractUf as parserExtractUf,
+} from "@/lib/candidate-parser";
 
 const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"] as const;
+
 
 // Schema rígido: somente os 5 campos. Sempre string ("" se ausente).
 const ExtractedSchema = z.object({
