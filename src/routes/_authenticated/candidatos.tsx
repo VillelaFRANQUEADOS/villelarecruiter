@@ -719,11 +719,24 @@ setEditingObsId(null);
       </Card>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-muted-foreground">
-          {total > 0
-            ? `Exibindo ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} de ${total}`
-            : "Nenhum candidato"}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-muted-foreground">
+            {total > 0
+              ? `Exibindo ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} de ${total}`
+              : "Nenhum candidato"}
+          </p>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">Itens por página:</span>
+            <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+              <SelectTrigger className="h-8 w-[76px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <div className="flex items-center justify-end gap-2">
           <Button
             type="button"
@@ -744,7 +757,7 @@ setEditingObsId(null);
             disabled={page >= totalPages || isFetching}
             onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
           >
-            Próxima
+            Próximo
           </Button>
         </div>
       </div>
