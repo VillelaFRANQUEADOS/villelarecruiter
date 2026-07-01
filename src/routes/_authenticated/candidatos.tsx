@@ -331,7 +331,7 @@ setEditingObsId(null);
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Candidatos</h1>
           <p className="text-xs text-muted-foreground">
-            {filtered.length} nesta página · {total} no total
+            Exibindo {filtered.length} · {total} no total{hasFilters ? " (filtrado)" : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
