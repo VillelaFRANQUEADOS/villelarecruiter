@@ -108,14 +108,9 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
   }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-   const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
+
 
     const cvText = (data.cvText || "").slice(0, 24000);
-    const images = (data.images || []).slice(0, 8);
-    let extracted: Extracted = { nome: "", telefone: "", email: "", cidade: "", estado: "" };
-    let aiFailed = false;
-    let aiErrorMsg: string | null = null;
 
     const hasText = cvText.replace(/\s/g, "").length >= 80;
     const hasImages = images.length > 0;
@@ -125,52 +120,28 @@ const regexTelefone = extractPhoneFromText(cvText);
 const regexEstado = extractUfFromText(cvText);
 const regexCidade = extractCityFromText(cvText);
 const regexNome = extractNameFromText(cvText);
-    
-    if (regexEmail || regexTelefone) {
- extracted = {
-nome: regexNome || cleanFileName(data.fileName),
+
+const cidadeValida =
+  regexCidade &&
+  regexCidade.length <= 80 &&
+  !/(grupo villela|adequação com ia|rua|avenida|av\.|cep|@|\d)/i.test(regexCidade)
+    ? regexCidade
+    : "";
+
+const extracted: Extracted = {
+  nome: regexNome || "Nome não identificado",
   telefone: regexTelefone,
   email: regexEmail,
-  cidade: regexCidade,
+  cidade: cidadeValida,
   estado: regexEstado,
 };
-} else if (hasText || hasImages) {
-  try {
-    const model = google("gemini-2.5-flash");
-
-    const userContent: Array<
-      | { type: "text"; text: string }
-      | { type: "image"; image: string }
-    > = [{ type: "text", text: STRICT_PROMPT }];
-
-        if (hasText) {
-          userContent.push({ type: "text", text: `CURRÍCULO (texto extraído):\n${cvText}` });
-        }
-        for (const img of images) {
-          userContent.push({ type: "image", image: img });
-        }
-
-        const { object } = await generateObject({
-          model,
-          schema: ExtractedSchema,
-          messages: [{ role: "user", content: userContent }],
-        });
-        extracted = object;
-      } catch (e) {
-        aiFailed = true;
-        aiErrorMsg = e instanceof Error ? e.message : "Erro IA";
-      }
-    } else {
-      aiFailed = true;
-      aiErrorMsg = "Documento sem conteúdo legível";
-    }
 
     // Normalização sem inventar: cai para regex sobre o texto bruto se a IA falhou.
     const telefoneFinal = normalizePhone(extracted.telefone, cvText);
     const emailFinal = normalizeEmail(extracted.email, cvText) || null;
-    const cidadeFinal = (extracted.cidade || "").trim();
+    const cidadeFinal = (extracted.cidade || "").trim() || null;
     const estadoFinal = normalizeUf(extracted.estado, cvText) || null;
-    const nomeFinal = (extracted.nome || "").trim() || cleanFileName(data.fileName);
+    const nomeFinal = (extracted.nome || "").trim() || "Nome não identificado";
 
     const observacoes = aiFailed
       ? `Extração automática falhou (${aiErrorMsg}). Edite manualmente.`
