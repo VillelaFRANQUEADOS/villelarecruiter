@@ -59,7 +59,7 @@ const BLOCKED_NAME_LINES = new Set<string>([
   "impressao cv pandape",
   "status da vaga",
   "vaga atual",
-  "origem da candidatura",
+//  "origem da candidatura",
 ]);
 
 // -------- helpers de texto --------
