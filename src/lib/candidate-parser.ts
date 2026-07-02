@@ -165,6 +165,10 @@ function findUfInSegment(seg: string): string {
   return "";
 }
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function extractUf(text: string): string {
   if (!text) return "";
   const lines = normalizeLines(text);
@@ -172,9 +176,22 @@ export function extractUf(text: string): string {
     const uf = findUfInSegment(cleanCityLine(line));
     if (uf) return uf;
   }
-  const lower = stripDiacritics(text).toLowerCase();
-  for (const [name, uf] of Object.entries(UF_NAMES)) {
-    if (lower.includes(stripDiacritics(name))) return uf;
+  // Fallback por nome de estado: exige contexto de localização (linha curta,
+  // sem dígitos, nome delimitado por separador/começo/fim). Evita falsos
+  // positivos como "para iniciantes" casando "Pará".
+  for (const rawLine of lines) {
+    const line = cleanCityLine(rawLine);
+    if (!line) continue;
+    if (/\d/.test(line)) continue;
+    if (line.split(/\s+/).length > 8) continue;
+    const key = stripDiacritics(line).toLowerCase();
+    for (const [name, uf] of Object.entries(UF_NAMES)) {
+      const re = new RegExp(
+        `(^|[,/–\\-]\\s*)${escapeRegex(name)}(\\s*$|\\s*[,/–\\-])`,
+        "i",
+      );
+      if (re.test(key)) return uf;
+    }
   }
   return "";
 }
