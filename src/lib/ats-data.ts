@@ -105,20 +105,35 @@ async function fetchProfilesLite() {
   return (data ?? []) as ProfileLite[];
 }
 
-export interface CandidatosOptions { cidades: string[]; entrevistadores: string[]; }
+export interface CidadeOption { value: string; label: string }
+export interface CandidatosOptions { cidades: CidadeOption[]; entrevistadores: string[]; }
 
 async function fetchCandidatosOptions(): Promise<CandidatosOptions> {
-  const { data, error } = await supabase.from("candidatos").select("cidade,entrevistador").limit(50000);
+  const { data, error } = await supabase
+    .from("candidatos")
+    .select("cidade,estado,codigo_ibge,cidade_validada,entrevistador")
+    .eq("cidade_validada", true)
+    .not("cidade", "is", null)
+    .not("estado", "is", null)
+    .not("codigo_ibge", "is", null)
+    .limit(50000);
   if (error) throw error;
-  const cidades = new Set<string>();
-  const ents = new Set<string>();
-  for (const r of (data ?? []) as { cidade: string | null; entrevistador: string | null }[]) {
-    const c = (r.cidade || "").trim(); if (c) cidades.add(c);
-    const e = (r.entrevistador || "").trim(); if (e) ents.add(e);
+  // Também busca entrevistadores da base completa (sem restrição de cidade)
+  const { data: ents } = await supabase.from("candidatos").select("entrevistador").not("entrevistador", "is", null).limit(50000);
+  const cidadesMap = new Map<string, CidadeOption>();
+  for (const r of (data ?? []) as { cidade: string | null; estado: string | null }[]) {
+    const c = (r.cidade || "").trim();
+    const uf = (r.estado || "").trim();
+    if (!c || !uf) continue;
+    cidadesMap.set(c, { value: c, label: `${c} - ${uf}` });
+  }
+  const entSet = new Set<string>();
+  for (const r of (ents ?? []) as { entrevistador: string | null }[]) {
+    const e = (r.entrevistador || "").trim(); if (e) entSet.add(e);
   }
   return {
-    cidades: [...cidades].sort((a, b) => a.localeCompare(b, "pt-BR")),
-    entrevistadores: [...ents].sort((a, b) => a.localeCompare(b, "pt-BR")),
+    cidades: [...cidadesMap.values()].sort((a, b) => a.label.localeCompare(b.label, "pt-BR")),
+    entrevistadores: [...entSet].sort((a, b) => a.localeCompare(b, "pt-BR")),
   };
 }
 
