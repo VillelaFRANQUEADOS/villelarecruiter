@@ -43,7 +43,7 @@ export const ATS_QUERY_KEYS = {
 };
 
 const CANDIDATOS_SELECT = [
-  "id","nome","telefone","cidade","estado","regiao","vaga","email","experiencias","observacoes","observacoes_updated_at","observacoes_updated_by","observacoes_updated_by_nome","status","curriculo_url","recrutador_id","created_at","data_entrevista","horario_entrevista","entrevistador","ultimo_reprocessamento_at",
+  "id","nome","telefone","cidade","estado","regiao","vaga","email","experiencias","observacoes","observacoes_updated_at","observacoes_updated_by","observacoes_updated_by_nome","status","curriculo_url","recrutador_id","created_at","data_entrevista","horario_entrevista","entrevistador","ultimo_reprocessamento_at","origem_curriculo","cidade_validada","codigo_ibge","cidade_original_extraida",
 ].join(",");
 
 export interface CandidatosPage { candidatos: CandidatoRow[]; total: number; }
