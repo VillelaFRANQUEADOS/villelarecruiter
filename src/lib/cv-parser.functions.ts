@@ -170,9 +170,15 @@ nome: regexNome || cleanFileName(data.fileName),
     // Normalização sem inventar: cai para regex sobre o texto bruto se a IA falhou.
     const telefoneFinal = normalizePhone(extracted.telefone, cvText);
     const emailFinal = normalizeEmail(extracted.email, cvText) || null;
-    const cidadeFinal = (extracted.cidade || "").trim();
-    const estadoFinal = normalizeUf(extracted.estado, cvText) || null;
+    const cidadeBruta = (extracted.cidade || "").trim();
+    const estadoBruto = normalizeUf(extracted.estado, cvText);
     const nomeFinal = (extracted.nome || "").trim() || cleanFileName(data.fileName);
+
+    // Validação de cidade contra base IBGE
+    const cityRes = validateCity(cidadeBruta, estadoBruto);
+
+    // Origem do currículo (default OUTROS)
+    const origem: OrigemCurriculo = normalizeOrigem(data.origemCurriculo);
 
     const observacoes = aiFailed
       ? `Extração automática falhou (${aiErrorMsg}). Edite manualmente.`
@@ -215,8 +221,12 @@ nome: regexNome || cleanFileName(data.fileName),
         nome: nomeFinal,
         telefone: telefoneFinal,
         email: emailFinal,
-        cidade: cidadeFinal,
-        estado: estadoFinal,
+        cidade: cityRes.cidade,
+        estado: cityRes.estado,
+        codigo_ibge: cityRes.codigo_ibge,
+        cidade_validada: cityRes.cidade_validada,
+        cidade_original_extraida: cityRes.cidade_original_extraida,
+        origem_curriculo: origem,
         observacoes,
         curriculo_url: `drive:${driveFileId}`,
         recrutador_id: userId,
