@@ -721,7 +721,7 @@ setEditingObsId(null);
               {!filtered.length && (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="px-4 py-10 text-center text-muted-foreground text-sm"
                   >
                     Nenhum candidato. Arraste PDFs acima para começar.
