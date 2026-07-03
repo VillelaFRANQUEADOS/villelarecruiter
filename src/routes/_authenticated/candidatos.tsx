@@ -393,8 +393,16 @@ setEditingObsId(null);
             placeholder="Cidades"
             value={fCidades}
             onChange={setFCidades}
-            options={cidadeOptions.map((c) => ({ value: c, label: c }))}
-            emptyLabel="Sem cidades cadastradas"
+            options={cidadeOptions}
+            emptyLabel="Sem cidades validadas"
+          />
+          <MultiSelect
+            className="w-44"
+            placeholder="Origem"
+            value={fOrigens}
+            onChange={setFOrigens}
+            options={ORIGEM_VALUES.map((v) => ({ value: v, label: ORIGEM_LABELS[v] }))}
+            searchable={false}
           />
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground">Período:</span>
