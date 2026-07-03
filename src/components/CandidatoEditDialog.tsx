@@ -159,6 +159,15 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
               </Select>
             </div>
 
+            <div className="space-y-1.5 col-span-2">
+              <Label>Origem do currículo</Label>
+              <Select value={form.origem_curriculo} onValueChange={(v) => setForm({ ...form, origem_curriculo: v as OrigemCurriculo })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ORIGEM_VALUES.map((v) => <SelectItem key={v} value={v}>{ORIGEM_LABELS[v]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5 col-span-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
             <div className="space-y-1.5 col-span-2">
               <Label>Status</Label>
