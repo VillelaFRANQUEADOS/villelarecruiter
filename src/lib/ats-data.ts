@@ -61,6 +61,7 @@ function applyFilters(qb: SupaQuery, f: CandidatosFilters): SupaQuery {
   if (f.recrutadores?.length) q = q.in("recrutador_id", f.recrutadores);
   if (f.estados?.length) q = q.in("estado", f.estados);
   if (f.cidades?.length) q = q.in("cidade", f.cidades);
+  if (f.origens?.length) q = q.in("origem_curriculo", f.origens);
   if (f.dateFrom) q = q.gte("created_at", `${f.dateFrom}T00:00:00`);
   if (f.dateTo) q = q.lte("created_at", `${f.dateTo}T23:59:59`);
   if (f.entrevistaData) q = q.eq("data_entrevista", f.entrevistaData);
