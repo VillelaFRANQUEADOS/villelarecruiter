@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { ORIGEM_VALUES, ORIGEM_LABELS, normalizeOrigem, type OrigemCurriculo } from "@/lib/city-validation";
 
 interface Props {
   open: boolean;
