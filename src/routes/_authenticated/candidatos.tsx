@@ -19,6 +19,7 @@ import {
   type CandidatoRow, type CandidatoStatus,
 } from "@/lib/auth";
 import { MultiSelect } from "@/components/MultiSelect";
+import { ORIGEM_VALUES, ORIGEM_LABELS, normalizeOrigem } from "@/lib/city-validation";
 
 import {
   invalidateAtsQueries,
