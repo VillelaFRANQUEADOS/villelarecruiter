@@ -63,6 +63,7 @@ function CandidatosPage() {
   const [fRecrutadores, setFRecrutadores] = useState<string[]>([]);
   const [fEstados, setFEstados] = useState<string[]>([]);
   const [fCidades, setFCidades] = useState<string[]>([]);
+  const [fOrigens, setFOrigens] = useState<string[]>([]);
 
   // Período (created_at) – combinável com os demais
   const [fDateFrom, setFDateFrom] = useState<string>("");
