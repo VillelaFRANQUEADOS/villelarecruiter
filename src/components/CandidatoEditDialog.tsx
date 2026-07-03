@@ -36,6 +36,7 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
     nome: "", telefone: "", cidade: "", estado: "" as string, email: "",
     status: "aguardando_contato" as CandidatoStatus, observacoes: "",
     data_entrevista: "", horario_entrevista: "", entrevistador: "",
+    origem_curriculo: "OUTROS" as OrigemCurriculo,
   });
 
   const isNew = !candidato;
