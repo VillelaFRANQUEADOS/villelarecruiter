@@ -159,12 +159,12 @@ function CandidatosPage() {
   const hasFilters =
     !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando || fObs) ||
     fStatus.length > 0 || fRecrutadores.length > 0 || fEstados.length > 0 || fCidades.length > 0 ||
-    fEntrevistadores.length > 0;
+    fEntrevistadores.length > 0 || fOrigens.length > 0;
 
 
   function clearFilters() {
     setFNome(""); setFTelefone(""); setFEmail(""); setFVaga("");
-    setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]);
+    setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]); setFOrigens([]);
     setFDateFrom(""); setFDateTo("");
     setFEntrevistaData(""); setFEntrevistadores([]); setFEntrevistaQuando("");
     setFObs("");
