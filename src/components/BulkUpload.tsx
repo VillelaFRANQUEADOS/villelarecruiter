@@ -105,6 +105,18 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
 
   return (
     <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-muted-foreground">Origem do currículo:</label>
+        <Select value={origem} onValueChange={(v) => setOrigem(v as OrigemCurriculo)}>
+          <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {ORIGEM_VALUES.map((v) => (
+              <SelectItem key={v} value={v}>{ORIGEM_LABELS[v]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-[11px] text-muted-foreground">Aplicado a todos os arquivos enviados nesta sessão.</span>
+      </div>
       <div
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
