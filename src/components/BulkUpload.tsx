@@ -24,6 +24,9 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
   const parse = useServerFn(parseAndCreateCandidato);
   const [items, setItems] = useState<Item[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [origem, setOrigem] = useState<OrigemCurriculo>("OUTROS");
+  const origemRef = useRef<OrigemCurriculo>("OUTROS");
+  origemRef.current = origem;
   const inputRef = useRef<HTMLInputElement>(null);
 
   const setItem = (id: string, patch: Partial<Item>) =>
