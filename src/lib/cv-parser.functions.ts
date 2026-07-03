@@ -106,6 +106,7 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     mimeType: string;
     cvText: string;
     images?: string[]; // data URIs for vision OCR
+    origemCurriculo?: string;
   }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
