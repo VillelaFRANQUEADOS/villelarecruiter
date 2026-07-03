@@ -140,7 +140,7 @@ function CandidatosPage() {
     todayStr,
     weekStart,
     weekEnd,
-  }), [debNome, debTelefone, debEmail, debVaga, fStatus, fRecrutadores, fEstados, fCidades, fDateFrom, fDateTo, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, fObs, obsSort, todayStr, weekStart, weekEnd]);
+  }), [debNome, debTelefone, debEmail, debVaga, fStatus, fRecrutadores, fEstados, fCidades, fOrigens, fDateFrom, fDateTo, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, fObs, obsSort, todayStr, weekStart, weekEnd]);
 
   const { data: candidatosPage, isFetching } = useCandidatosQuery(page, pageSize, filters);
   const rows = useMemo(() => candidatosPage?.candidatos ?? [], [candidatosPage]);
