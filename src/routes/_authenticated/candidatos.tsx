@@ -534,6 +534,7 @@ setEditingObsId(null);
                     <span className="text-[10px]">{obsSort === "asc" ? "▲" : obsSort === "desc" ? "▼" : "↕"}</span>
                   </button>
                 </th>
+                <th className="text-left px-3 py-2 font-medium">Origem</th>
                 <th className="text-left px-3 py-2 font-medium">CV</th>
                 <th className="px-3 py-2"></th>
               </tr>
