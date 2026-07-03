@@ -129,6 +129,7 @@ function CandidatosPage() {
     recrutadores: fRecrutadores,
     estados: fEstados,
     cidades: fCidades,
+    origens: fOrigens,
     dateFrom: fDateFrom,
     dateTo: fDateTo,
     entrevistaData: fEntrevistaData,
