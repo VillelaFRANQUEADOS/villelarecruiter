@@ -11,6 +11,7 @@ import {
   extractCity as parserExtractCity,
   extractUf as parserExtractUf,
 } from "@/lib/candidate-parser";
+import { validateCity, normalizeOrigem, type OrigemCurriculo } from "@/lib/city-validation";
 
 const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"] as const;
 
