@@ -4,6 +4,8 @@ import { parseAndCreateCandidato } from "@/lib/cv-parser.functions";
 import { extractFromFile, fileToBase64 } from "@/lib/file-extract";
 import { Upload, FileText, CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ORIGEM_VALUES, ORIGEM_LABELS, type OrigemCurriculo } from "@/lib/city-validation";
 
 type Status = "pending" | "extracting" | "ai" | "done" | "warn" | "error";
 interface Item { id: string; file: File; status: Status; message?: string }
