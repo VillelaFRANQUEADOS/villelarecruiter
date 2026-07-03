@@ -23,6 +23,7 @@ export interface CandidatosFilters {
   recrutadores?: string[];
   estados?: string[];
   cidades?: string[];
+  origens?: string[];
   dateFrom?: string;
   dateTo?: string;
   entrevistaData?: string;
