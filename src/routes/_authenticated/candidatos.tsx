@@ -651,6 +651,9 @@ setEditingObsId(null);
                       );
                     })()}
                   </td>
+                  <td className="px-3 py-2 text-muted-foreground text-xs">
+                    {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
+                  </td>
                   <td className="px-3 py-2">
                     {r.curriculo_url ? (
                       <div className="flex flex-col gap-1">
