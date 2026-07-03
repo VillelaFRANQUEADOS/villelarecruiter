@@ -19,6 +19,7 @@ import {
   type CandidatoRow, type CandidatoStatus,
 } from "@/lib/auth";
 import { MultiSelect } from "@/components/MultiSelect";
+import { ORIGEM_VALUES, ORIGEM_LABELS, normalizeOrigem } from "@/lib/city-validation";
 
 import {
   invalidateAtsQueries,
@@ -62,6 +63,7 @@ function CandidatosPage() {
   const [fRecrutadores, setFRecrutadores] = useState<string[]>([]);
   const [fEstados, setFEstados] = useState<string[]>([]);
   const [fCidades, setFCidades] = useState<string[]>([]);
+  const [fOrigens, setFOrigens] = useState<string[]>([]);
 
   // Período (created_at) – combinável com os demais
   const [fDateFrom, setFDateFrom] = useState<string>("");
@@ -127,6 +129,7 @@ function CandidatosPage() {
     recrutadores: fRecrutadores,
     estados: fEstados,
     cidades: fCidades,
+    origens: fOrigens,
     dateFrom: fDateFrom,
     dateTo: fDateTo,
     entrevistaData: fEntrevistaData,
@@ -137,7 +140,7 @@ function CandidatosPage() {
     todayStr,
     weekStart,
     weekEnd,
-  }), [debNome, debTelefone, debEmail, debVaga, fStatus, fRecrutadores, fEstados, fCidades, fDateFrom, fDateTo, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, fObs, obsSort, todayStr, weekStart, weekEnd]);
+  }), [debNome, debTelefone, debEmail, debVaga, fStatus, fRecrutadores, fEstados, fCidades, fOrigens, fDateFrom, fDateTo, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, fObs, obsSort, todayStr, weekStart, weekEnd]);
 
   const { data: candidatosPage, isFetching } = useCandidatosQuery(page, pageSize, filters);
   const rows = useMemo(() => candidatosPage?.candidatos ?? [], [candidatosPage]);
@@ -156,12 +159,12 @@ function CandidatosPage() {
   const hasFilters =
     !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando || fObs) ||
     fStatus.length > 0 || fRecrutadores.length > 0 || fEstados.length > 0 || fCidades.length > 0 ||
-    fEntrevistadores.length > 0;
+    fEntrevistadores.length > 0 || fOrigens.length > 0;
 
 
   function clearFilters() {
     setFNome(""); setFTelefone(""); setFEmail(""); setFVaga("");
-    setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]);
+    setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]); setFOrigens([]);
     setFDateFrom(""); setFDateTo("");
     setFEntrevistaData(""); setFEntrevistadores([]); setFEntrevistaQuando("");
     setFObs("");
@@ -390,8 +393,16 @@ setEditingObsId(null);
             placeholder="Cidades"
             value={fCidades}
             onChange={setFCidades}
-            options={cidadeOptions.map((c) => ({ value: c, label: c }))}
-            emptyLabel="Sem cidades cadastradas"
+            options={cidadeOptions}
+            emptyLabel="Sem cidades validadas"
+          />
+          <MultiSelect
+            className="w-44"
+            placeholder="Origem"
+            value={fOrigens}
+            onChange={setFOrigens}
+            options={ORIGEM_VALUES.map((v) => ({ value: v, label: ORIGEM_LABELS[v] }))}
+            searchable={false}
           />
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground">Período:</span>
@@ -523,6 +534,7 @@ setEditingObsId(null);
                     <span className="text-[10px]">{obsSort === "asc" ? "▲" : obsSort === "desc" ? "▼" : "↕"}</span>
                   </button>
                 </th>
+                <th className="text-left px-3 py-2 font-medium">Origem</th>
                 <th className="text-left px-3 py-2 font-medium">CV</th>
                 <th className="px-3 py-2"></th>
               </tr>
@@ -639,6 +651,9 @@ setEditingObsId(null);
                       );
                     })()}
                   </td>
+                  <td className="px-3 py-2 text-muted-foreground text-xs">
+                    {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
+                  </td>
                   <td className="px-3 py-2">
                     {r.curriculo_url ? (
                       <div className="flex flex-col gap-1">
@@ -706,7 +721,7 @@ setEditingObsId(null);
               {!filtered.length && (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="px-4 py-10 text-center text-muted-foreground text-sm"
                   >
                     Nenhum candidato. Arraste PDFs acima para começar.

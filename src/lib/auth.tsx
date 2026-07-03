@@ -150,6 +150,10 @@ export interface CandidatoRow {
   horario_entrevista: string | null;
   entrevistador: string | null;
   ultimo_reprocessamento_at: string | null;
+  origem_curriculo: string;
+  cidade_validada: boolean;
+  codigo_ibge: string | null;
+  cidade_original_extraida: string | null;
 }
 
 export const UF_LIST: string[] = [

@@ -61,6 +61,9 @@ export type Database = {
       candidatos: {
         Row: {
           cidade: string | null
+          cidade_original_extraida: string | null
+          cidade_validada: boolean
+          codigo_ibge: string | null
           created_at: string
           curriculo_url: string | null
           data_entrevista: string | null
@@ -75,6 +78,7 @@ export type Database = {
           observacoes_updated_at: string | null
           observacoes_updated_by: string | null
           observacoes_updated_by_nome: string | null
+          origem_curriculo: string
           recrutador_id: string | null
           regiao: string | null
           status: Database["public"]["Enums"]["candidato_status"]
@@ -85,6 +89,9 @@ export type Database = {
         }
         Insert: {
           cidade?: string | null
+          cidade_original_extraida?: string | null
+          cidade_validada?: boolean
+          codigo_ibge?: string | null
           created_at?: string
           curriculo_url?: string | null
           data_entrevista?: string | null
@@ -99,6 +106,7 @@ export type Database = {
           observacoes_updated_at?: string | null
           observacoes_updated_by?: string | null
           observacoes_updated_by_nome?: string | null
+          origem_curriculo?: string
           recrutador_id?: string | null
           regiao?: string | null
           status?: Database["public"]["Enums"]["candidato_status"]
@@ -109,6 +117,9 @@ export type Database = {
         }
         Update: {
           cidade?: string | null
+          cidade_original_extraida?: string | null
+          cidade_validada?: boolean
+          codigo_ibge?: string | null
           created_at?: string
           curriculo_url?: string | null
           data_entrevista?: string | null
@@ -123,6 +134,7 @@ export type Database = {
           observacoes_updated_at?: string | null
           observacoes_updated_by?: string | null
           observacoes_updated_by_nome?: string | null
+          origem_curriculo?: string
           recrutador_id?: string | null
           regiao?: string | null
           status?: Database["public"]["Enums"]["candidato_status"]

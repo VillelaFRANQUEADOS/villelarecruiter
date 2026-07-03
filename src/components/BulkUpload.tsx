@@ -4,6 +4,8 @@ import { parseAndCreateCandidato } from "@/lib/cv-parser.functions";
 import { extractFromFile, fileToBase64 } from "@/lib/file-extract";
 import { Upload, FileText, CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ORIGEM_VALUES, ORIGEM_LABELS, type OrigemCurriculo } from "@/lib/city-validation";
 
 type Status = "pending" | "extracting" | "ai" | "done" | "warn" | "error";
 interface Item { id: string; file: File; status: Status; message?: string }
@@ -22,6 +24,9 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
   const parse = useServerFn(parseAndCreateCandidato);
   const [items, setItems] = useState<Item[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [origem, setOrigem] = useState<OrigemCurriculo>("OUTROS");
+  const origemRef = useRef<OrigemCurriculo>("OUTROS");
+  origemRef.current = origem;
   const inputRef = useRef<HTMLInputElement>(null);
 
   const setItem = (id: string, patch: Partial<Item>) =>
@@ -40,6 +45,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
           mimeType: extracted.mimeType,
           cvText: extracted.text,
           images: extracted.images,
+          origemCurriculo: origemRef.current,
         },
       });
       if (res?.duplicate) {
@@ -99,6 +105,18 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
 
   return (
     <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-medium text-muted-foreground">Origem do currículo:</label>
+        <Select value={origem} onValueChange={(v) => setOrigem(v as OrigemCurriculo)}>
+          <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {ORIGEM_VALUES.map((v) => (
+              <SelectItem key={v} value={v}>{ORIGEM_LABELS[v]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-[11px] text-muted-foreground">Aplicado a todos os arquivos enviados nesta sessão.</span>
+      </div>
       <div
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}

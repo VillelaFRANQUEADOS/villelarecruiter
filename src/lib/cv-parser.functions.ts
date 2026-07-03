@@ -11,6 +11,7 @@ import {
   extractCity as parserExtractCity,
   extractUf as parserExtractUf,
 } from "@/lib/candidate-parser";
+import { validateCity, normalizeOrigem, type OrigemCurriculo } from "@/lib/city-validation";
 
 const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"] as const;
 
@@ -105,6 +106,7 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     mimeType: string;
     cvText: string;
     images?: string[]; // data URIs for vision OCR
+    origemCurriculo?: string;
   }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -168,9 +170,15 @@ nome: regexNome || cleanFileName(data.fileName),
     // Normalização sem inventar: cai para regex sobre o texto bruto se a IA falhou.
     const telefoneFinal = normalizePhone(extracted.telefone, cvText);
     const emailFinal = normalizeEmail(extracted.email, cvText) || null;
-    const cidadeFinal = (extracted.cidade || "").trim();
-    const estadoFinal = normalizeUf(extracted.estado, cvText) || null;
+    const cidadeBruta = (extracted.cidade || "").trim();
+    const estadoBruto = normalizeUf(extracted.estado, cvText);
     const nomeFinal = (extracted.nome || "").trim() || cleanFileName(data.fileName);
+
+    // Validação de cidade contra base IBGE
+    const cityRes = validateCity(cidadeBruta, estadoBruto);
+
+    // Origem do currículo (default OUTROS)
+    const origem: OrigemCurriculo = normalizeOrigem(data.origemCurriculo);
 
     const observacoes = aiFailed
       ? `Extração automática falhou (${aiErrorMsg}). Edite manualmente.`
@@ -213,8 +221,12 @@ nome: regexNome || cleanFileName(data.fileName),
         nome: nomeFinal,
         telefone: telefoneFinal,
         email: emailFinal,
-        cidade: cidadeFinal,
-        estado: estadoFinal,
+        cidade: cityRes.cidade,
+        estado: cityRes.estado,
+        codigo_ibge: cityRes.codigo_ibge,
+        cidade_validada: cityRes.cidade_validada,
+        cidade_original_extraida: cityRes.cidade_original_extraida,
+        origem_curriculo: origem,
         observacoes,
         curriculo_url: `drive:${driveFileId}`,
         recrutador_id: userId,
@@ -331,16 +343,31 @@ if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
 
     // 5. Merge NÃO-destrutivo: só preenche campos vazios/null
     const isEmpty = (v: string | null | undefined) => !v || !String(v).trim();
-    const patch: Record<string, string | null> = {};
+    const patch: Record<string, string | boolean | null> = {};
     const updatedFields: string[] = [];
     if (isEmpty(cand.nome) && nomeNew) { patch.nome = nomeNew; updatedFields.push("nome"); }
     if (isEmpty(cand.telefone) && telefoneNew) { patch.telefone = telefoneNew; updatedFields.push("telefone"); }
     if (isEmpty(cand.email) && emailNew) { patch.email = emailNew; updatedFields.push("email"); }
-    if (isEmpty(cand.cidade) && cidadeNew) { patch.cidade = cidadeNew; updatedFields.push("cidade"); }
-    if (isEmpty(cand.estado) && estadoNew) { patch.estado = estadoNew; updatedFields.push("estado"); }
+    if (isEmpty(cand.cidade) && (cidadeNew || estadoNew)) {
+      const cityRes = validateCity(cidadeNew, estadoNew);
+      if (cityRes.cidade_validada) {
+        patch.cidade = cityRes.cidade;
+        patch.estado = cityRes.estado;
+        patch.codigo_ibge = cityRes.codigo_ibge;
+        patch.cidade_validada = true;
+        updatedFields.push("cidade");
+      } else if (isEmpty(cand.estado) && cityRes.estado) {
+        patch.estado = cityRes.estado;
+        patch.cidade_original_extraida = cityRes.cidade_original_extraida;
+        updatedFields.push("estado");
+      }
+    } else if (isEmpty(cand.estado) && estadoNew) {
+      patch.estado = estadoNew; updatedFields.push("estado");
+    }
 
     const nowIso = new Date().toISOString();
     patch.ultimo_reprocessamento_at = nowIso;
+
 
     const { error: updErr } = await supabase
       .from("candidatos")

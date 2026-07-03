@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { ORIGEM_VALUES, ORIGEM_LABELS, normalizeOrigem, type OrigemCurriculo } from "@/lib/city-validation";
 
 interface Props {
   open: boolean;
@@ -35,6 +36,7 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
     nome: "", telefone: "", cidade: "", estado: "" as string, email: "",
     status: "aguardando_contato" as CandidatoStatus, observacoes: "",
     data_entrevista: "", horario_entrevista: "", entrevistador: "",
+    origem_curriculo: "OUTROS" as OrigemCurriculo,
   });
 
   const isNew = !candidato;
@@ -53,10 +55,11 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
         data_entrevista: candidato.data_entrevista ?? "",
         horario_entrevista: (candidato.horario_entrevista ?? "").slice(0, 5),
         entrevistador: candidato.entrevistador ?? "",
+        origem_curriculo: normalizeOrigem(candidato.origem_curriculo),
       });
       void loadHistory(candidato.id);
     } else {
-      setForm({ nome: "", telefone: "", cidade: "", estado: "", email: "", status: "aguardando_contato", observacoes: "", data_entrevista: "", horario_entrevista: "", entrevistador: "" });
+      setForm({ nome: "", telefone: "", cidade: "", estado: "", email: "", status: "aguardando_contato", observacoes: "", data_entrevista: "", horario_entrevista: "", entrevistador: "", origem_curriculo: "OUTROS" });
       setHistory([]);
     }
   }, [candidato, open]);
@@ -156,6 +159,15 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
               </Select>
             </div>
 
+            <div className="space-y-1.5 col-span-2">
+              <Label>Origem do currículo</Label>
+              <Select value={form.origem_curriculo} onValueChange={(v) => setForm({ ...form, origem_curriculo: v as OrigemCurriculo })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ORIGEM_VALUES.map((v) => <SelectItem key={v} value={v}>{ORIGEM_LABELS[v]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5 col-span-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
             <div className="space-y-1.5 col-span-2">
               <Label>Status</Label>
