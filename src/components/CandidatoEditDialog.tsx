@@ -55,10 +55,11 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
         data_entrevista: candidato.data_entrevista ?? "",
         horario_entrevista: (candidato.horario_entrevista ?? "").slice(0, 5),
         entrevistador: candidato.entrevistador ?? "",
+        origem_curriculo: normalizeOrigem(candidato.origem_curriculo),
       });
       void loadHistory(candidato.id);
     } else {
-      setForm({ nome: "", telefone: "", cidade: "", estado: "", email: "", status: "aguardando_contato", observacoes: "", data_entrevista: "", horario_entrevista: "", entrevistador: "" });
+      setForm({ nome: "", telefone: "", cidade: "", estado: "", email: "", status: "aguardando_contato", observacoes: "", data_entrevista: "", horario_entrevista: "", entrevistador: "", origem_curriculo: "OUTROS" });
       setHistory([]);
     }
   }, [candidato, open]);
