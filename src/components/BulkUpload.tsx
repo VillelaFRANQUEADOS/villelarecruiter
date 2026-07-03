@@ -45,6 +45,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
           mimeType: extracted.mimeType,
           cvText: extracted.text,
           images: extracted.images,
+          origemCurriculo: origemRef.current,
         },
       });
       if (res?.duplicate) {
