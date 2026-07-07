@@ -422,6 +422,12 @@ setEditingObsId(null);
               {revalidating ? "Padronizando..." : "Padronizar cidades (IBGE)"}
             </Button>
           )}
+          {role === "admin" && (
+            <Button size="sm" variant="outline" onClick={handleRevalidateNames} disabled={revalidatingNames}>
+              <RefreshCw className={`size-3.5 mr-1 ${revalidatingNames ? "animate-spin" : ""}`} />
+              {revalidatingNames ? "Padronizando..." : "Padronizar nomes (IA)"}
+            </Button>
+          )}
           {role === "admin" && total > 0 && (
             <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={handleDeleteAll}>
               <Trash2 className="size-3.5 mr-1" /> Excluir todos
