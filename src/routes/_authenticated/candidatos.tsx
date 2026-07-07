@@ -192,6 +192,37 @@ setEditingObsId(null);
     }
   }
 
+  async function saveOrigem(id: string, value: string) {
+    setSavingOrigemId(id);
+    const { error } = await supabase.from("candidatos").update({ origem_curriculo: value }).eq("id", id);
+    setSavingOrigemId(null);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Origem atualizada");
+      setEditingOrigemId(null);
+      invalidateAtsQueries(queryClient);
+    }
+  }
+
+  async function handleRevalidateCities() {
+    if (!confirm("Padronizar cidades de TODOS os candidatos pela base IBGE? Esta ação pode levar alguns minutos.")) return;
+    setRevalidating(true);
+    const t = toast.loading("Padronizando cidades...");
+    try {
+      const res = await revalidateFn({});
+      toast.success(
+        `Concluído: ${res.validadas} validadas, ${res.invalidas} inválidas (${res.atualizadas} atualizadas de ${res.total}).`,
+        { id: t },
+      );
+      invalidateAtsQueries(queryClient);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao padronizar cidades", { id: t });
+    } finally {
+      setRevalidating(false);
+    }
+  }
+
+
 
 
   async function handleDelete(id: string) {
