@@ -92,6 +92,8 @@ function CandidatosPage() {
   // Padronização IBGE (admin)
   const [revalidating, setRevalidating] = useState(false);
   const revalidateFn = useServerFn(revalidateAllCities);
+  const [revalidatingNames, setRevalidatingNames] = useState(false);
+  const revalidateNamesFn = useServerFn(revalidateNamesBatch);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [agendarOpen, setAgendarOpen] = useState(false);
