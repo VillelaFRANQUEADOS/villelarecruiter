@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getCurriculoContent } from "@/lib/curriculos.functions";
 import { reprocessCandidato } from "@/lib/cv-parser.functions";
-import { revalidateAllCities } from "@/lib/candidatos-admin.functions";
+import { revalidateAllCities, revalidateNamesBatch } from "@/lib/candidatos-admin.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -92,6 +92,8 @@ function CandidatosPage() {
   // Padronização IBGE (admin)
   const [revalidating, setRevalidating] = useState(false);
   const revalidateFn = useServerFn(revalidateAllCities);
+  const [revalidatingNames, setRevalidatingNames] = useState(false);
+  const revalidateNamesFn = useServerFn(revalidateNamesBatch);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [agendarOpen, setAgendarOpen] = useState(false);
@@ -221,6 +223,42 @@ setEditingObsId(null);
       setRevalidating(false);
     }
   }
+
+  async function handleRevalidateNames() {
+    if (!confirm("Padronizar os nomes de TODOS os candidatos com base nos PDFs? Isso pode levar vários minutos.")) return;
+    setRevalidatingNames(true);
+    const t = toast.loading("Padronizando nomes... 0 processados");
+    const startedAt = new Date().toISOString();
+    let processed = 0;
+    let updated = 0;
+    let failed = 0;
+    const HARD_CAP = 5000;
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const res = await revalidateNamesFn({ data: { startedAt, limit: 5 } });
+        processed += res.processed;
+        updated += res.updated;
+        failed += res.failed;
+        toast.loading(
+          `Padronizando nomes... ${processed} processados · ${updated} atualizados · ${res.remaining} restantes`,
+          { id: t },
+        );
+        if (res.processed === 0 || res.remaining === 0 || processed >= HARD_CAP) break;
+      }
+      toast.success(
+        `Concluído: ${processed} processados, ${updated} nomes atualizados${failed ? `, ${failed} falhas` : ""}.`,
+        { id: t },
+      );
+      invalidateAtsQueries(queryClient);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao padronizar nomes", { id: t });
+    } finally {
+      setRevalidatingNames(false);
+    }
+  }
+
+
 
 
 
@@ -382,6 +420,12 @@ setEditingObsId(null);
             <Button size="sm" variant="outline" onClick={handleRevalidateCities} disabled={revalidating}>
               <RefreshCw className={`size-3.5 mr-1 ${revalidating ? "animate-spin" : ""}`} />
               {revalidating ? "Padronizando..." : "Padronizar cidades (IBGE)"}
+            </Button>
+          )}
+          {role === "admin" && (
+            <Button size="sm" variant="outline" onClick={handleRevalidateNames} disabled={revalidatingNames}>
+              <RefreshCw className={`size-3.5 mr-1 ${revalidatingNames ? "animate-spin" : ""}`} />
+              {revalidatingNames ? "Padronizando..." : "Padronizar nomes (IA)"}
             </Button>
           )}
           {role === "admin" && total > 0 && (
