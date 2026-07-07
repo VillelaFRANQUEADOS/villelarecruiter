@@ -224,6 +224,42 @@ setEditingObsId(null);
     }
   }
 
+  async function handleRevalidateNames() {
+    if (!confirm("Padronizar os nomes de TODOS os candidatos com base nos PDFs? Isso pode levar vários minutos.")) return;
+    setRevalidatingNames(true);
+    const t = toast.loading("Padronizando nomes... 0 processados");
+    const startedAt = new Date().toISOString();
+    let processed = 0;
+    let updated = 0;
+    let failed = 0;
+    const HARD_CAP = 5000;
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const res = await revalidateNamesFn({ data: { startedAt, limit: 5 } });
+        processed += res.processed;
+        updated += res.updated;
+        failed += res.failed;
+        toast.loading(
+          `Padronizando nomes... ${processed} processados · ${updated} atualizados · ${res.remaining} restantes`,
+          { id: t },
+        );
+        if (res.processed === 0 || res.remaining === 0 || processed >= HARD_CAP) break;
+      }
+      toast.success(
+        `Concluído: ${processed} processados, ${updated} nomes atualizados${failed ? `, ${failed} falhas` : ""}.`,
+        { id: t },
+      );
+      invalidateAtsQueries(queryClient);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao padronizar nomes", { id: t });
+    } finally {
+      setRevalidatingNames(false);
+    }
+  }
+
+
+
 
 
 
