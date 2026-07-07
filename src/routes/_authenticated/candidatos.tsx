@@ -378,6 +378,12 @@ setEditingObsId(null);
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {role === "admin" && (
+            <Button size="sm" variant="outline" onClick={handleRevalidateCities} disabled={revalidating}>
+              <RefreshCw className={`size-3.5 mr-1 ${revalidating ? "animate-spin" : ""}`} />
+              {revalidating ? "Padronizando..." : "Padronizar cidades (IBGE)"}
+            </Button>
+          )}
           {role === "admin" && total > 0 && (
             <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={handleDeleteAll}>
               <Trash2 className="size-3.5 mr-1" /> Excluir todos
