@@ -1,74 +1,75 @@
-# Melhorar IA de extração + botão "Reprocessar"
+# Objetivo
 
-Dois eixos: (1) elevar a qualidade da leitura padrão sem perder velocidade; (2) adicionar um modo "deep" acionado manualmente pelo botão Reprocessar na listagem.
+1. Ler os currículos de forma consistente, sem depender de quem enviou.
+2. Padronizar cidades pela nomenclatura oficial IBGE — inclusive registros já existentes.
+3. Permitir editar a coluna **Origem** direto na listagem, clicando sobre ela (como já acontece com a Observação).
 
-## 1. Extração padrão mais robusta (mantendo performance)
+---
 
-`src/lib/file-extract.ts`
-- PDF: extrair texto de **todas as páginas** (já faz) mas elevar limiar `hasEnoughText` de 120 para ~250 caracteres por página média (detecta PDFs parcialmente escaneados). Quando texto fraco → renderizar páginas como imagem (cap: até 6 páginas, hoje sem limite — adicionar guarda).
-- Render: aumentar `scale` de 1.6 → 2.0 para OCR mais nítido; JPEG quality 0.9.
-- DOCX: além de `extractRawText`, fazer fallback para `convertToHtml` quando texto < 100 chars (alguns DOCX guardam tudo em tabelas).
-- Adicionar utilitário `extractFromFileDeep(file)` que sempre renderiza todas as páginas do PDF como imagem (mesmo com texto), retornando texto + imagens para análise multimodal completa.
+## 1. Leitura consistente dos currículos
 
-`src/lib/cv-parser.functions.ts`
-- Aumentar `cvText` de 14000 → 24000 chars e `images` de 3 → 8 (capa do currículo costuma estar nas primeiras páginas, mas precisamos cobrir múltiplas).
-- Reforçar prompt com exemplos negativos e regras anti-alucinação para nome (não confundir com nome de empresa/curso) e cidade/UF (priorizar bloco de contato/endereço).
-- Já existem fallbacks por regex (telefone/email/UF) — manter.
+Hoje, em `src/lib/cv-parser.functions.ts` (`parseAndCreateCandidato`), quando o parser determinístico encontra **e-mail OU telefone**, ele usa somente regex e nem chama a IA. Isso faz com que currículos vindos de layouts pesados (Pandapé, LinkedIn PDF, Canva) sejam salvos com nome/cidade errados, dependendo do modelo que o recrutador anexou.
 
-## 2. Modo "Reprocessar" (deep, sob demanda)
+**Ajuste:**
 
-### Backend — nova server function
+- Chamar **sempre** a IA quando houver texto (>= 80 chars) ou imagens, mesmo que o regex já tenha email/telefone.
+- Fazer **merge** dos dois resultados com regras claras:
+  - `telefone` / `email`: preferir o extraído pela IA quando válido; cair para o regex.
+  - `nome`: preferir IA; se vazio/curto/blocklisted (Pandapé, Grupo Villela, etc.), cair para o determinístico; se ambos vazios, usar o nome do arquivo.
+  - `cidade` / `estado`: rodar `validateCity` (IBGE) primeiro com o par vindo da IA; se não validar, tentar com o par do determinístico; se ainda não validar, salvar `cidade_original_extraida` como hoje.
+- Manter fallback puro para regex apenas quando a IA falhar ou não houver texto.
+- Nenhuma mudança visual, nenhum novo campo no banco.
 
-`src/lib/cv-parser.functions.ts` → `reprocessCandidato`
-- Input: `{ candidatoId: string }`.
-- Fluxo:
-  1. Buscar candidato no banco (RLS aplica). Se sem `curriculo_url` ou não `drive:` → erro amigável.
-  2. Baixar arquivo do Drive (reutiliza lógica de `getCurriculoContent`).
-  3. Extração **deep**: chamar Gemini multimodal direto com o **arquivo original como anexo** (PDF/imagem via base64 `file` part da AI SDK), além do texto extraído server-side simples. Usar `google/gemini-2.5-pro` (mais robusto que o flash preview padrão).
-  4. Normalizar (telefone/email/UF) como hoje.
-  5. **Merge não-destrutivo**: para cada campo (`nome`, `telefone`, `email`, `cidade`, `estado`), só sobrescrever se o valor atual estiver vazio/null OU se a IA retornou valor e o atual nunca foi editado manualmente. Como heurística simples e segura: **só preencher campos vazios** (o usuário marcou caixas; respeitamos o que ele já editou). Documentar isso no toast ("preenchidos N campos vazios").
-  6. Atualizar `ultimo_reprocessamento_at` (timestamptz) — nova coluna.
-  7. Retornar `{ updatedFields: string[], ultimo_reprocessamento_at }`.
+Resultado: extração independente do formato/recrutador do envio.
 
-### Migration
+---
 
-Adicionar coluna na tabela `candidatos`:
-- `ultimo_reprocessamento_at timestamptz null`
+## 2. Padronização IBGE (inclusive registros antigos)
 
-(sem alteração de RLS — herda das policies existentes da tabela.)
+Além da validação já feita nos novos, vamos normalizar a base histórica.
 
-### Tipos
+**Server function nova** (`revalidateAllCities`, admin-only, em `src/lib/candidatos-admin.functions.ts`):
 
-- `src/lib/auth.tsx` `CandidatoRow`: adicionar `ultimo_reprocessamento_at: string | null`.
-- `src/lib/ats-data.ts` `CANDIDATOS_SELECT`: adicionar campo.
+- Percorre todos os candidatos em lotes de 500.
+- Para cada linha, roda `validateCity(cidade_original_extraida || cidade, estado)`.
+- Se validar: atualiza `cidade`, `estado`, `codigo_ibge`, `cidade_validada = true`, limpa `cidade_original_extraida`.
+- Se não validar: move o texto atual de `cidade` para `cidade_original_extraida` (quando ainda vazio), zera `codigo_ibge`, marca `cidade_validada = false`.
+- Retorna `{ total, validadas, invalidas }`.
 
-### UI — botão na listagem
+**UI:** botão discreto **"Padronizar cidades (IBGE)"** no topo da listagem de candidatos, visível somente para admin, exibindo o resultado num toast. Sem nova tela.
 
-`src/routes/_authenticated/candidatos.tsx`, célula PDF (linhas 489–500):
-- Adicionar botão "Reprocessar" (ícone `RefreshCw`) ao lado do PDF, visível apenas quando `r.curriculo_url` existir.
-- Estado local `reprocessing: Set<string>` para spinner por linha.
-- Click → confirma rapidamente (toast loading), chama `reprocessCandidato({ data: { candidatoId: r.id } })`, ao concluir mostra toast com nº de campos atualizados e invalida queries.
-- Abaixo do botão (texto pequeno mute), quando `r.ultimo_reprocessamento_at` existir: "Reprocessado em DD/MM HH:mm".
+Filtro de cidades da listagem continua mostrando apenas `cidade_validada = true`, então a base ganha consistência progressiva.
 
-### Erros
+---
 
-- 429 (rate limit) / 402 (créditos) / falha Drive → toast com mensagem clara, sem alterar dados.
+## 3. Edição inline da coluna Origem
 
-## Resumo de arquivos
+Mesmo padrão da coluna **Observação**:
 
-**Criar:**
-- migration: adiciona `ultimo_reprocessamento_at` em `candidatos`.
+- Clicar na célula abre um `<select>` inline com as opções `ORIGEM_LABELS` (LinkedIn, Pandapé, Indicação, Site, Outros).
+- Ao escolher, faz `update` em `candidatos.origem_curriculo` via `supabase`, mostra toast de sucesso/erro e fecha o editor.
+- `Esc` cancela. Sem novo modal.
+- Reaproveita permissões atuais da tabela (RLS já permite ao recrutador dono e admin editar).
 
-**Editar:**
-- `src/lib/file-extract.ts` — limiar OCR, scale, fallback DOCX, novo `extractFromFileDeep`.
-- `src/lib/cv-parser.functions.ts` — prompt reforçado, limites maiores, nova função `reprocessCandidato` (modo deep, merge não-destrutivo).
-- `src/lib/auth.tsx` — adicionar campo `ultimo_reprocessamento_at`.
-- `src/lib/ats-data.ts` — incluir campo no SELECT.
-- `src/routes/_authenticated/candidatos.tsx` — botão Reprocessar + indicador + timestamp.
+Arquivo afetado: `src/routes/_authenticated/candidatos.tsx` (estado `editingOrigemId` + handler `saveOrigem`).
 
-Nada muda no fluxo de bulk upload — continua usando a extração rápida atual já melhorada.
+---
 
-## Perguntas (responda antes de implementar se quiser ajustar)
+## Detalhes técnicos
 
-1. **Merge**: confirmar que o reprocessamento só preenche campos **vazios** (nunca sobrescreve dados existentes, mesmo que pareçam errados)? Alternativa: sobrescrever sempre, mantendo histórico.
-2. **Modelo deep**: usar `google/gemini-2.5-pro` (mais caro/lento mas melhor)? Ou manter `gemini-3-flash-preview` e apenas enviar o arquivo completo como anexo?
+**Arquivos alterados**
+- `src/lib/cv-parser.functions.ts` — remover o short-circuit "regex-only" e implementar merge IA + determinístico + IBGE.
+- `src/routes/_authenticated/candidatos.tsx` — célula de Origem editável + botão admin de padronização.
+
+**Arquivo novo**
+- `src/lib/candidatos-admin.functions.ts` — `revalidateAllCities` (`requireSupabaseAuth` + checagem `has_role('admin')`, usa `supabaseAdmin` só para o UPDATE em lote).
+
+**Sem alterações**
+- Nenhuma migração de schema (colunas `origem_curriculo`, `cidade_validada`, `codigo_ibge`, `cidade_original_extraida` já existem).
+- Nada muda em `candidate-parser.ts`, `city-validation.ts`, layout, filtros ou paginação.
+
+## Critério de aceite
+
+- Currículos em qualquer layout (Pandapé, LinkedIn, Canva, Word simples) chegam com nome/cidade/estado corretos com muito menor incidência de erro.
+- Após rodar "Padronizar cidades (IBGE)", registros antigos com cidade grafada de forma divergente (ex.: "São paulo", "SAO PAULO", "Rio Janeiro") passam para a grafia oficial ou vão para `cidade_original_extraida` com `cidade_validada = false`.
+- Clicar na célula Origem abre o select, salva e reflete na lista sem recarregar a página.
