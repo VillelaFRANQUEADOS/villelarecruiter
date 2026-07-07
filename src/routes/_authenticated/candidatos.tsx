@@ -85,6 +85,14 @@ function CandidatosPage() {
   const [editingObsValue, setEditingObsValue] = useState<string>("");
   const [savingObsId, setSavingObsId] = useState<string | null>(null);
 
+  // Edição inline de origem
+  const [editingOrigemId, setEditingOrigemId] = useState<string | null>(null);
+  const [savingOrigemId, setSavingOrigemId] = useState<string | null>(null);
+
+  // Padronização IBGE (admin)
+  const [revalidating, setRevalidating] = useState(false);
+  const revalidateFn = useServerFn(revalidateAllCities);
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [agendarOpen, setAgendarOpen] = useState(false);
   const [agendarTarget, setAgendarTarget] = useState<{
