@@ -697,8 +697,31 @@ setEditingObsId(null);
                       );
                     })()}
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground text-xs">
-                    {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
+                  <td className="px-3 py-2 text-xs">
+                    {editingOrigemId === r.id ? (
+                      <select
+                        autoFocus
+                        className="h-7 rounded border border-input bg-background px-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                        defaultValue={normalizeOrigem(r.origem_curriculo)}
+                        disabled={savingOrigemId === r.id}
+                        onChange={(e) => void saveOrigem(r.id, e.target.value)}
+                        onBlur={() => setEditingOrigemId(null)}
+                        onKeyDown={(e) => { if (e.key === "Escape") setEditingOrigemId(null); }}
+                      >
+                        {ORIGEM_VALUES.map((v) => (
+                          <option key={v} value={v}>{ORIGEM_LABELS[v]}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <button
+                        type="button"
+                        className="text-left text-muted-foreground hover:text-foreground hover:underline decoration-dotted underline-offset-2"
+                        title="Clique para editar a origem"
+                        onClick={() => setEditingOrigemId(r.id)}
+                      >
+                        {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
+                      </button>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     {r.curriculo_url ? (
