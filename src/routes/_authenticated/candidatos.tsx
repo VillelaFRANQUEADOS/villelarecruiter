@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getCurriculoContent } from "@/lib/curriculos.functions";
 import { reprocessCandidato } from "@/lib/cv-parser.functions";
+import { revalidateAllCities } from "@/lib/candidatos-admin.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,14 @@ function CandidatosPage() {
   const [editingObsId, setEditingObsId] = useState<string | null>(null);
   const [editingObsValue, setEditingObsValue] = useState<string>("");
   const [savingObsId, setSavingObsId] = useState<string | null>(null);
+
+  // Edição inline de origem
+  const [editingOrigemId, setEditingOrigemId] = useState<string | null>(null);
+  const [savingOrigemId, setSavingOrigemId] = useState<string | null>(null);
+
+  // Padronização IBGE (admin)
+  const [revalidating, setRevalidating] = useState(false);
+  const revalidateFn = useServerFn(revalidateAllCities);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [agendarOpen, setAgendarOpen] = useState(false);
@@ -182,6 +191,37 @@ function CandidatosPage() {
 setEditingObsId(null);
     }
   }
+
+  async function saveOrigem(id: string, value: string) {
+    setSavingOrigemId(id);
+    const { error } = await supabase.from("candidatos").update({ origem_curriculo: value }).eq("id", id);
+    setSavingOrigemId(null);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Origem atualizada");
+      setEditingOrigemId(null);
+      invalidateAtsQueries(queryClient);
+    }
+  }
+
+  async function handleRevalidateCities() {
+    if (!confirm("Padronizar cidades de TODOS os candidatos pela base IBGE? Esta ação pode levar alguns minutos.")) return;
+    setRevalidating(true);
+    const t = toast.loading("Padronizando cidades...");
+    try {
+      const res = await revalidateFn({});
+      toast.success(
+        `Concluído: ${res.validadas} validadas, ${res.invalidas} inválidas (${res.atualizadas} atualizadas de ${res.total}).`,
+        { id: t },
+      );
+      invalidateAtsQueries(queryClient);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao padronizar cidades", { id: t });
+    } finally {
+      setRevalidating(false);
+    }
+  }
+
 
 
 
@@ -338,6 +378,12 @@ setEditingObsId(null);
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {role === "admin" && (
+            <Button size="sm" variant="outline" onClick={handleRevalidateCities} disabled={revalidating}>
+              <RefreshCw className={`size-3.5 mr-1 ${revalidating ? "animate-spin" : ""}`} />
+              {revalidating ? "Padronizando..." : "Padronizar cidades (IBGE)"}
+            </Button>
+          )}
           {role === "admin" && total > 0 && (
             <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={handleDeleteAll}>
               <Trash2 className="size-3.5 mr-1" /> Excluir todos
@@ -651,8 +697,31 @@ setEditingObsId(null);
                       );
                     })()}
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground text-xs">
-                    {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
+                  <td className="px-3 py-2 text-xs">
+                    {editingOrigemId === r.id ? (
+                      <select
+                        autoFocus
+                        className="h-7 rounded border border-input bg-background px-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                        defaultValue={normalizeOrigem(r.origem_curriculo)}
+                        disabled={savingOrigemId === r.id}
+                        onChange={(e) => void saveOrigem(r.id, e.target.value)}
+                        onBlur={() => setEditingOrigemId(null)}
+                        onKeyDown={(e) => { if (e.key === "Escape") setEditingOrigemId(null); }}
+                      >
+                        {ORIGEM_VALUES.map((v) => (
+                          <option key={v} value={v}>{ORIGEM_LABELS[v]}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <button
+                        type="button"
+                        className="text-left text-muted-foreground hover:text-foreground hover:underline decoration-dotted underline-offset-2"
+                        title="Clique para editar a origem"
+                        onClick={() => setEditingOrigemId(r.id)}
+                      >
+                        {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
+                      </button>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     {r.curriculo_url ? (
