@@ -1,5 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { google } from "@ai-sdk/google";
+import { generateObject } from "ai";
+import { z } from "zod";
 import { validateCity } from "@/lib/city-validation";
 
 /**
