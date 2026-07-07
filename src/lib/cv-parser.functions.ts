@@ -127,23 +127,31 @@ const regexTelefone = extractPhoneFromText(cvText);
 const regexEstado = extractUfFromText(cvText);
 const regexCidade = extractCityFromText(cvText);
 const regexNome = extractNameFromText(cvText);
+    
+    if (regexEmail || regexTelefone) {
+ extracted = {
+nome: regexNome || cleanFileName(data.fileName),
+  telefone: regexTelefone,
+  email: regexEmail,
+  cidade: regexCidade,
+  estado: regexEstado,
+};
+} else if (hasText || hasImages) {
+  try {
+    const model = google("gemini-2.5-flash");
 
-    // Sempre chamamos a IA quando houver conteúdo legível (texto ou imagens),
-    // independentemente do que o regex determinístico já achou. Depois fazemos
-    // merge preferindo IA quando o campo for válido, com fallback determinístico.
-    if (hasText || hasImages) {
-      try {
-        const model = google("gemini-2.5-flash");
-        const userContent: Array<
-          | { type: "text"; text: string }
-          | { type: "image"; image: string }
-        > = [{ type: "text", text: STRICT_PROMPT }];
+    const userContent: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; image: string }
+    > = [{ type: "text", text: STRICT_PROMPT }];
+
         if (hasText) {
           userContent.push({ type: "text", text: `CURRÍCULO (texto extraído):\n${cvText}` });
         }
         for (const img of images) {
           userContent.push({ type: "image", image: img });
         }
+
         const { object } = await generateObject({
           model,
           schema: ExtractedSchema,
@@ -154,33 +162,20 @@ const regexNome = extractNameFromText(cvText);
         aiFailed = true;
         aiErrorMsg = e instanceof Error ? e.message : "Erro IA";
       }
-    } else if (!(regexEmail || regexTelefone)) {
+    } else {
       aiFailed = true;
       aiErrorMsg = "Documento sem conteúdo legível";
     }
 
-    // Merge IA + determinístico (preferindo IA quando válido).
-    const telefoneFinal = normalizePhone(extracted.telefone, cvText) || regexTelefone;
-    const emailFinal = (normalizeEmail(extracted.email, cvText) || regexEmail || "").toLowerCase() || null;
+    // Normalização sem inventar: cai para regex sobre o texto bruto se a IA falhou.
+    const telefoneFinal = normalizePhone(extracted.telefone, cvText);
+    const emailFinal = normalizeEmail(extracted.email, cvText) || null;
+    const cidadeBruta = (extracted.cidade || "").trim();
+    const estadoBruto = normalizeUf(extracted.estado, cvText);
+    const nomeFinal = (extracted.nome || "").trim() || cleanFileName(data.fileName);
 
-    const aiNome = (extracted.nome || "").trim();
-    // Blocklist p/ nomes triviais vindos do topo de templates (Pandapé/agência).
-    const NAME_BLOCK = /^(grupo\s+villela|impress[aã]o\s+cv|pandap[eé]|curriculum|curr[ií]culo)/i;
-    const nomeFinal =
-      (aiNome && aiNome.split(/\s+/).length >= 2 && !NAME_BLOCK.test(aiNome) ? aiNome : "") ||
-      regexNome ||
-      aiNome ||
-      cleanFileName(data.fileName);
-
-    // Cidade: tenta IA -> determinístico -> só UF.
-    const aiCidade = (extracted.cidade || "").trim();
-    const aiEstado = normalizeUf(extracted.estado, cvText);
-    let cityRes = validateCity(aiCidade, aiEstado);
-    if (!cityRes.cidade_validada && (regexCidade || regexEstado)) {
-      const alt = validateCity(regexCidade, regexEstado || aiEstado);
-      if (alt.cidade_validada) cityRes = alt;
-      else if (!aiCidade && regexCidade) cityRes = alt;
-    }
+    // Validação de cidade contra base IBGE
+    const cityRes = validateCity(cidadeBruta, estadoBruto);
 
     // Origem do currículo (default OUTROS)
     const origem: OrigemCurriculo = normalizeOrigem(data.origemCurriculo);
