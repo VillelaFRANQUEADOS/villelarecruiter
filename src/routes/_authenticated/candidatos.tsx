@@ -51,6 +51,7 @@ function CandidatosPage() {
   const fetchCv = useServerFn(getCurriculoContent);
   const reprocessFn = useServerFn(reprocessCandidato);
   const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
+  const [bulkReprocessing, setBulkReprocessing] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
   const [fNome, setFNome] = useState("");
