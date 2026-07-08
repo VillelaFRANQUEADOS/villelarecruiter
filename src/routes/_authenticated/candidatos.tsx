@@ -51,6 +51,7 @@ function CandidatosPage() {
   const fetchCv = useServerFn(getCurriculoContent);
   const reprocessFn = useServerFn(reprocessCandidato);
   const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
+  const [bulkReprocessing, setBulkReprocessing] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
   const [fNome, setFNome] = useState("");
@@ -261,6 +262,44 @@ setEditingObsId(null);
         n.delete(id);
         return n;
       });
+    }
+  }
+
+  async function handleBulkReprocess() {
+    if (bulkReprocessing) return;
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    const ok = window.confirm(`Reprocessar ${ids.length} currículo(s) com IA? Isso pode levar alguns minutos e consumir créditos.`);
+    if (!ok) return;
+    setBulkReprocessing(true);
+    const toastId = toast.loading(`Reprocessando 0/${ids.length}...`);
+    let done = 0, updated = 0, failed = 0;
+    const CONCURRENCY = 2;
+    let idx = 0;
+    async function worker() {
+      while (idx < ids.length) {
+        const i = idx++;
+        const id = ids[i];
+        setReprocessing((s) => new Set(s).add(id));
+        try {
+          const res = await reprocessFn({ data: { candidatoId: id } });
+          if (res.updatedFields.length > 0) updated++;
+        } catch {
+          failed++;
+        } finally {
+          setReprocessing((s) => { const n = new Set(s); n.delete(id); return n; });
+          done++;
+          toast.loading(`Reprocessando ${done}/${ids.length}...`, { id: toastId });
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, worker));
+    invalidateAtsQueries(queryClient);
+    setBulkReprocessing(false);
+    if (failed === 0) {
+      toast.success(`Reprocessamento concluído: ${updated} candidato(s) atualizado(s) de ${ids.length}.`, { id: toastId });
+    } else {
+      toast.error(`Concluído com ${failed} erro(s). ${updated} atualizado(s) de ${ids.length}.`, { id: toastId });
     }
   }
 
@@ -486,7 +525,19 @@ setEditingObsId(null);
                   {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
+              {role === "admin" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleBulkReprocess}
+                  disabled={bulkReprocessing}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`size-3.5 ${bulkReprocessing ? "animate-spin" : ""}`} />
+                  {bulkReprocessing ? "Reprocessando..." : "Reprocessar"}
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={bulkReprocessing}>Limpar seleção</Button>
             </div>
           )}
         </div>
