@@ -486,7 +486,19 @@ setEditingObsId(null);
                   {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
+              {role === "admin" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleBulkReprocess}
+                  disabled={bulkReprocessing}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`size-3.5 ${bulkReprocessing ? "animate-spin" : ""}`} />
+                  {bulkReprocessing ? "Reprocessando..." : "Reprocessar"}
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={bulkReprocessing}>Limpar seleção</Button>
             </div>
           )}
         </div>
