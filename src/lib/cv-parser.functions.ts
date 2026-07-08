@@ -306,10 +306,12 @@ if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
     const { base64, mimeType } = await downloadFromDrive(fileId);
 
     // 3. Extração deep com o arquivo completo como anexo multimodal
+    // Modelo econômico: gemini-2.5-flash-lite (mais barato/rápido) é suficiente
+    // para corrigir nome e completar campos faltantes a partir do PDF anexo.
     let extracted: Extracted = { nome: "", telefone: "", email: "", cidade: "", estado: "" };
     let aiErrorMsg: string | null = null;
     try {
-      const model = google("gemini-2.5-flash");
+      const model = google("gemini-2.5-flash-lite");
 
       // AI SDK aceita parts type:"file" com base64 + mediaType (imagens e PDF).
       type Part =
@@ -341,11 +343,20 @@ if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
     const estadoNew = normalizeUf(extracted.estado, "") || "";
     const nomeNew = (extracted.nome || "").trim();
 
-    // 5. Merge NÃO-destrutivo: só preenche campos vazios/null
+    // 5. Merge:
+    //    - nome: CORRIGE (sobrescreve) quando a IA retorna nome plausível
+    //      (2+ palavras, só letras/espaços/hífen/apóstrofo) e diferente do atual.
+    //    - demais campos: preenche apenas se estiverem vazios (não-destrutivo).
     const isEmpty = (v: string | null | undefined) => !v || !String(v).trim();
+    const isPlausibleName = (n: string) =>
+      /^[A-Za-zÀ-ÖØ-öø-ÿ'’\-\s]{3,}$/.test(n) && n.trim().split(/\s+/).length >= 2;
     const patch: Record<string, string | boolean | null> = {};
     const updatedFields: string[] = [];
-    if (isEmpty(cand.nome) && nomeNew) { patch.nome = nomeNew; updatedFields.push("nome"); }
+
+    if (nomeNew && isPlausibleName(nomeNew) && nomeNew.trim().toLowerCase() !== (cand.nome || "").trim().toLowerCase()) {
+      patch.nome = nomeNew;
+      updatedFields.push("nome");
+    }
     if (isEmpty(cand.telefone) && telefoneNew) { patch.telefone = telefoneNew; updatedFields.push("telefone"); }
     if (isEmpty(cand.email) && emailNew) { patch.email = emailNew; updatedFields.push("email"); }
     if (isEmpty(cand.cidade) && (cidadeNew || estadoNew)) {
