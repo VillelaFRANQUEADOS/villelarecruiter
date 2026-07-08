@@ -1,74 +1,119 @@
-# Melhorar IA de extração + botão "Reprocessar"
 
-Dois eixos: (1) elevar a qualidade da leitura padrão sem perder velocidade; (2) adicionar um modo "deep" acionado manualmente pelo botão Reprocessar na listagem.
+# Sincronização bidirecional ATS ↔ SharePoint
 
-## 1. Extração padrão mais robusta (mantendo performance)
+Objetivo: cada candidato vira uma linha em uma lista do SharePoint; editar lá atualiza o ATS e vice-versa. Somente campos do candidato (sem arquivo, sem histórico de status, sem entrevistas — decidido nas respostas).
 
-`src/lib/file-extract.ts`
-- PDF: extrair texto de **todas as páginas** (já faz) mas elevar limiar `hasEnoughText` de 120 para ~250 caracteres por página média (detecta PDFs parcialmente escaneados). Quando texto fraco → renderizar páginas como imagem (cap: até 6 páginas, hoje sem limite — adicionar guarda).
-- Render: aumentar `scale` de 1.6 → 2.0 para OCR mais nítido; JPEG quality 0.9.
-- DOCX: além de `extractRawText`, fazer fallback para `convertToHtml` quando texto < 100 chars (alguns DOCX guardam tudo em tabelas).
-- Adicionar utilitário `extractFromFileDeep(file)` que sempre renderiza todas as páginas do PDF como imagem (mesmo com texto), retornando texto + imagens para análise multimodal completa.
+## 1. Conexão SharePoint
 
-`src/lib/cv-parser.functions.ts`
-- Aumentar `cvText` de 14000 → 24000 chars e `images` de 3 → 8 (capa do currículo costuma estar nas primeiras páginas, mas precisamos cobrir múltiplas).
-- Reforçar prompt com exemplos negativos e regras anti-alucinação para nome (não confundir com nome de empresa/curso) e cidade/UF (priorizar bloco de contato/endereço).
-- Já existem fallbacks por regex (telefone/email/UF) — manter.
+- Usar o conector **Microsoft SharePoint** do Lovable (gateway). Vou solicitar a conexão quando entrar em build mode; você escolhe o site alvo.
+- Guardar em uma nova tabela `sharepoint_config` (linha única):
+  - `site_id` (SharePoint), `list_id` (SharePoint), `site_url` amigável, `last_delta_link` (para pull incremental), `enabled`, `updated_at`.
+- Página nova em `/_admin/integracoes/sharepoint`:
+  - Selecionar um site (busca via Graph `/sites?search=`).
+  - Botão **Criar lista** → cria uma lista com todas as colunas (item 3) e grava `site_id`/`list_id`.
+  - Botão **Sincronizar agora** (dispara o mesmo job da cron).
+  - Estado: total de itens sincronizados, última execução, erros recentes.
+- Só administradores acessam.
 
-## 2. Modo "Reprocessar" (deep, sob demanda)
+## 2. Modelo de sincronização
 
-### Backend — nova server function
+**Chave de correlação:** duas colunas novas em `candidatos`:
+- `sharepoint_item_id text` — id da linha na lista SP.
+- `sharepoint_synced_at timestamptz` — última vez que a linha foi vista igual ao SP.
 
-`src/lib/cv-parser.functions.ts` → `reprocessCandidato`
-- Input: `{ candidatoId: string }`.
-- Fluxo:
-  1. Buscar candidato no banco (RLS aplica). Se sem `curriculo_url` ou não `drive:` → erro amigável.
-  2. Baixar arquivo do Drive (reutiliza lógica de `getCurriculoContent`).
-  3. Extração **deep**: chamar Gemini multimodal direto com o **arquivo original como anexo** (PDF/imagem via base64 `file` part da AI SDK), além do texto extraído server-side simples. Usar `google/gemini-2.5-pro` (mais robusto que o flash preview padrão).
-  4. Normalizar (telefone/email/UF) como hoje.
-  5. **Merge não-destrutivo**: para cada campo (`nome`, `telefone`, `email`, `cidade`, `estado`), só sobrescrever se o valor atual estiver vazio/null OU se a IA retornou valor e o atual nunca foi editado manualmente. Como heurística simples e segura: **só preencher campos vazios** (o usuário marcou caixas; respeitamos o que ele já editou). Documentar isso no toast ("preenchidos N campos vazios").
-  6. Atualizar `ultimo_reprocessamento_at` (timestamptz) — nova coluna.
-  7. Retornar `{ updatedFields: string[], ultimo_reprocessamento_at }`.
+Novas colunas em `candidatos`:
+- `sharepoint_etag text` — eTag do item do SP (para detectar edições remotas sem baixar tudo).
+- `deleted_at timestamptz` — soft-delete, usado para propagar exclusões nos dois lados.
 
-### Migration
+Nova tabela `sharepoint_sync_log` (auditoria): `id`, `direction` (`push`|`pull`), `candidato_id`, `sharepoint_item_id`, `action` (`create|update|delete|skip|error`), `message`, `created_at`.
 
-Adicionar coluna na tabela `candidatos`:
-- `ultimo_reprocessamento_at timestamptz null`
+**Resolução de conflito:** *last write wins* por `updated_at` (ATS) vs `lastModifiedDateTime` (SP). Empate → SP vence (é o "editor humano de fora"). Registrado em `sharepoint_sync_log`.
 
-(sem alteração de RLS — herda das policies existentes da tabela.)
+## 3. Colunas da lista no SharePoint
 
-### Tipos
+Criadas automaticamente ao clicar "Criar lista". Nomes internos entre parênteses:
 
-- `src/lib/auth.tsx` `CandidatoRow`: adicionar `ultimo_reprocessamento_at: string | null`.
-- `src/lib/ats-data.ts` `CANDIDATOS_SELECT`: adicionar campo.
+| Campo SP (interno) | Tipo | Origem no ATS |
+|---|---|---|
+| Title | Text (padrão) | `nome` |
+| ATSId | Text (indexado) | `candidatos.id` (chave estrangeira) |
+| Telefone | Text | `telefone` |
+| Email | Text | `email` |
+| Cidade | Text | `cidade` |
+| UF | Choice (27 UFs) | `estado` |
+| Status | Choice (labels PT) | `status` |
+| Observacao | MultilineText | `observacoes` |
+| Origem | Choice (LINKEDIN/PANDAPE/INDICACAO/SITE/OUTROS) | `origem_curriculo` |
+| Vaga | Text | `vaga` |
+| Recrutador | Text (nome) | `profiles.nome` via `recrutador_id` |
+| DataEntrevista | DateTime | `data_entrevista` + `horario_entrevista` |
+| ATSUrl | Hyperlink | link direto para `/candidatos?focus=<id>` |
+| ATSUpdatedAt | DateTime (oculto) | `updated_at` (para conflito) |
 
-### UI — botão na listagem
+`ATSId` é a fonte da verdade da correlação. Se um item for criado no SP sem `ATSId`, o pull cria um novo candidato e grava o `ATSId` de volta.
 
-`src/routes/_authenticated/candidatos.tsx`, célula PDF (linhas 489–500):
-- Adicionar botão "Reprocessar" (ícone `RefreshCw`) ao lado do PDF, visível apenas quando `r.curriculo_url` existir.
-- Estado local `reprocessing: Set<string>` para spinner por linha.
-- Click → confirma rapidamente (toast loading), chama `reprocessCandidato({ data: { candidatoId: r.id } })`, ao concluir mostra toast com nº de campos atualizados e invalida queries.
-- Abaixo do botão (texto pequeno mute), quando `r.ultimo_reprocessamento_at` existir: "Reprocessado em DD/MM HH:mm".
+## 4. Push (ATS → SharePoint)
 
-### Erros
+Server function `syncCandidatoToSharePoint(id)` chamada:
+- Após INSERT/UPDATE de `candidatos` — via trigger que enfileira em uma tabela `sharepoint_outbox(candidato_id, op, created_at)`. Isso desacopla latência da UI.
+- Após soft-delete (`deleted_at`) → deleta o item no SP.
 
-- 429 (rate limit) / 402 (créditos) / falha Drive → toast com mensagem clara, sem alterar dados.
+O worker (server route `POST /api/public/hooks/sharepoint-sync`, protegida por secret header) drena o outbox: para cada `candidato_id`, faz upsert via Graph:
+- Sem `sharepoint_item_id`: `POST /sites/{sid}/lists/{lid}/items` → salva id + etag.
+- Com id: `PATCH /sites/{sid}/lists/{lid}/items/{iid}/fields` com `If-Match: <etag>`. Se 412 (conflito), força pull daquele item e reaplica LWW.
 
-## Resumo de arquivos
+## 5. Pull (SharePoint → ATS)
 
-**Criar:**
-- migration: adiciona `ultimo_reprocessamento_at` em `candidatos`.
+Mesmo worker faz um pull incremental via `delta`:
+- `GET /sites/{sid}/lists/{lid}/items/delta` (primeira vez) e depois usa `last_delta_link`.
+- Para cada item retornado:
+  - Se tem `ATSId` conhecido: comparar `lastModifiedDateTime` com `sharepoint_synced_at` e `updated_at`; aplicar LWW.
+  - Se `ATSId` vazio: criar candidato novo (`origem_curriculo='OUTROS'`, `cidade_validada` validado via IBGE) e escrever `ATSId` de volta no SP.
+  - Se item foi removido do SP: soft-delete no ATS.
+- Grava novo `deltaLink` em `sharepoint_config.last_delta_link`.
 
-**Editar:**
-- `src/lib/file-extract.ts` — limiar OCR, scale, fallback DOCX, novo `extractFromFileDeep`.
-- `src/lib/cv-parser.functions.ts` — prompt reforçado, limites maiores, nova função `reprocessCandidato` (modo deep, merge não-destrutivo).
-- `src/lib/auth.tsx` — adicionar campo `ultimo_reprocessamento_at`.
-- `src/lib/ats-data.ts` — incluir campo no SELECT.
-- `src/routes/_authenticated/candidatos.tsx` — botão Reprocessar + indicador + timestamp.
+## 6. Cron
 
-Nada muda no fluxo de bulk upload — continua usando a extração rápida atual já melhorada.
+`pg_cron` chama `POST https://project--32814c07-...lovable.app/api/public/hooks/sharepoint-sync` a cada 5 min com header secreto `x-sync-secret`. A rota valida o secret, drena outbox (push) e roda delta (pull).
 
-## Perguntas (responda antes de implementar se quiser ajustar)
+## 7. Segurança / permissões
 
-1. **Merge**: confirmar que o reprocessamento só preenche campos **vazios** (nunca sobrescreve dados existentes, mesmo que pareçam errados)? Alternativa: sobrescrever sempre, mantendo histórico.
-2. **Modelo deep**: usar `google/gemini-2.5-pro` (mais caro/lento mas melhor)? Ou manter `gemini-3-flash-preview` e apenas enviar o arquivo completo como anexo?
+- Endpoint público valida `x-sync-secret` (secret novo, gerado via `generate_secret`).
+- Todas as chamadas Graph via `standard_connectors--call_gateway_connection` server-side.
+- RLS: `sharepoint_config`, `sharepoint_outbox`, `sharepoint_sync_log` acessíveis só para `admin`. `service_role` para o worker.
+- Nunca expõe token do SharePoint no cliente.
+
+## 8. O que fica de fora (por decisão sua)
+
+- Não sincroniza o PDF do currículo.
+- Não sincroniza histórico de status nem entrevistas como itens separados (data/hora vão no campo `DataEntrevista`).
+- Não há mapa por vaga — uma única lista para todos os candidatos.
+
+## Detalhes técnicos (arquivos a criar/editar)
+
+**Migrations**
+- `candidatos`: adicionar `sharepoint_item_id`, `sharepoint_etag`, `sharepoint_synced_at`, `deleted_at`, índice em `sharepoint_item_id` e em `deleted_at IS NULL`.
+- Nova `sharepoint_config` (linha única, admin-only).
+- Nova `sharepoint_outbox` (fila de push).
+- Nova `sharepoint_sync_log`.
+- Trigger em `candidatos` → insere no outbox em INSERT/UPDATE dos campos mapeados e em soft-delete.
+- Habilitar `pg_cron` + `pg_net`, agendar hook a cada 5 min (via insert, não migração — contém secret/URL).
+
+**Código**
+- `src/lib/sharepoint.server.ts` — helpers Graph (createList, upsertItem, deleteItem, deltaFetch, mapping ATS↔SP).
+- `src/lib/sharepoint.functions.ts` — `setupSharepointList`, `getSharepointStatus`, `runSharepointSync` (admin-only server fns).
+- `src/routes/api/public/hooks/sharepoint-sync.ts` — endpoint cron/push.
+- `src/routes/_authenticated/_admin/integracoes.sharepoint.tsx` — UI de configuração.
+- Item no menu do sidebar (só admin) apontando para a página.
+- Substituir hard-delete em `candidatos.tsx` por soft-delete (`deleted_at = now()`); listagem já filtra `deleted_at IS NULL`.
+
+**Secrets a provisionar em build mode**
+- Conectar `microsoft_sharepoint` (via `standard_connectors--connect`).
+- `SHAREPOINT_SYNC_SECRET` (gerado, usado pelo endpoint público).
+
+## Limitações conhecidas
+
+- Latência: uma edição no SP aparece no ATS em até 5 min (janela do cron). Push do ATS é ~imediato quando o outbox drena.
+- SharePoint não notifica em tempo real via Graph v1 nesse conector; polling é o único caminho.
+- Criar site/coleção de sites não é suportado pelo conector — você aponta um site existente.
+- `DataEntrevista` combina `data_entrevista + horario_entrevista`; se você editar só um dos dois no ATS, o SP recebe o valor combinado (e vice-versa vem quebrado nos dois campos).
