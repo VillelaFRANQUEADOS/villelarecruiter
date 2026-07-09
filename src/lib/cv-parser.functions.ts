@@ -354,16 +354,14 @@ if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
     const nomeNew = (extracted.nome || "").trim();
 
     // 5. Merge:
-    //    - nome: CORRIGE (sobrescreve) quando a IA retorna nome plausível
-    //      (2+ palavras, só letras/espaços/hífen/apóstrofo) e diferente do atual.
+    //    - nome: SEMPRE sobrescreve quando a IA retorna um nome não-vazio
+    //      diferente do atual (case-insensitive).
     //    - demais campos: preenche apenas se estiverem vazios (não-destrutivo).
     const isEmpty = (v: string | null | undefined) => !v || !String(v).trim();
-    const isPlausibleName = (n: string) =>
-      /^[A-Za-zÀ-ÖØ-öø-ÿ'’\-\s]{3,}$/.test(n) && n.trim().split(/\s+/).length >= 2;
     const patch: Record<string, string | boolean | null> = {};
     const updatedFields: string[] = [];
 
-    if (nomeNew && isPlausibleName(nomeNew) && nomeNew.trim().toLowerCase() !== (cand.nome || "").trim().toLowerCase()) {
+    if (nomeNew && nomeNew.toLowerCase() !== (cand.nome || "").trim().toLowerCase()) {
       patch.nome = nomeNew;
       updatedFields.push("nome");
     }
