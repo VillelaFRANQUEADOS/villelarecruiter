@@ -127,29 +127,29 @@ const regexTelefone = extractPhoneFromText(cvText);
 const regexEstado = extractUfFromText(cvText);
 const regexCidade = extractCityFromText(cvText);
 const regexNome = extractNameFromText(cvText);
+    
+    if (regexEmail || regexTelefone) {
+ extracted = {
+nome: regexNome || cleanFileName(data.fileName),
+  telefone: regexTelefone,
+  email: regexEmail,
+  cidade: regexCidade,
+  estado: regexEstado,
+};
+} else if (hasText || hasImages) {
+  try {
+    const model = google("gemini-2.5-flash");
 
-    // Sempre invocamos a IA para obter o nome (é o campo mais suscetível a erro
-    // heurístico). Demais campos usam regex como primária e IA como fallback.
-    // Economia: quando já temos contato via regex, mandamos SÓ texto (sem imagens/OCR).
-    const contatoJaResolvido = Boolean(regexEmail || regexTelefone);
-    const podeChamarIA = hasText || hasImages;
-
-    if (podeChamarIA) {
-      try {
-        const model = google("gemini-2.5-flash");
-        const userContent: Array<
-          | { type: "text"; text: string }
-          | { type: "image"; image: string }
-        > = [{ type: "text", text: STRICT_PROMPT }];
+    const userContent: Array<
+      | { type: "text"; text: string }
+      | { type: "image"; image: string }
+    > = [{ type: "text", text: STRICT_PROMPT }];
 
         if (hasText) {
           userContent.push({ type: "text", text: `CURRÍCULO (texto extraído):\n${cvText}` });
         }
-        // Só usa imagens/OCR quando não há texto suficiente OU quando contato ainda não foi resolvido.
-        if (!contatoJaResolvido || !hasText) {
-          for (const img of images) {
-            userContent.push({ type: "image", image: img });
-          }
+        for (const img of images) {
+          userContent.push({ type: "image", image: img });
         }
 
         const { object } = await generateObject({
@@ -166,16 +166,6 @@ const regexNome = extractNameFromText(cvText);
       aiFailed = true;
       aiErrorMsg = "Documento sem conteúdo legível";
     }
-
-    // Merge: regex é primária para contato/localização; IA é primária para nome.
-    // Se algum campo veio vazio da IA e o regex tem, usa o regex.
-    extracted = {
-      nome: (extracted.nome || "").trim() || regexNome,
-      telefone: extracted.telefone || regexTelefone,
-      email: extracted.email || regexEmail,
-      cidade: extracted.cidade || regexCidade,
-      estado: extracted.estado || regexEstado,
-    };
 
     // Normalização sem inventar: cai para regex sobre o texto bruto se a IA falhou.
     const telefoneFinal = normalizePhone(extracted.telefone, cvText);
@@ -354,14 +344,16 @@ if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
     const nomeNew = (extracted.nome || "").trim();
 
     // 5. Merge:
-    //    - nome: SEMPRE sobrescreve quando a IA retorna um nome não-vazio
-    //      diferente do atual (case-insensitive).
+    //    - nome: CORRIGE (sobrescreve) quando a IA retorna nome plausível
+    //      (2+ palavras, só letras/espaços/hífen/apóstrofo) e diferente do atual.
     //    - demais campos: preenche apenas se estiverem vazios (não-destrutivo).
     const isEmpty = (v: string | null | undefined) => !v || !String(v).trim();
+    const isPlausibleName = (n: string) =>
+      /^[A-Za-zÀ-ÖØ-öø-ÿ'’\-\s]{3,}$/.test(n) && n.trim().split(/\s+/).length >= 2;
     const patch: Record<string, string | boolean | null> = {};
     const updatedFields: string[] = [];
 
-    if (nomeNew && nomeNew.toLowerCase() !== (cand.nome || "").trim().toLowerCase()) {
+    if (nomeNew && isPlausibleName(nomeNew) && nomeNew.trim().toLowerCase() !== (cand.nome || "").trim().toLowerCase()) {
       patch.nome = nomeNew;
       updatedFields.push("nome");
     }
