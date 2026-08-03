@@ -99,6 +99,60 @@ async function fetchCandidatos(page: number, pageSize: number, filters: Candidat
   return { candidatos: ((data ?? []) as unknown) as CandidatoRow[], total: count ?? 0 };
 }
 
+// ---------------------------------------------------------------------------
+// Dashboard: busca 100% da base percorrendo automaticamente todas as páginas.
+// ---------------------------------------------------------------------------
+
+export interface DashboardRow {
+  id: string;
+  nome: string;
+  status: string;
+  estado: string | null;
+  cidade: string | null;
+  vaga: string | null;
+  origem_curriculo: string;
+  recrutador_id: string | null;
+  created_at: string;
+  updated_at: string | null;
+  data_entrevista: string | null;
+  entrevistador: string | null;
+}
+
+const DASHBOARD_SELECT =
+  "id,nome,status,estado,cidade,vaga,origem_curriculo,recrutador_id,created_at,updated_at,data_entrevista,entrevistador";
+
+const DASHBOARD_CHUNK = 1000;
+
+export async function fetchAllCandidatos(filters: CandidatosFilters): Promise<DashboardRow[]> {
+  const all: DashboardRow[] = [];
+  for (let page = 0; ; page++) {
+    const from = page * DASHBOARD_CHUNK;
+    let qb = supabase.from("candidatos").select(DASHBOARD_SELECT);
+    qb = applyFilters(qb, filters);
+    qb = qb.order("created_at", { ascending: false }).range(from, from + DASHBOARD_CHUNK - 1);
+    const { data, error } = await qb;
+    if (error) throw error;
+    const chunk = ((data ?? []) as unknown) as DashboardRow[];
+    all.push(...chunk);
+    if (chunk.length < DASHBOARD_CHUNK) break;
+    if (page > 500) break; // guarda de segurança (500k registros)
+  }
+  return all;
+}
+
+export function useDashboardCandidatosQuery(filters: CandidatosFilters) {
+  return useQuery({
+    queryKey: [...ATS_QUERY_KEYS.dashboard, filters],
+    queryFn: () => fetchAllCandidatos(filters),
+    placeholderData: keepPreviousData,
+    staleTime: 30000,
+    gcTime: 10 * 60000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+
+
 async function fetchProfilesLite() {
   const { data, error } = await supabase.from("profiles").select("id,nome");
   if (error) throw error;
