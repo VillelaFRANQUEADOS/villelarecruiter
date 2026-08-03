@@ -41,6 +41,7 @@ export const ATS_QUERY_KEYS = {
   candidatosOptions: ["candidatos-options"] as const,
   profilesLite: ["profiles-lite"] as const,
   latestStatusChanges: ["latest-status-changes"] as const,
+  dashboard: ["dashboard-candidatos"] as const,
 };
 
 const CANDIDATOS_SELECT = [
