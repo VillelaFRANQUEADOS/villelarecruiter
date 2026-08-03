@@ -235,6 +235,7 @@ export function useCandidatosRealtime() {
       .on("postgres_changes", { event: "*", schema: "public", table: "candidatos" }, () => {
         void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.candidatos });
         void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.candidatosOptions });
+        void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.dashboard });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "candidato_status_log" }, () => { void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.latestStatusChanges }); })
       .subscribe();
