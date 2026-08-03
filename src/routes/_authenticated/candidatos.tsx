@@ -76,6 +76,7 @@ export const Route = createFileRoute("/_authenticated/candidatos")({
 
 function CandidatosPage() {
   const { role, user } = useAuth();
+  const search = Route.useSearch();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(20);
@@ -91,23 +92,43 @@ function CandidatosPage() {
   const [fNome, setFNome] = useState("");
   const [fTelefone, setFTelefone] = useState("");
   const [fEmail, setFEmail] = useState("");
-  const [fVaga, setFVaga] = useState("");
+  const [fVaga, setFVaga] = useState(search.vaga);
 
   // Filtros multi-select
-  const [fStatus, setFStatus] = useState<string[]>([]);
-  const [fRecrutadores, setFRecrutadores] = useState<string[]>([]);
-  const [fEstados, setFEstados] = useState<string[]>([]);
-  const [fCidades, setFCidades] = useState<string[]>([]);
-  const [fOrigens, setFOrigens] = useState<string[]>([]);
+  const [fStatus, setFStatus] = useState<string[]>(search.status);
+  const [fRecrutadores, setFRecrutadores] = useState<string[]>(search.recrutador);
+  const [fEstados, setFEstados] = useState<string[]>(search.estado);
+  const [fCidades, setFCidades] = useState<string[]>(search.cidade);
+  const [fOrigens, setFOrigens] = useState<string[]>(search.origem);
 
   // Período (created_at) – combinável com os demais
-  const [fDateFrom, setFDateFrom] = useState<string>("");
-  const [fDateTo, setFDateTo] = useState<string>("");
+  const [fDateFrom, setFDateFrom] = useState<string>(search.dateFrom);
+  const [fDateTo, setFDateTo] = useState<string>(search.dateTo);
 
   // Filtros de entrevista
   const [fEntrevistaData, setFEntrevistaData] = useState<string>("");
-  const [fEntrevistadores, setFEntrevistadores] = useState<string[]>([]);
-  const [fEntrevistaQuando, setFEntrevistaQuando] = useState<"" | "hoje" | "semana">("");
+  const [fEntrevistadores, setFEntrevistadores] = useState<string[]>(search.entrevistador);
+  const [fEntrevistaQuando, setFEntrevistaQuando] = useState<"" | "hoje" | "semana">(
+    search.entrevistaQuando === "hoje" || search.entrevistaQuando === "semana" ? search.entrevistaQuando : "",
+  );
+
+  // Sincroniza filtros quando a URL muda (ex.: clique num card do Dashboard).
+  const searchKey = JSON.stringify(search);
+  useEffect(() => {
+    setFStatus(search.status);
+    setFRecrutadores(search.recrutador);
+    setFEstados(search.estado);
+    setFCidades(search.cidade);
+    setFOrigens(search.origem);
+    setFEntrevistadores(search.entrevistador);
+    setFVaga(search.vaga);
+    setFDateFrom(search.dateFrom);
+    setFDateTo(search.dateTo);
+    setFEntrevistaQuando(
+      search.entrevistaQuando === "hoje" || search.entrevistaQuando === "semana" ? search.entrevistaQuando : "",
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchKey]);
 
   // Filtro de observação
   const [fObs, setFObs] = useState<"" | "com" | "sem">("");
