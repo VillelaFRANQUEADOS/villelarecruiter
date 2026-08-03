@@ -248,4 +248,5 @@ export function invalidateAtsQueries(queryClient: ReturnType<typeof useQueryClie
   void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.candidatosOptions });
   void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.profilesLite });
   void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.latestStatusChanges });
+  void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.dashboard });
 }
