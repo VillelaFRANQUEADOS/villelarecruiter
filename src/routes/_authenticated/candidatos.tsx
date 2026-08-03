@@ -36,7 +36,41 @@ const BulkUpload = lazy(async () => import("@/components/BulkUpload").then((mod)
 const CandidatoEditDialog = lazy(async () => import("@/components/CandidatoEditDialog").then((mod) => ({ default: mod.CandidatoEditDialog })));
 const AgendarEntrevistaDialog = lazy(async () => import("@/components/AgendarEntrevistaDialog").then((mod) => ({ default: mod.AgendarEntrevistaDialog })));
 
+function toArr(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map(String).filter(Boolean);
+  if (typeof v === "string" && v) return v.split(",").filter(Boolean);
+  return [];
+}
+function toStr(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
+export interface CandidatosSearch {
+  status: string[];
+  estado: string[];
+  cidade: string[];
+  origem: string[];
+  recrutador: string[];
+  entrevistador: string[];
+  vaga: string;
+  dateFrom: string;
+  dateTo: string;
+  entrevistaQuando: string;
+}
+
 export const Route = createFileRoute("/_authenticated/candidatos")({
+  validateSearch: (s: Record<string, unknown>): CandidatosSearch => ({
+    status: toArr(s.status),
+    estado: toArr(s.estado),
+    cidade: toArr(s.cidade),
+    origem: toArr(s.origem),
+    recrutador: toArr(s.recrutador),
+    entrevistador: toArr(s.entrevistador),
+    vaga: toStr(s.vaga),
+    dateFrom: toStr(s.dateFrom),
+    dateTo: toStr(s.dateTo),
+    entrevistaQuando: toStr(s.entrevistaQuando),
+  }),
   component: CandidatosPage,
 });
 
