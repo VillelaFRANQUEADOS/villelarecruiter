@@ -67,6 +67,7 @@ export type Database = {
           created_at: string
           curriculo_url: string | null
           data_entrevista: string | null
+          deleted_at: string | null
           email: string | null
           entrevistador: string | null
           estado: string | null
@@ -81,6 +82,9 @@ export type Database = {
           origem_curriculo: string
           recrutador_id: string | null
           regiao: string | null
+          sharepoint_etag: string | null
+          sharepoint_item_id: string | null
+          sharepoint_synced_at: string | null
           status: Database["public"]["Enums"]["candidato_status"]
           telefone: string | null
           ultimo_reprocessamento_at: string | null
@@ -95,6 +99,7 @@ export type Database = {
           created_at?: string
           curriculo_url?: string | null
           data_entrevista?: string | null
+          deleted_at?: string | null
           email?: string | null
           entrevistador?: string | null
           estado?: string | null
@@ -109,6 +114,9 @@ export type Database = {
           origem_curriculo?: string
           recrutador_id?: string | null
           regiao?: string | null
+          sharepoint_etag?: string | null
+          sharepoint_item_id?: string | null
+          sharepoint_synced_at?: string | null
           status?: Database["public"]["Enums"]["candidato_status"]
           telefone?: string | null
           ultimo_reprocessamento_at?: string | null
@@ -123,6 +131,7 @@ export type Database = {
           created_at?: string
           curriculo_url?: string | null
           data_entrevista?: string | null
+          deleted_at?: string | null
           email?: string | null
           entrevistador?: string | null
           estado?: string | null
@@ -137,6 +146,9 @@ export type Database = {
           origem_curriculo?: string
           recrutador_id?: string | null
           regiao?: string | null
+          sharepoint_etag?: string | null
+          sharepoint_item_id?: string | null
+          sharepoint_synced_at?: string | null
           status?: Database["public"]["Enums"]["candidato_status"]
           telefone?: string | null
           ultimo_reprocessamento_at?: string | null
@@ -166,6 +178,116 @@ export type Database = {
           email?: string
           id?: string
           nome?: string
+        }
+        Relationships: []
+      }
+      sharepoint_config: {
+        Row: {
+          enabled: boolean
+          id: boolean
+          last_delta_link: string | null
+          last_sync_at: string | null
+          last_sync_message: string | null
+          last_sync_status: string | null
+          list_id: string | null
+          list_name: string | null
+          site_id: string | null
+          site_name: string | null
+          site_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          id?: boolean
+          last_delta_link?: string | null
+          last_sync_at?: string | null
+          last_sync_message?: string | null
+          last_sync_status?: string | null
+          list_id?: string | null
+          list_name?: string | null
+          site_id?: string | null
+          site_name?: string | null
+          site_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          id?: boolean
+          last_delta_link?: string | null
+          last_sync_at?: string | null
+          last_sync_message?: string | null
+          last_sync_status?: string | null
+          list_id?: string | null
+          list_name?: string | null
+          site_id?: string | null
+          site_name?: string | null
+          site_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sharepoint_outbox: {
+        Row: {
+          attempts: number
+          candidato_id: string
+          created_at: string
+          id: number
+          last_error: string | null
+          op: string
+        }
+        Insert: {
+          attempts?: number
+          candidato_id: string
+          created_at?: string
+          id?: number
+          last_error?: string | null
+          op: string
+        }
+        Update: {
+          attempts?: number
+          candidato_id?: string
+          created_at?: string
+          id?: number
+          last_error?: string | null
+          op?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sharepoint_outbox_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "candidatos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sharepoint_sync_log: {
+        Row: {
+          action: string
+          candidato_id: string | null
+          created_at: string
+          direction: string
+          id: number
+          message: string | null
+          sharepoint_item_id: string | null
+        }
+        Insert: {
+          action: string
+          candidato_id?: string | null
+          created_at?: string
+          direction: string
+          id?: number
+          message?: string | null
+          sharepoint_item_id?: string | null
+        }
+        Update: {
+          action?: string
+          candidato_id?: string | null
+          created_at?: string
+          direction?: string
+          id?: number
+          message?: string | null
+          sharepoint_item_id?: string | null
         }
         Relationships: []
       }
