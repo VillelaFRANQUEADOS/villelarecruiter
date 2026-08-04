@@ -577,7 +577,7 @@ setEditingObsId(null);
 
           {selected.size > 0 && (
             <div className="flex items-center gap-2 ml-auto">
-              <span className="text-xs text-muted-foreground">{selected.size} selecionado(s)</span>
+              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{selected.size} selecionado(s)</span>
               <Select onValueChange={(v) => bulkChange(v as CandidatoStatus)}>
                 <SelectTrigger className="h-9 w-48"><SelectValue placeholder="Mover para..." /></SelectTrigger>
                 <SelectContent>
