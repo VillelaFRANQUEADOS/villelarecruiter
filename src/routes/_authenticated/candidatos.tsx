@@ -453,11 +453,11 @@ setEditingObsId(null);
         </Suspense>
       </Card>
 
-      <Card className="p-3 mb-3 space-y-2">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+      <Card className="p-4 mb-5 space-y-3 rounded-2xl shadow-sm">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
           <div className="relative lg:col-span-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-            <Input className="pl-8 h-9" placeholder="Nome" value={fNome} onChange={(e) => setFNome(e.target.value)} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input className="pl-9 h-9 bg-background" placeholder="Nome" value={fNome} onChange={(e) => setFNome(e.target.value)} />
           </div>
           <Input className="h-9" placeholder="Telefone" value={fTelefone} onChange={(e) => setFTelefone(e.target.value)} />
           <Input className="h-9" placeholder="Email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} />
@@ -471,7 +471,7 @@ setEditingObsId(null);
             searchable={false}
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
           <MultiSelect
             className="w-56"
             placeholder="Recrutadores"
@@ -519,12 +519,12 @@ setEditingObsId(null);
             />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/60">
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border/70">
           <span className="text-xs font-medium text-muted-foreground mr-1">Entrevistas:</span>
           <Button
             size="sm"
             variant={fEntrevistaQuando === "hoje" ? "default" : "outline"}
-            className="h-8"
+            className="h-8 rounded-full px-3.5 text-xs"
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "hoje" ? "" : "hoje")}
           >
             Hoje
@@ -532,7 +532,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fEntrevistaQuando === "semana" ? "default" : "outline"}
-            className="h-8"
+            className="h-8 rounded-full px-3.5 text-xs"
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "semana" ? "" : "semana")}
           >
             Esta semana
