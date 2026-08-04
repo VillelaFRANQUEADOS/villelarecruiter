@@ -700,13 +700,13 @@ setEditingObsId(null);
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-2 align-top max-w-[260px]">
+                  <td className="px-3 py-3.5 align-top max-w-[260px]">
                     {(() => {
                       const obs = (r.observacoes ?? "").trim();
                       const isEditing = editingObsId === r.id;
                       const updatedAt = r.observacoes_updated_at ? new Date(r.observacoes_updated_at) : null;
                       const isRecent = updatedAt ? (Date.now() - updatedAt.getTime()) < 3 * 24 * 60 * 60 * 1000 : false;
-                      const truncated = obs.length > 80 ? `${obs.slice(0, 80)}...` : obs;
+                      
                       if (isEditing) {
                         return (
                           <div className="flex flex-col gap-1">
@@ -736,12 +736,12 @@ setEditingObsId(null);
                       return (
                         <div className={`group rounded px-1 py-0.5 -mx-1 ${isRecent ? "bg-warning/10 border-l-2 border-warning" : ""}`}>
                           <div className="flex items-start gap-1">
-                            <span
-                              className={`text-xs leading-tight flex-1 ${obs ? "" : "text-muted-foreground italic"}`}
-                              title={obs || "Sem observações"}
-                            >
-                              {obs ? truncated : "Sem observações"}
-                            </span>
+                             <span
+                               className={`text-xs leading-relaxed flex-1 line-clamp-2 ${obs ? "" : "text-muted-foreground italic"}`}
+                               title={obs || "Sem observações"}
+                             >
+                               {obs || "Sem observações"}
+                             </span>
                             <button
                               type="button"
                               className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
@@ -761,10 +761,10 @@ setEditingObsId(null);
                       );
                     })()}
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground text-xs">
-                    {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
-                  </td>
-                  <td className="px-3 py-2">
+                   <td className="px-3 py-3.5 text-muted-foreground text-xs">
+                     {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
+                   </td>
+                   <td className="px-3 py-3.5">
                     {r.curriculo_url ? (
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-3">
