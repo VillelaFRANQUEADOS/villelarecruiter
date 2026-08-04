@@ -558,7 +558,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "com" ? "default" : "outline"}
-            className="h-8"
+            className="h-8 rounded-full px-3.5 text-xs"
             onClick={() => setFObs(fObs === "com" ? "" : "com")}
           >
             Com observação
@@ -566,7 +566,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "sem" ? "default" : "outline"}
-            className="h-8"
+            className="h-8 rounded-full px-3.5 text-xs"
             onClick={() => setFObs(fObs === "sem" ? "" : "sem")}
           >
             Sem observação
@@ -603,7 +603,7 @@ setEditingObsId(null);
       </Card>
 
 
-      <Card className="overflow-hidden relative">
+      <Card className="overflow-hidden relative rounded-2xl shadow-sm">
         {isFetching && (
           <div className="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary/20 overflow-hidden">
             <div className="h-full w-1/3 bg-primary animate-pulse" />
