@@ -797,12 +797,12 @@ setEditingObsId(null);
                     )}
                   </td>
 
-                  <td className="px-3 py-2">
-                    <div className="flex gap-1 justify-end">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
+                   <td className="px-3 py-3.5">
+                     <div className="flex gap-1.5 justify-end">
+                       <Button
+                         size="icon"
+                         variant="ghost"
+                         className="h-8 w-8 hover:text-primary"
                         onClick={() => {
                           setEditing(r);
                           setOpen(true);
@@ -818,8 +818,8 @@ setEditingObsId(null);
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-7 w-7"
-                          onClick={() => handleDelete(r.id)}
+                           className="h-8 w-8 hover:bg-destructive/10"
+                           onClick={() => handleDelete(r.id)}
                         >
                           <Trash2 className="size-3.5 text-destructive" />
                         </Button>
@@ -832,7 +832,7 @@ setEditingObsId(null);
                 <tr>
                   <td
                     colSpan={11}
-                    className="px-4 py-10 text-center text-muted-foreground text-sm"
+                    className="px-4 py-14 text-center text-sm text-muted-foreground"
                   >
                     Nenhum candidato. Arraste PDFs acima para começar.
                   </td>
@@ -843,7 +843,7 @@ setEditingObsId(null);
         </div>
       </Card>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <p className="text-xs text-muted-foreground">
             {total > 0
