@@ -611,9 +611,9 @@ setEditingObsId(null);
         )}
         <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
           <table className="w-full text-sm">
-            <thead className="bg-accent/30 text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="bg-muted/50 text-[11px] uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 w-8">
+                <th className="px-3 py-3 w-8">
                   <Checkbox
                     checked={allVisibleSelected}
                     onCheckedChange={(c) => {
@@ -626,14 +626,14 @@ setEditingObsId(null);
                     }}
                   />
                 </th>
-                <th className="text-left px-3 py-2 font-medium">Nome</th>
-                <th className="text-left px-3 py-2 font-medium">Telefone</th>
-                <th className="text-left px-3 py-2 font-medium">Cidade</th>
-                <th className="text-left px-3 py-2 font-medium">UF</th>
+                <th className="text-left px-3 py-3 font-medium">Nome</th>
+                <th className="text-left px-3 py-3 font-medium">Telefone</th>
+                <th className="text-left px-3 py-3 font-medium">Cidade</th>
+                <th className="text-left px-3 py-3 font-medium">UF</th>
 
-                <th className="text-left px-3 py-2 font-medium">Recrutador</th>
-                <th className="text-left px-3 py-2 font-medium">Status</th>
-                <th className="text-left px-3 py-2 font-medium">
+                <th className="text-left px-3 py-3 font-medium">Recrutador</th>
+                <th className="text-left px-3 py-3 font-medium">Status</th>
+                <th className="text-left px-3 py-3 font-medium">
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
@@ -641,12 +641,12 @@ setEditingObsId(null);
                     title="Ordenar por observação"
                   >
                     Observação
-                    <span className="text-[10px]">{obsSort === "asc" ? "▲" : obsSort === "desc" ? "▼" : "↕"}</span>
+                    {obsSort === "asc" ? <ArrowUp className="size-3" /> : obsSort === "desc" ? <ArrowDown className="size-3" /> : <ArrowUpDown className="size-3 opacity-60" />}
                   </button>
                 </th>
-                <th className="text-left px-3 py-2 font-medium">Origem</th>
-                <th className="text-left px-3 py-2 font-medium">CV</th>
-                <th className="px-3 py-2"></th>
+                <th className="text-left px-3 py-3 font-medium">Origem</th>
+                <th className="text-left px-3 py-3 font-medium">CV</th>
+                <th className="px-3 py-3"></th>
               </tr>
             </thead>
             <tbody>
