@@ -651,15 +651,15 @@ setEditingObsId(null);
             </thead>
             <tbody>
               {filtered.map(r => (
-                <tr key={r.id} className="border-t hover:bg-accent/20">
-                  <td className="px-3 py-2">
+                <tr key={r.id} className="border-t border-border/70 transition-colors hover:bg-muted/50">
+                  <td className="px-3 py-3.5">
                     <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
                   </td>
-                  <td className="px-3 py-2 font-medium">
+                  <td className="px-3 py-3.5 font-semibold text-foreground">
   {(r.nome || "").toUpperCase()}
 </td>
                  <td
-  className="px-3 py-2 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+  className="px-3 py-3.5 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
   onClick={() => {
     navigator.clipboard.writeText(r.telefone || "");
     toast.success("Telefone copiado");
@@ -668,14 +668,14 @@ setEditingObsId(null);
 >
   {r.telefone || "—"}
 </td>
-                  <td className="px-3 py-2">{r.cidade || "—"}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{r.estado || "—"}</td>
+                  <td className="px-3 py-3.5 text-muted-foreground">{r.cidade || "—"}</td>
+                  <td className="px-3 py-3.5 text-muted-foreground">{r.estado || "—"}</td>
 
-                  <td className="px-3 py-2 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-3.5 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
+                  <td className="px-3 py-3.5">
                     <Select value={r.status} onValueChange={(v) => changeStatus(r.id, v as CandidatoStatus)}>
-                      <SelectTrigger className="h-7 w-40 text-xs">
-                        <Badge variant="outline" className={`${STATUS_TONE[r.status]} font-normal`}>{STATUS_LABELS[r.status]}</Badge>
+                      <SelectTrigger className="h-8 w-44 text-xs rounded-lg">
+                        <Badge variant="outline" className={`${STATUS_TONE[r.status]} font-medium`}>{STATUS_LABELS[r.status]}</Badge>
                       </SelectTrigger>
                       <SelectContent>
                         {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
