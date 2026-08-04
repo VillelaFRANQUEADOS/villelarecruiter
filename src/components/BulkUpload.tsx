@@ -122,15 +122,20 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
-        className={`cursor-pointer rounded-lg border-2 border-dashed px-6 py-8 text-center transition ${
-          dragging ? "border-primary bg-primary/5" : "border-input hover:border-primary/50 hover:bg-accent/30"
+        className={`cursor-pointer rounded-2xl border-2 border-dashed px-6 py-10 text-center transition ${
+          dragging ? "border-primary bg-primary/5" : "border-input hover:border-primary/50 hover:bg-accent/40"
         }`}
       >
-        <Upload className="size-6 mx-auto text-muted-foreground mb-2" />
-        <p className="text-sm font-medium">Arraste arquivos aqui ou clique para selecionar</p>
+        <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-accent">
+          <Upload className="size-6 text-primary" />
+        </div>
+        <p className="text-sm font-semibold">Arraste arquivos aqui</p>
         <p className="text-xs text-muted-foreground mt-1">
           PDF, DOC, DOCX, JPG, JPEG, PNG, WEBP · OCR automático para imagens e PDFs escaneados
         </p>
+        <Button type="button" size="sm" className="mt-4 px-4 shadow-sm pointer-events-none">
+          Selecionar arquivos
+        </Button>
         <input
           ref={inputRef}
           type="file"
