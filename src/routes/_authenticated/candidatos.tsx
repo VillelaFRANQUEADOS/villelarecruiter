@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, FileText, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users } from "lucide-react";
 import {
   useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE, UF_LIST,
   type CandidatoRow, type CandidatoStatus,
@@ -423,37 +423,41 @@ setEditingObsId(null);
   const allVisibleSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.id));
 
   return (
-    <div className="p-4 lg:p-6 max-w-[1400px] mx-auto">
-      <header className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Candidatos</h1>
-          <p className="text-xs text-muted-foreground">
-            Exibindo {filtered.length} · {total} no total{hasFilters ? " (filtrado)" : ""}
-          </p>
+    <div className="p-4 lg:p-8 max-w-[1400px] mx-auto">
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 mb-6 sm:flex sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">Candidatos</h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
+              <Users className="size-3" />
+              {total} no total
+            </span>
+            <span className="text-xs">Exibindo {filtered.length}{hasFilters ? " (filtrado)" : ""}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {role === "admin" && total > 0 && (
-            <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={handleDeleteAll}>
-              <Trash2 className="size-3.5 mr-1" /> Excluir todos
+            <Button size="sm" variant="outline" className="h-9 text-destructive border-destructive/30 hover:bg-destructive/5 hover:text-destructive" onClick={handleDeleteAll}>
+              <Trash2 className="size-4 mr-1.5" /> Excluir todos
             </Button>
           )}
-          <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
-            + Novo candidato
+          <Button size="sm" className="h-9 px-4 shadow-sm" onClick={() => { setEditing(null); setOpen(true); }}>
+            <Plus className="size-4 mr-1.5" /> Novo candidato
           </Button>
         </div>
       </header>
 
-      <Card className="p-4 mb-4">
-        <Suspense fallback={<div className="h-36 rounded-lg border border-dashed bg-accent/20 animate-pulse" />}>
+      <Card className="p-5 mb-6 rounded-2xl shadow-sm">
+        <Suspense fallback={<div className="h-36 rounded-2xl border border-dashed bg-accent/20 animate-pulse" />}>
           <BulkUpload onCreated={() => invalidateAtsQueries(queryClient)} />
         </Suspense>
       </Card>
 
-      <Card className="p-3 mb-3 space-y-2">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+      <Card className="p-4 mb-5 space-y-3 rounded-2xl shadow-sm">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
           <div className="relative lg:col-span-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-            <Input className="pl-8 h-9" placeholder="Nome" value={fNome} onChange={(e) => setFNome(e.target.value)} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input className="pl-9 h-9 bg-background" placeholder="Nome" value={fNome} onChange={(e) => setFNome(e.target.value)} />
           </div>
           <Input className="h-9" placeholder="Telefone" value={fTelefone} onChange={(e) => setFTelefone(e.target.value)} />
           <Input className="h-9" placeholder="Email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} />
@@ -467,7 +471,7 @@ setEditingObsId(null);
             searchable={false}
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
           <MultiSelect
             className="w-56"
             placeholder="Recrutadores"
@@ -515,12 +519,12 @@ setEditingObsId(null);
             />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/60">
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border/70">
           <span className="text-xs font-medium text-muted-foreground mr-1">Entrevistas:</span>
           <Button
             size="sm"
             variant={fEntrevistaQuando === "hoje" ? "default" : "outline"}
-            className="h-8"
+            className="h-8 rounded-full px-3.5 text-xs"
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "hoje" ? "" : "hoje")}
           >
             Hoje
@@ -528,7 +532,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fEntrevistaQuando === "semana" ? "default" : "outline"}
-            className="h-8"
+            className="h-8 rounded-full px-3.5 text-xs"
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "semana" ? "" : "semana")}
           >
             Esta semana
@@ -554,7 +558,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "com" ? "default" : "outline"}
-            className="h-8"
+            className="h-8 rounded-full px-3.5 text-xs"
             onClick={() => setFObs(fObs === "com" ? "" : "com")}
           >
             Com observação
@@ -562,7 +566,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "sem" ? "default" : "outline"}
-            className="h-8"
+            className="h-8 rounded-full px-3.5 text-xs"
             onClick={() => setFObs(fObs === "sem" ? "" : "sem")}
           >
             Sem observação
@@ -573,7 +577,7 @@ setEditingObsId(null);
 
           {selected.size > 0 && (
             <div className="flex items-center gap-2 ml-auto">
-              <span className="text-xs text-muted-foreground">{selected.size} selecionado(s)</span>
+              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{selected.size} selecionado(s)</span>
               <Select onValueChange={(v) => bulkChange(v as CandidatoStatus)}>
                 <SelectTrigger className="h-9 w-48"><SelectValue placeholder="Mover para..." /></SelectTrigger>
                 <SelectContent>
@@ -599,7 +603,7 @@ setEditingObsId(null);
       </Card>
 
 
-      <Card className="overflow-hidden relative">
+      <Card className="overflow-hidden relative rounded-2xl shadow-sm">
         {isFetching && (
           <div className="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary/20 overflow-hidden">
             <div className="h-full w-1/3 bg-primary animate-pulse" />
@@ -607,9 +611,9 @@ setEditingObsId(null);
         )}
         <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
           <table className="w-full text-sm">
-            <thead className="bg-accent/30 text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="bg-muted/50 text-[11px] uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 w-8">
+                <th className="px-3 py-3 w-8">
                   <Checkbox
                     checked={allVisibleSelected}
                     onCheckedChange={(c) => {
@@ -622,14 +626,14 @@ setEditingObsId(null);
                     }}
                   />
                 </th>
-                <th className="text-left px-3 py-2 font-medium">Nome</th>
-                <th className="text-left px-3 py-2 font-medium">Telefone</th>
-                <th className="text-left px-3 py-2 font-medium">Cidade</th>
-                <th className="text-left px-3 py-2 font-medium">UF</th>
+                <th className="text-left px-3 py-3 font-medium">Nome</th>
+                <th className="text-left px-3 py-3 font-medium">Telefone</th>
+                <th className="text-left px-3 py-3 font-medium">Cidade</th>
+                <th className="text-left px-3 py-3 font-medium">UF</th>
 
-                <th className="text-left px-3 py-2 font-medium">Recrutador</th>
-                <th className="text-left px-3 py-2 font-medium">Status</th>
-                <th className="text-left px-3 py-2 font-medium">
+                <th className="text-left px-3 py-3 font-medium">Recrutador</th>
+                <th className="text-left px-3 py-3 font-medium">Status</th>
+                <th className="text-left px-3 py-3 font-medium">
                   <button
                     type="button"
                     className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
@@ -637,25 +641,25 @@ setEditingObsId(null);
                     title="Ordenar por observação"
                   >
                     Observação
-                    <span className="text-[10px]">{obsSort === "asc" ? "▲" : obsSort === "desc" ? "▼" : "↕"}</span>
+                    {obsSort === "asc" ? <ArrowUp className="size-3" /> : obsSort === "desc" ? <ArrowDown className="size-3" /> : <ArrowUpDown className="size-3 opacity-60" />}
                   </button>
                 </th>
-                <th className="text-left px-3 py-2 font-medium">Origem</th>
-                <th className="text-left px-3 py-2 font-medium">CV</th>
-                <th className="px-3 py-2"></th>
+                <th className="text-left px-3 py-3 font-medium">Origem</th>
+                <th className="text-left px-3 py-3 font-medium">CV</th>
+                <th className="px-3 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(r => (
-                <tr key={r.id} className="border-t hover:bg-accent/20">
-                  <td className="px-3 py-2">
+                <tr key={r.id} className="border-t border-border/70 transition-colors hover:bg-muted/50">
+                  <td className="px-3 py-3.5">
                     <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
                   </td>
-                  <td className="px-3 py-2 font-medium">
+                  <td className="px-3 py-3.5 font-semibold text-foreground">
   {(r.nome || "").toUpperCase()}
 </td>
                  <td
-  className="px-3 py-2 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+  className="px-3 py-3.5 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
   onClick={() => {
     navigator.clipboard.writeText(r.telefone || "");
     toast.success("Telefone copiado");
@@ -664,14 +668,14 @@ setEditingObsId(null);
 >
   {r.telefone || "—"}
 </td>
-                  <td className="px-3 py-2">{r.cidade || "—"}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{r.estado || "—"}</td>
+                  <td className="px-3 py-3.5 text-muted-foreground">{r.cidade || "—"}</td>
+                  <td className="px-3 py-3.5 text-muted-foreground">{r.estado || "—"}</td>
 
-                  <td className="px-3 py-2 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-3.5 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
+                  <td className="px-3 py-3.5">
                     <Select value={r.status} onValueChange={(v) => changeStatus(r.id, v as CandidatoStatus)}>
-                      <SelectTrigger className="h-7 w-40 text-xs">
-                        <Badge variant="outline" className={`${STATUS_TONE[r.status]} font-normal`}>{STATUS_LABELS[r.status]}</Badge>
+                      <SelectTrigger className="h-8 w-44 text-xs rounded-lg">
+                        <Badge variant="outline" className={`${STATUS_TONE[r.status]} font-medium`}>{STATUS_LABELS[r.status]}</Badge>
                       </SelectTrigger>
                       <SelectContent>
                         {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
@@ -689,20 +693,20 @@ setEditingObsId(null);
                       );
                     })()}
                     {r.status === "agendado" && r.data_entrevista && (
-                      <div className="mt-1 space-y-0.5 text-[11px] leading-tight text-primary font-medium">
-                        <div>📅 {(() => { const [y, m, d] = r.data_entrevista!.split("-"); return `${d}/${m}/${y}`; })()}</div>
-                        {r.horario_entrevista && <div>🕒 {r.horario_entrevista.slice(0, 5)}</div>}
-                        {r.entrevistador && <div>👤 {r.entrevistador}</div>}
+                      <div className="mt-1.5 space-y-1 text-[11px] leading-tight text-primary font-medium">
+                        <div className="flex items-center gap-1.5"><Calendar className="size-3" /> {(() => { const [y, m, d] = r.data_entrevista!.split("-"); return `${d}/${m}/${y}`; })()}</div>
+                        {r.horario_entrevista && <div className="flex items-center gap-1.5"><Clock className="size-3" /> {r.horario_entrevista.slice(0, 5)}</div>}
+                        {r.entrevistador && <div className="flex items-center gap-1.5"><User className="size-3" /> {r.entrevistador}</div>}
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-2 align-top max-w-[260px]">
+                  <td className="px-3 py-3.5 align-top max-w-[260px]">
                     {(() => {
                       const obs = (r.observacoes ?? "").trim();
                       const isEditing = editingObsId === r.id;
                       const updatedAt = r.observacoes_updated_at ? new Date(r.observacoes_updated_at) : null;
                       const isRecent = updatedAt ? (Date.now() - updatedAt.getTime()) < 3 * 24 * 60 * 60 * 1000 : false;
-                      const truncated = obs.length > 80 ? `${obs.slice(0, 80)}...` : obs;
+                      
                       if (isEditing) {
                         return (
                           <div className="flex flex-col gap-1">
@@ -732,12 +736,12 @@ setEditingObsId(null);
                       return (
                         <div className={`group rounded px-1 py-0.5 -mx-1 ${isRecent ? "bg-warning/10 border-l-2 border-warning" : ""}`}>
                           <div className="flex items-start gap-1">
-                            <span
-                              className={`text-xs leading-tight flex-1 ${obs ? "" : "text-muted-foreground italic"}`}
-                              title={obs || "Sem observações"}
-                            >
-                              {obs ? truncated : "Sem observações"}
-                            </span>
+                             <span
+                               className={`text-xs leading-relaxed flex-1 line-clamp-2 ${obs ? "" : "text-muted-foreground italic"}`}
+                               title={obs || "Sem observações"}
+                             >
+                               {obs || "Sem observações"}
+                             </span>
                             <button
                               type="button"
                               className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
@@ -757,10 +761,10 @@ setEditingObsId(null);
                       );
                     })()}
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground text-xs">
-                    {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
-                  </td>
-                  <td className="px-3 py-2">
+                   <td className="px-3 py-3.5 text-muted-foreground text-xs">
+                     {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
+                   </td>
+                   <td className="px-3 py-3.5">
                     {r.curriculo_url ? (
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-3">
@@ -793,12 +797,12 @@ setEditingObsId(null);
                     )}
                   </td>
 
-                  <td className="px-3 py-2">
-                    <div className="flex gap-1 justify-end">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
+                   <td className="px-3 py-3.5">
+                     <div className="flex gap-1.5 justify-end">
+                       <Button
+                         size="icon"
+                         variant="ghost"
+                         className="h-8 w-8 hover:text-primary"
                         onClick={() => {
                           setEditing(r);
                           setOpen(true);
@@ -814,8 +818,8 @@ setEditingObsId(null);
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-7 w-7"
-                          onClick={() => handleDelete(r.id)}
+                           className="h-8 w-8 hover:bg-destructive/10"
+                           onClick={() => handleDelete(r.id)}
                         >
                           <Trash2 className="size-3.5 text-destructive" />
                         </Button>
@@ -828,7 +832,7 @@ setEditingObsId(null);
                 <tr>
                   <td
                     colSpan={11}
-                    className="px-4 py-10 text-center text-muted-foreground text-sm"
+                    className="px-4 py-14 text-center text-sm text-muted-foreground"
                   >
                     Nenhum candidato. Arraste PDFs acima para começar.
                   </td>
@@ -839,7 +843,7 @@ setEditingObsId(null);
         </div>
       </Card>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <p className="text-xs text-muted-foreground">
             {total > 0
