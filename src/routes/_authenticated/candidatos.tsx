@@ -693,10 +693,10 @@ setEditingObsId(null);
                       );
                     })()}
                     {r.status === "agendado" && r.data_entrevista && (
-                      <div className="mt-1 space-y-0.5 text-[11px] leading-tight text-primary font-medium">
-                        <div>📅 {(() => { const [y, m, d] = r.data_entrevista!.split("-"); return `${d}/${m}/${y}`; })()}</div>
-                        {r.horario_entrevista && <div>🕒 {r.horario_entrevista.slice(0, 5)}</div>}
-                        {r.entrevistador && <div>👤 {r.entrevistador}</div>}
+                      <div className="mt-1.5 space-y-1 text-[11px] leading-tight text-primary font-medium">
+                        <div className="flex items-center gap-1.5"><Calendar className="size-3" /> {(() => { const [y, m, d] = r.data_entrevista!.split("-"); return `${d}/${m}/${y}`; })()}</div>
+                        {r.horario_entrevista && <div className="flex items-center gap-1.5"><Clock className="size-3" /> {r.horario_entrevista.slice(0, 5)}</div>}
+                        {r.entrevistador && <div className="flex items-center gap-1.5"><User className="size-3" /> {r.entrevistador}</div>}
                       </div>
                     )}
                   </td>
