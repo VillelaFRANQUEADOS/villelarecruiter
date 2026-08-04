@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, FileText, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users } from "lucide-react";
 import {
   useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE, UF_LIST,
   type CandidatoRow, type CandidatoStatus,
@@ -423,28 +423,32 @@ setEditingObsId(null);
   const allVisibleSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.id));
 
   return (
-    <div className="p-4 lg:p-6 max-w-[1400px] mx-auto">
-      <header className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Candidatos</h1>
-          <p className="text-xs text-muted-foreground">
-            Exibindo {filtered.length} · {total} no total{hasFilters ? " (filtrado)" : ""}
-          </p>
+    <div className="p-4 lg:p-8 max-w-[1400px] mx-auto">
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 mb-6 sm:flex sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">Candidatos</h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
+              <Users className="size-3" />
+              {total} no total
+            </span>
+            <span className="text-xs">Exibindo {filtered.length}{hasFilters ? " (filtrado)" : ""}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {role === "admin" && total > 0 && (
-            <Button size="sm" variant="outline" className="text-destructive border-destructive/40 hover:bg-destructive/10" onClick={handleDeleteAll}>
-              <Trash2 className="size-3.5 mr-1" /> Excluir todos
+            <Button size="sm" variant="outline" className="h-9 text-destructive border-destructive/30 hover:bg-destructive/5 hover:text-destructive" onClick={handleDeleteAll}>
+              <Trash2 className="size-4 mr-1.5" /> Excluir todos
             </Button>
           )}
-          <Button size="sm" onClick={() => { setEditing(null); setOpen(true); }}>
-            + Novo candidato
+          <Button size="sm" className="h-9 px-4 shadow-sm" onClick={() => { setEditing(null); setOpen(true); }}>
+            <Plus className="size-4 mr-1.5" /> Novo candidato
           </Button>
         </div>
       </header>
 
-      <Card className="p-4 mb-4">
-        <Suspense fallback={<div className="h-36 rounded-lg border border-dashed bg-accent/20 animate-pulse" />}>
+      <Card className="p-5 mb-6 rounded-2xl shadow-sm">
+        <Suspense fallback={<div className="h-36 rounded-2xl border border-dashed bg-accent/20 animate-pulse" />}>
           <BulkUpload onCreated={() => invalidateAtsQueries(queryClient)} />
         </Suspense>
       </Card>

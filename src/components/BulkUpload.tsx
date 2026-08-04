@@ -150,8 +150,8 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
       </div>
 
       {items.length > 0 && (
-        <div className="rounded-lg border bg-card divide-y max-h-72 overflow-auto">
-          <div className="px-3 py-2 text-xs font-medium text-muted-foreground flex justify-between">
+        <div className="rounded-xl border bg-card divide-y max-h-72 overflow-auto">
+          <div className="px-3 py-2 text-xs font-medium text-muted-foreground flex justify-between bg-muted/40">
             <span>{items.filter(i => i.status === "done" || i.status === "warn").length} de {items.length} processados</span>
             <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setItems([])}>Limpar</Button>
           </div>
