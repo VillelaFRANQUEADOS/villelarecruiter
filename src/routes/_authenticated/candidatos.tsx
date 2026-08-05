@@ -13,7 +13,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE, UF_LIST,
   type CandidatoRow, type CandidatoStatus,
@@ -661,14 +664,21 @@ setEditingObsId(null);
                  <td
   className="px-3 py-3.5 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
   onClick={() => {
-    navigator.clipboard.writeText(r.telefone || "");
+    if (!r.telefone) return;
+    navigator.clipboard.writeText(r.telefone);
     toast.success("Telefone copiado");
   }}
-  title="Clique para copiar"
+  title={r.telefone ? "Clique para copiar" : "Telefone não informado"}
 >
-  {r.telefone || "—"}
+  {r.telefone ? r.telefone : (
+    <AlertTriangle className="size-3.5 text-warning" aria-label="Telefone não informado" />
+  )}
 </td>
-                  <td className="px-3 py-3.5 text-muted-foreground">{r.cidade || "—"}</td>
+                  <td className="px-3 py-3.5 text-muted-foreground">
+                    {r.cidade ? r.cidade : (
+                      <AlertTriangle className="size-3.5 text-muted-foreground/60" aria-label="Cidade não informada" />
+                    )}
+                  </td>
                   <td className="px-3 py-3.5 text-muted-foreground">{r.estado || "—"}</td>
 
                   <td className="px-3 py-3.5 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
@@ -705,7 +715,7 @@ setEditingObsId(null);
                       const obs = (r.observacoes ?? "").trim();
                       const isEditing = editingObsId === r.id;
                       const updatedAt = r.observacoes_updated_at ? new Date(r.observacoes_updated_at) : null;
-                      const isRecent = updatedAt ? (Date.now() - updatedAt.getTime()) < 3 * 24 * 60 * 60 * 1000 : false;
+
                       
                       if (isEditing) {
                         return (
@@ -734,8 +744,9 @@ setEditingObsId(null);
                         );
                       }
                       return (
-                        <div className={`group rounded px-1 py-0.5 -mx-1 ${isRecent ? "bg-warning/10 border-l-2 border-warning" : ""}`}>
-                          <div className="flex items-start gap-1">
+                        <div className={`group rounded px-1.5 py-1 -mx-1.5 ${obs ? "bg-info/10 border-l-2 border-info" : ""}`}>
+                          <div className="flex items-start gap-1.5">
+                             {obs && <StickyNote className="size-3.5 mt-0.5 shrink-0 text-info" aria-label="Possui observação" />}
                              <span
                                className={`text-xs leading-relaxed flex-1 line-clamp-2 ${obs ? "" : "text-muted-foreground italic"}`}
                                title={obs || "Sem observações"}
@@ -767,25 +778,15 @@ setEditingObsId(null);
                    <td className="px-3 py-3.5">
                     {r.curriculo_url ? (
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => openCurriculo(r.curriculo_url!)}
-                            className="text-primary hover:underline inline-flex items-center gap-1"
-                          >
-                            <FileText className="size-3.5" /> PDF
-                          </button>
-                          {role === "admin" && (
-                            <button
-                              onClick={() => handleReprocess(r.id)}
-                              disabled={reprocessing.has(r.id)}
-                              title="Reprocessar (análise profunda) — preenche apenas campos vazios"
-                              className="text-muted-foreground hover:text-primary inline-flex items-center gap-1 disabled:opacity-60"
-                            >
-                              <RefreshCw className={`size-3.5 ${reprocessing.has(r.id) ? "animate-spin" : ""}`} />
-                              Reprocessar
-                            </button>
-                          )}
-                        </div>
+                         <div className="flex items-center gap-3">
+                           <button
+                             onClick={() => openCurriculo(r.curriculo_url!)}
+                             className="text-primary hover:underline inline-flex items-center gap-1"
+                             title="Abrir currículo (PDF)"
+                           >
+                             <FileText className="size-3.5" /> PDF
+                           </button>
+                         </div>
                         {r.ultimo_reprocessamento_at && (
                           <span className="text-[10px] text-muted-foreground">
                             Reprocessado em {new Date(r.ultimo_reprocessamento_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
@@ -797,35 +798,55 @@ setEditingObsId(null);
                     )}
                   </td>
 
-                   <td className="px-3 py-3.5">
-                     <div className="flex gap-1.5 justify-end">
-                       <Button
-                         size="icon"
-                         variant="ghost"
-                         className="h-8 w-8 hover:text-primary"
-                        onClick={() => {
-                          setEditing(r);
-                          setOpen(true);
-                        }}
-                      >
-                        <Pencil className="size-3.5" />
-                      </Button>
-
-                      {(
-                        role === "admin" ||
-                        (role === "recrutador" && r.recrutador_id === user?.id)
-                      ) && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                           className="h-8 w-8 hover:bg-destructive/10"
-                           onClick={() => handleDelete(r.id)}
-                        >
-                          <Trash2 className="size-3.5 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
-                  </td>
+                    <td className="px-3 py-3.5">
+                      <div className="flex justify-end">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              aria-label="Mais opções"
+                              title="Mais opções"
+                            >
+                              <MoreVertical className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            {role === "admin" && r.curriculo_url && (
+                              <DropdownMenuItem
+                                disabled={reprocessing.has(r.id)}
+                                onSelect={() => handleReprocess(r.id)}
+                              >
+                                <RefreshCw className={`size-3.5 ${reprocessing.has(r.id) ? "animate-spin" : ""}`} />
+                                {reprocessing.has(r.id) ? "Reprocessando..." : "Reprocessar currículo"}
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                setEditing(r);
+                                setOpen(true);
+                              }}
+                            >
+                              <Pencil className="size-3.5" />
+                              Editar candidato
+                            </DropdownMenuItem>
+                            {(
+                              role === "admin" ||
+                              (role === "recrutador" && r.recrutador_id === user?.id)
+                            ) && (
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onSelect={() => handleDelete(r.id)}
+                              >
+                                <Trash2 className="size-3.5" />
+                                Excluir
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                   </td>
                 </tr>
               ))}
               {!filtered.length && (
