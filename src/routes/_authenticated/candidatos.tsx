@@ -527,7 +527,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fEntrevistaQuando === "hoje" ? "default" : "outline"}
-            className="h-8 rounded-full px-3.5 text-xs"
+            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "hoje" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "hoje" ? "" : "hoje")}
           >
             Hoje
@@ -535,7 +535,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fEntrevistaQuando === "semana" ? "default" : "outline"}
-            className="h-8 rounded-full px-3.5 text-xs"
+            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "semana" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "semana" ? "" : "semana")}
           >
             Esta semana
@@ -561,7 +561,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "com" ? "default" : "outline"}
-            className="h-8 rounded-full px-3.5 text-xs"
+            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "com" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
             onClick={() => setFObs(fObs === "com" ? "" : "com")}
           >
             Com observação
@@ -569,13 +569,15 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "sem" ? "default" : "outline"}
-            className="h-8 rounded-full px-3.5 text-xs"
+            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "sem" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
             onClick={() => setFObs(fObs === "sem" ? "" : "sem")}
           >
             Sem observação
           </Button>
           {hasFilters && (
-            <Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
+            <Button size="sm" variant="outline" className="h-8 text-warning border-warning/40 hover:bg-warning/10 hover:text-warning" onClick={clearFilters}>
+              <X className="size-3.5 mr-1" /> Limpar filtros
+            </Button>
           )}
 
           {selected.size > 0 && (
