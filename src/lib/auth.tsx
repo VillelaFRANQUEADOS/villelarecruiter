@@ -119,7 +119,7 @@ export const STATUS_TONE: Record<CandidatoStatus, string> = {
   aguardando_contato: "bg-warning/15 text-warning border-0 rounded-full px-3",
   aguardando_retorno: "bg-accent text-accent-foreground border-0 rounded-full px-3",
   sem_interesse: "bg-destructive/10 text-destructive border-0 rounded-full px-3",
-  agendado: "bg-primary/10 text-primary border-0 rounded-full px-3",
+  agendado: "bg-success/15 text-success border-0 rounded-full px-3",
 };
 
 export const ROLE_LABELS: Record<AppRole, string> = {
