@@ -550,7 +550,7 @@ setEditingObsId(null);
             />
           </div>
           <MultiSelect
-            className="w-56"
+            className={`w-56 ${fEntrevistadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Entrevistador"
             value={fEntrevistadores}
             onChange={setFEntrevistadores}
