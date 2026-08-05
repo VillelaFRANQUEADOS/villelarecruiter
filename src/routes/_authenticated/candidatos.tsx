@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -466,7 +466,7 @@ setEditingObsId(null);
           <Input className="h-9" placeholder="Email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} />
           <Input className="h-9" placeholder="Vaga" value={fVaga} onChange={(e) => setFVaga(e.target.value)} />
           <MultiSelect
-            className="w-full"
+            className={`w-full ${fStatus.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Status"
             value={fStatus}
             onChange={setFStatus}
@@ -476,21 +476,21 @@ setEditingObsId(null);
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <MultiSelect
-            className="w-56"
+            className={`w-56 ${fRecrutadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Recrutadores"
             value={fRecrutadores}
             onChange={setFRecrutadores}
             options={profiles.map((p) => ({ value: p.id, label: p.nome }))}
           />
           <MultiSelect
-            className="w-40"
+            className={`w-40 ${fEstados.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="UFs"
             value={fEstados}
             onChange={setFEstados}
             options={UF_LIST.map((uf) => ({ value: uf, label: uf }))}
           />
           <MultiSelect
-            className="w-56"
+            className={`w-56 ${fCidades.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Cidades"
             value={fCidades}
             onChange={setFCidades}
@@ -498,7 +498,7 @@ setEditingObsId(null);
             emptyLabel="Sem cidades validadas"
           />
           <MultiSelect
-            className="w-44"
+            className={`w-44 ${fOrigens.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Origem"
             value={fOrigens}
             onChange={setFOrigens}
@@ -527,7 +527,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fEntrevistaQuando === "hoje" ? "default" : "outline"}
-            className="h-8 rounded-full px-3.5 text-xs"
+            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "hoje" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "hoje" ? "" : "hoje")}
           >
             Hoje
@@ -535,7 +535,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fEntrevistaQuando === "semana" ? "default" : "outline"}
-            className="h-8 rounded-full px-3.5 text-xs"
+            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "semana" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "semana" ? "" : "semana")}
           >
             Esta semana
@@ -550,7 +550,7 @@ setEditingObsId(null);
             />
           </div>
           <MultiSelect
-            className="w-56"
+            className={`w-56 ${fEntrevistadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Entrevistador"
             value={fEntrevistadores}
             onChange={setFEntrevistadores}
@@ -561,7 +561,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "com" ? "default" : "outline"}
-            className="h-8 rounded-full px-3.5 text-xs"
+            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "com" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
             onClick={() => setFObs(fObs === "com" ? "" : "com")}
           >
             Com observação
@@ -569,13 +569,15 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "sem" ? "default" : "outline"}
-            className="h-8 rounded-full px-3.5 text-xs"
+            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "sem" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
             onClick={() => setFObs(fObs === "sem" ? "" : "sem")}
           >
             Sem observação
           </Button>
           {hasFilters && (
-            <Button size="sm" variant="ghost" onClick={clearFilters}>Limpar filtros</Button>
+            <Button size="sm" variant="outline" className="h-8 text-warning border-warning/40 hover:bg-warning/10 hover:text-warning" onClick={clearFilters}>
+              <X className="size-3.5 mr-1" /> Limpar filtros
+            </Button>
           )}
 
           {selected.size > 0 && (
