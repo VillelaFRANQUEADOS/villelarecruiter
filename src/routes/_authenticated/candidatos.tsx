@@ -466,7 +466,7 @@ setEditingObsId(null);
           <Input className="h-9" placeholder="Email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} />
           <Input className="h-9" placeholder="Vaga" value={fVaga} onChange={(e) => setFVaga(e.target.value)} />
           <MultiSelect
-            className="w-full"
+            className={`w-full ${fStatus.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Status"
             value={fStatus}
             onChange={setFStatus}
@@ -476,21 +476,21 @@ setEditingObsId(null);
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <MultiSelect
-            className="w-56"
+            className={`w-56 ${fRecrutadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Recrutadores"
             value={fRecrutadores}
             onChange={setFRecrutadores}
             options={profiles.map((p) => ({ value: p.id, label: p.nome }))}
           />
           <MultiSelect
-            className="w-40"
+            className={`w-40 ${fEstados.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="UFs"
             value={fEstados}
             onChange={setFEstados}
             options={UF_LIST.map((uf) => ({ value: uf, label: uf }))}
           />
           <MultiSelect
-            className="w-56"
+            className={`w-56 ${fCidades.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Cidades"
             value={fCidades}
             onChange={setFCidades}
@@ -498,7 +498,7 @@ setEditingObsId(null);
             emptyLabel="Sem cidades validadas"
           />
           <MultiSelect
-            className="w-44"
+            className={`w-44 ${fOrigens.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Origem"
             value={fOrigens}
             onChange={setFOrigens}
