@@ -124,6 +124,7 @@ function CandidatosPage() {
   const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
   const [bulkReprocessing, setBulkReprocessing] = useState(false);
   const [open, setOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
   const [fNome, setFNome] = useState("");
   const [fTelefone, setFTelefone] = useState("");
@@ -792,8 +793,11 @@ setEditingObsId(null);
                   <td className="px-3 py-3.5 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
                   <td className="px-3 py-3.5">
                     <Select value={r.status} onValueChange={(v) => changeStatus(r.id, v as CandidatoStatus)}>
-                      <SelectTrigger className="h-8 w-44 text-xs rounded-lg">
-                        <Badge variant="outline" className={`${STATUS_TONE[r.status]} font-medium`}>{STATUS_LABELS[r.status]}</Badge>
+                      <SelectTrigger className="h-8 w-44 text-xs rounded-lg border-brand-border">
+                        <span className="inline-flex items-center gap-2 text-xs font-medium text-foreground">
+                          <span className={`size-1.5 rounded-full shrink-0 ${STATUS_DOT[r.status]}`} />
+                          {STATUS_LABELS[r.status]}
+                        </span>
                       </SelectTrigger>
                       <SelectContent>
                         {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
