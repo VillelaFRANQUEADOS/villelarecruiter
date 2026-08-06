@@ -20,7 +20,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE, UF_LIST,
+  useAuth, STATUS_LABELS, STATUS_ORDER, UF_LIST,
   type CandidatoRow, type CandidatoStatus,
 } from "@/lib/auth";
 import { MultiSelect } from "@/components/MultiSelect";
@@ -567,13 +567,13 @@ setEditingObsId(null);
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
           <div className="relative lg:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input className="pl-9 h-9 bg-background" placeholder="Nome" value={fNome} onChange={(e) => setFNome(e.target.value)} />
+            <Input className={`pl-9 bg-background ${INPUT_CLS}`} placeholder="Nome" value={fNome} onChange={(e) => setFNome(e.target.value)} />
           </div>
-          <Input className="h-9" placeholder="Telefone" value={fTelefone} onChange={(e) => setFTelefone(e.target.value)} />
-          <Input className="h-9" placeholder="Email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} />
-          <Input className="h-9" placeholder="Vaga" value={fVaga} onChange={(e) => setFVaga(e.target.value)} />
+          <Input className={INPUT_CLS} placeholder="Telefone" value={fTelefone} onChange={(e) => setFTelefone(e.target.value)} />
+          <Input className={INPUT_CLS} placeholder="Email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} />
+          <Input className={INPUT_CLS} placeholder="Vaga" value={fVaga} onChange={(e) => setFVaga(e.target.value)} />
           <MultiSelect
-            className={`w-full ${fStatus.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-full ${SELECT_CLS} ${fStatus.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Status"
             value={fStatus}
             onChange={setFStatus}
@@ -616,14 +616,14 @@ setEditingObsId(null);
             <span className="text-xs text-muted-foreground">Período:</span>
             <Input
               type="date"
-              className="h-9 w-[140px]"
+              className={`w-[140px] ${INPUT_CLS}`}
               value={fDateFrom}
               onChange={(e) => setFDateFrom(e.target.value)}
             />
             <span className="text-xs text-muted-foreground">→</span>
             <Input
               type="date"
-              className="h-9 w-[140px]"
+              className={`w-[140px] ${INPUT_CLS}`}
               value={fDateTo}
               onChange={(e) => setFDateTo(e.target.value)}
             />
@@ -651,7 +651,7 @@ setEditingObsId(null);
             <span className="text-xs text-muted-foreground">Data:</span>
             <Input
               type="date"
-              className="h-9 w-[150px]"
+              className={`w-[150px] ${INPUT_CLS}`}
               value={fEntrevistaData}
               onChange={(e) => setFEntrevistaData(e.target.value)}
             />
