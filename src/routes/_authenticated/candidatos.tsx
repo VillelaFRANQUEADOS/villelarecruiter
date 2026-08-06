@@ -85,7 +85,7 @@ const INPUT_CLS = "h-10 rounded-lg focus-visible:border-brand focus-visible:ring
 const SELECT_CLS = "h-10 rounded-lg";
 const CHECKBOX_CLS = "border-brand/40 data-[state=checked]:bg-brand data-[state=checked]:border-brand";
 
-// DEPOIS
+
 const STATUS_BADGE: Record<CandidatoStatus, string> = {
   aguardando_contato: "bg-brand-amber/15 text-brand-amber border-brand-amber/20",
   aguardando_retorno: "bg-brand/15 text-brand border-brand/20",
@@ -799,7 +799,7 @@ setEditingObsId(null);
 
                   <td className="px-3 py-2.5 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
                   <td className="px-3 py-2.5">
-                    // DEPOIS
+                    
 <Select value={r.status} onValueChange={(v) => changeStatus(r.id, v as CandidatoStatus)}>
   <SelectTrigger className={`h-8 w-44 rounded-full border px-3 font-medium ${STATUS_BADGE[r.status]}`}>
     <span className="text-xs font-medium">
