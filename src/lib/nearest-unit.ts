@@ -1,0 +1,81 @@
+// Calcula a unidade Grupo Villela mais próxima de um candidato, usando
+// distância real (fórmula de Haversine) entre as coordenadas do município
+// do candidato (via código IBGE) e as coordenadas de cada unidade.
+import unidadesData from "@/data/unidades-villela.json";
+import municipiosCoords from "@/data/municipios-coordenadas.json";
+import { validateCity } from "@/lib/city-validation";
+
+interface Unidade {
+  nome: string;
+  lat: number;
+  lon: number;
+}
+
+const UNIDADES: Unidade[] = unidadesData as Unidade[];
+const MUNICIPIOS_COORDS: Record<string, number[]> = municipiosCoords as Record<string, number[]>;
+
+const EARTH_RADIUS_KM = 6371;
+
+function toRad(deg: number): number {
+  return (deg * Math.PI) / 180;
+}
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_KM * c;
+}
+
+export interface NearestUnitResult {
+  nome: string;
+  distanciaKm: number;
+}
+
+// Cache simples em memória: mesma cidade/UF/ibge não recalcula toda vez.
+const cache = new Map<string, NearestUnitResult | null>();
+
+/**
+ * Retorna a unidade Villela mais próxima do candidato, com a distância em km.
+ * Prioriza o código IBGE já validado; se ausente, tenta validar cidade+UF na hora.
+ * Retorna null quando não é possível localizar as coordenadas do município.
+ */
+export function getNearestUnit(
+  cidade: string | null | undefined,
+  estado: string | null | undefined,
+  codigoIbge?: string | null,
+): NearestUnitResult | null {
+  const cacheKey = `${codigoIbge || ""}|${cidade || ""}|${estado || ""}`;
+  if (cache.has(cacheKey)) return cache.get(cacheKey) ?? null;
+
+  let ibge = codigoIbge || null;
+  if (!ibge && cidade) {
+    const v = validateCity(cidade, estado);
+    ibge = v.codigo_ibge;
+  }
+
+  let result: NearestUnitResult | null = null;
+  if (ibge) {
+    const coords = MUNICIPIOS_COORDS[ibge];
+    if (coords && coords.length === 2) {
+      const [lat, lon] = coords;
+      for (const u of UNIDADES) {
+        const d = haversineKm(lat, lon, u.lat, u.lon);
+        if (!result || d < result.distanciaKm) {
+          result = { nome: u.nome, distanciaKm: d };
+        }
+      }
+    }
+  }
+
+  cache.set(cacheKey, result);
+  return result;
+}
+
+export function formatDistanciaKm(km: number): string {
+  if (km < 10) return `${km.toFixed(1)} km`;
+  return `${Math.round(km)} km`;
+}
