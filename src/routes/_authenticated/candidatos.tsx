@@ -15,7 +15,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X, ChevronDown, Eye, EyeOff, Upload } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X, ChevronDown, Eye, EyeOff, Upload, MapPin } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -25,6 +25,7 @@ import {
 } from "@/lib/auth";
 import { MultiSelect } from "@/components/MultiSelect";
 import { ORIGEM_VALUES, ORIGEM_LABELS, normalizeOrigem } from "@/lib/city-validation";
+import { getNearestUnit, formatDistanciaKm, type NearestUnitResult } from "@/lib/nearest-unit";
 
 import {
   invalidateAtsQueries,
@@ -249,6 +250,16 @@ function CandidatosPage() {
   }, [page, totalPages]);
 
   const filtered = rows;
+
+  // Unidade Villela mais próxima de cada candidato (distância real em km,
+  // calculada a partir do código IBGE do município / cidade+UF).
+  const nearestUnitById = useMemo(() => {
+    const map = new Map<string, NearestUnitResult | null>();
+    for (const r of filtered) {
+      map.set(r.id, getNearestUnit(r.cidade, r.estado, r.codigo_ibge));
+    }
+    return map;
+  }, [filtered]);
 
   const hasFilters =
     !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando || fObs) ||
@@ -744,6 +755,7 @@ setEditingObsId(null);
                 <th className="text-left px-3 py-3 font-medium">Telefone</th>
                 <th className="text-left px-3 py-3 font-medium">Cidade</th>
                 <th className="text-left px-3 py-3 font-medium">UF</th>
+                <th className="text-left px-3 py-3 font-medium">Unidade mais próxima</th>
 
                 <th className="text-left px-3 py-3 font-medium">Recrutador</th>
                 <th className="text-left px-3 py-3 font-medium">Status</th>
@@ -796,6 +808,24 @@ setEditingObsId(null);
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground">{r.estado || "—"}</td>
+                  <td className="px-3 py-2.5">
+                    {(() => {
+                      const nearest = nearestUnitById.get(r.id);
+                      if (!nearest) {
+                        return <span className="text-muted-foreground/60 text-xs">—</span>;
+                      }
+                      return (
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary"
+                          title={`${nearest.nome} · ${formatDistanciaKm(nearest.distanciaKm)} de distância`}
+                        >
+                          <MapPin className="size-3 shrink-0" />
+                          {nearest.nome}
+                          <span className="text-primary/60 font-normal">· {formatDistanciaKm(nearest.distanciaKm)}</span>
+                        </span>
+                      );
+                    })()}
+                  </td>
 
                   <td className="px-3 py-2.5 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
                   <td className="px-3 py-2.5">
