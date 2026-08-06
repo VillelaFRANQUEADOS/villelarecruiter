@@ -715,7 +715,7 @@ setEditingObsId(null);
       </Card>
 
 
-      <Card className="overflow-hidden relative rounded-2xl shadow-sm">
+      <Card className={`overflow-hidden relative ${CARD_CLS}`}>
         {isFetching && (
           <div className="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary/20 overflow-hidden">
             <div className="h-full w-1/3 bg-primary animate-pulse" />
@@ -727,6 +727,7 @@ setEditingObsId(null);
               <tr>
                 <th className="px-3 py-3 w-8">
                   <Checkbox
+                    className={CHECKBOX_CLS}
                     checked={allVisibleSelected}
                     onCheckedChange={(c) => {
                       setSelected((s) => {
@@ -765,11 +766,16 @@ setEditingObsId(null);
               {filtered.map(r => (
                 <tr key={r.id} className="border-t border-brand-row transition-colors hover:bg-brand-bg">
                   <td className="px-3 py-2.5">
-                    <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
+                    <Checkbox className={CHECKBOX_CLS} checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
                   </td>
-                  <td className="px-3 py-2.5 font-semibold text-foreground">
-  {(r.nome || "").toUpperCase()}
-</td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className={`grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-bold ${avatarTone(r.nome || "")}`}>
+                        {initials(r.nome || "")}
+                      </span>
+                      <span className="font-semibold text-foreground">{(r.nome || "").toUpperCase()}</span>
+                    </div>
+                  </td>
                  <td
   className="px-3 py-2.5 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
   onClick={() => {
@@ -1036,6 +1042,56 @@ setEditingObsId(null);
           onConfirm={confirmAgendamento}
         />
       </Suspense>
+
+      <Dialog open={deleteAllOpen} onOpenChange={(o) => { setDeleteAllOpen(o); if (!o) resetDeleteAllModal(); }}>
+        <DialogContent className={`sm:max-w-md ${CARD_CLS}`}>
+          <DialogHeader>
+            <DialogTitle className="text-brand font-semibold tracking-[-0.01em]">Confirmar exclusão</DialogTitle>
+            <DialogDescription>
+              Esta ação é irreversível: todos os <span className="font-bold tabular-nums">{total}</span> candidatos serão excluídos permanentemente. Digite a senha para confirmar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="relative">
+              <Input
+                type={showPwd ? "text" : "password"}
+                placeholder="Senha"
+                value={deletePwd}
+                onChange={(e) => { setDeletePwd(e.target.value); setPwdError(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter") void confirmDeleteAll(); }}
+                className={`pr-10 ${INPUT_CLS}`}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                aria-label={showPwd ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showPwd ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            {pwdError && <p className="text-xs font-medium text-brand-danger">{pwdError}</p>}
+            {lockedOut && (
+              <p className="text-xs font-medium text-brand-amber">
+                Botão bloqueado. Tente novamente em <span className="font-bold tabular-nums">{lockSeconds}</span>s.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteAllOpen(false); resetDeleteAllModal(); }}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-brand-danger text-white hover:bg-brand-danger/90"
+              disabled={!deletePwd || lockedOut}
+              onClick={() => void confirmDeleteAll()}
+            >
+              Confirmar exclusão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
