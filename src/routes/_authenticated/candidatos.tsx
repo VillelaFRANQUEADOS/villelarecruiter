@@ -933,7 +933,7 @@ setEditingObsId(null);
                              className="text-primary hover:underline inline-flex items-center gap-1"
                              title="Abrir currículo (PDF)"
                            >
-                             <FileText className="size-3.5" /> PDF
+                             <FileText className="size-3.5" /> Abrir currículo
                            </button>
                          </div>
                         {r.ultimo_reprocessamento_at && (
