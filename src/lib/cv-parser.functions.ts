@@ -127,15 +127,25 @@ const regexTelefone = extractPhoneFromText(cvText);
 const regexEstado = extractUfFromText(cvText);
 const regexCidade = extractCityFromText(cvText);
 const regexNome = extractNameFromText(cvText);
-    
-    if (regexEmail || regexTelefone) {
- extracted = {
-nome: regexNome || cleanFileName(data.fileName),
-  telefone: regexTelefone,
-  email: regexEmail,
-  cidade: regexCidade,
-  estado: regexEstado,
-};
+  console.log({
+  regexNome,
+  regexEmail,
+  regexTelefone,
+  hasText,
+});  
+  const possuiDadosSuficientes =
+  regexNome &&
+  (regexEmail || regexTelefone);
+
+if (possuiDadosSuficientes) {
+  extracted = {
+    nome: regexNome,
+    telefone: regexTelefone,
+    email: regexEmail,
+    cidade: regexCidade,
+    estado: regexEstado,
+  };
+}
 } else if (hasText || hasImages) {
   try {
     const model = google("gemini-2.5-flash");
@@ -172,7 +182,11 @@ nome: regexNome || cleanFileName(data.fileName),
     const emailFinal = normalizeEmail(extracted.email, cvText) || null;
     const cidadeBruta = (extracted.cidade || "").trim();
     const estadoBruto = normalizeUf(extracted.estado, cvText);
-    const nomeFinal = (extracted.nome || "").trim() || cleanFileName(data.fileName);
+    let nomeFinal = (extracted.nome || "").trim();
+
+if (!nomeFinal) {
+  nomeFinal = cleanFileName(data.fileName);
+}
 
     // Validação de cidade contra base IBGE
     const cityRes = validateCity(cidadeBruta, estadoBruto);
