@@ -85,11 +85,12 @@ const INPUT_CLS = "h-10 rounded-lg focus-visible:border-brand focus-visible:ring
 const SELECT_CLS = "h-10 rounded-lg";
 const CHECKBOX_CLS = "border-brand/40 data-[state=checked]:bg-brand data-[state=checked]:border-brand";
 
-const STATUS_DOT: Record<CandidatoStatus, string> = {
-  aguardando_contato: "bg-brand-amber",
-  aguardando_retorno: "bg-brand",
-  sem_interesse: "bg-brand-danger",
-  agendado: "bg-brand-success",
+// DEPOIS
+const STATUS_BADGE: Record<CandidatoStatus, string> = {
+  aguardando_contato: "bg-brand-amber/15 text-brand-amber border-brand-amber/20",
+  aguardando_retorno: "bg-brand/15 text-brand border-brand/20",
+  sem_interesse: "bg-brand-danger/15 text-brand-danger border-brand-danger/20",
+  agendado: "bg-brand-success/15 text-brand-success border-brand-success/20",
 };
 
 const AVATAR_TONES = [
@@ -798,17 +799,17 @@ setEditingObsId(null);
 
                   <td className="px-3 py-2.5 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
                   <td className="px-3 py-2.5">
-                    <Select value={r.status} onValueChange={(v) => changeStatus(r.id, v as CandidatoStatus)}>
-                      <SelectTrigger className="h-8 w-44 text-xs rounded-lg border-brand-border">
-                        <span className="inline-flex items-center gap-2 text-xs font-medium text-foreground">
-                          <span className={`size-1.5 rounded-full shrink-0 ${STATUS_DOT[r.status]}`} />
-                          {STATUS_LABELS[r.status]}
-                        </span>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    // DEPOIS
+<Select value={r.status} onValueChange={(v) => changeStatus(r.id, v as CandidatoStatus)}>
+  <SelectTrigger className={`h-8 w-44 rounded-full border px-3 font-medium ${STATUS_BADGE[r.status]}`}>
+    <span className="text-xs font-medium">
+      {STATUS_LABELS[r.status]}
+    </span>
+  </SelectTrigger>
+  <SelectContent>
+    {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
+  </SelectContent>
+</Select>
                     {(() => {
                       const last = latestStatusMap?.get(r.id);
                       if (!last) return null;
