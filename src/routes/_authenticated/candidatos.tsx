@@ -8,12 +8,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X, ChevronDown, Eye, EyeOff, Upload } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -76,6 +78,37 @@ export const Route = createFileRoute("/_authenticated/candidatos")({
   }),
   component: CandidatosPage,
 });
+
+// ——— Design system da página (tokens em styles.css) ———
+const CARD_CLS = "rounded-xl border border-brand-border bg-card shadow-[0_1px_3px_rgba(11,34,57,0.06)]";
+const INPUT_CLS = "h-10 rounded-lg focus-visible:border-brand focus-visible:ring-brand/15";
+const SELECT_CLS = "h-10 rounded-lg";
+const CHECKBOX_CLS = "border-brand/40 data-[state=checked]:bg-brand data-[state=checked]:border-brand";
+
+const STATUS_DOT: Record<CandidatoStatus, string> = {
+  aguardando_contato: "bg-brand-amber",
+  aguardando_retorno: "bg-brand",
+  sem_interesse: "bg-brand-danger",
+  agendado: "bg-brand-success",
+};
+
+const AVATAR_TONES = [
+  "bg-brand/15 text-brand",
+  "bg-brand-amber/15 text-brand-amber",
+  "bg-brand-success/15 text-brand-success",
+];
+
+function avatarTone(nome: string) {
+  let h = 0;
+  for (let i = 0; i < nome.length; i++) h = (h + nome.charCodeAt(i)) % 997;
+  return AVATAR_TONES[h % AVATAR_TONES.length];
+}
+
+function initials(nome: string) {
+  const parts = (nome || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+}
 
 function CandidatosPage() {
   const { role, user } = useAuth();
@@ -254,9 +287,42 @@ setEditingObsId(null);
     }
   }
 
-  async function handleDeleteAll() {
-    const txt = prompt(`Excluir TODOS os ${total} candidatos? Digite EXCLUIR para confirmar.`);
-    if (txt !== "EXCLUIR") return;
+  // ——— Confirmação por senha: Excluir todos ———
+  const DELETE_ALL_PASSWORD = "752436";
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deletePwd, setDeletePwd] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+  const [pwdError, setPwdError] = useState("");
+  const [wrongAttempts, setWrongAttempts] = useState(0);
+  const [lockUntil, setLockUntil] = useState<number | null>(null);
+  const [nowTs, setNowTs] = useState(Date.now());
+
+  useEffect(() => {
+    if (!lockUntil) return;
+    const t = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [lockUntil]);
+
+  const lockedOut = lockUntil !== null && nowTs < lockUntil;
+  const lockSeconds = lockedOut ? Math.ceil((lockUntil! - nowTs) / 1000) : 0;
+
+  useEffect(() => {
+    if (lockUntil && nowTs >= lockUntil) {
+      setLockUntil(null);
+      setWrongAttempts(0);
+      setPwdError("");
+    }
+  }, [nowTs, lockUntil]);
+
+  function resetDeleteAllModal() {
+    setDeletePwd("");
+    setShowPwd(false);
+    setPwdError("");
+    setWrongAttempts(0);
+    setLockUntil(null);
+  }
+
+  async function executeDeleteAll() {
     const { error } = await supabase.from("candidatos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     if (error) toast.error(error.message);
     else {
@@ -264,6 +330,26 @@ setEditingObsId(null);
       setSelected(new Set());
       invalidateAtsQueries(queryClient);
     }
+  }
+
+  async function confirmDeleteAll() {
+    if (lockedOut || !deletePwd) return;
+    if (deletePwd !== DELETE_ALL_PASSWORD) {
+      const attempts = wrongAttempts + 1;
+      setDeletePwd("");
+      if (attempts >= 3) {
+        setLockUntil(Date.now() + 30_000);
+        setWrongAttempts(0);
+        setPwdError("Muitas tentativas. Botão bloqueado por 30 segundos.");
+      } else {
+        setWrongAttempts(attempts);
+        setPwdError("Senha incorreta");
+      }
+      return;
+    }
+    setDeleteAllOpen(false);
+    resetDeleteAllModal();
+    await executeDeleteAll();
   }
 
   async function openCurriculo(ref: string) {
