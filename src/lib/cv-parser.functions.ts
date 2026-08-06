@@ -127,17 +127,12 @@ const regexTelefone = extractPhoneFromText(cvText);
 const regexEstado = extractUfFromText(cvText);
 const regexCidade = extractCityFromText(cvText);
 const regexNome = extractNameFromText(cvText);
-  console.log({
-  regexNome,
-  regexEmail,
-  regexTelefone,
-  hasText,
-});  
-  const possuiDadosSuficientes =
-  regexNome &&
-  (regexEmail || regexTelefone);
 
-if (possuiDadosSuficientes) {
+// Estratégia econômica:
+// usa IA apenas quando o nome não foi encontrado.
+const dadosBasicos = !!(regexNome && (regexTelefone || regexEmail));
+
+if (dadosBasicos) {
   extracted = {
     nome: regexNome,
     telefone: regexTelefone,
@@ -145,7 +140,6 @@ if (possuiDadosSuficientes) {
     cidade: regexCidade,
     estado: regexEstado,
   };
-}
 } else if (hasText || hasImages) {
   try {
     const model = google("gemini-2.5-flash");
@@ -155,27 +149,43 @@ if (possuiDadosSuficientes) {
       | { type: "image"; image: string }
     > = [{ type: "text", text: STRICT_PROMPT }];
 
-        if (hasText) {
-          userContent.push({ type: "text", text: `CURRÍCULO (texto extraído):\n${cvText}` });
-        }
-        for (const img of images) {
-          userContent.push({ type: "image", image: img });
-        }
-
-        const { object } = await generateObject({
-          model,
-          schema: ExtractedSchema,
-          messages: [{ role: "user", content: userContent }],
-        });
-        extracted = object;
-      } catch (e) {
-        aiFailed = true;
-        aiErrorMsg = e instanceof Error ? e.message : "Erro IA";
-      }
-    } else {
-      aiFailed = true;
-      aiErrorMsg = "Documento sem conteúdo legível";
+    if (hasText) {
+      userContent.push({ type: "text", text: `CURRÍCULO (texto extraído):\n${cvText}` });
     }
+
+    for (const img of images) {
+      userContent.push({ type: "image", image: img });
+    }
+
+    const { object } = await generateObject({
+      model,
+      schema: ExtractedSchema,
+      messages: [{ role: "user", content: userContent }],
+    });
+
+    extracted = {
+      nome: object.nome || regexNome,
+      telefone: object.telefone || regexTelefone,
+      email: object.email || regexEmail,
+      cidade: object.cidade || regexCidade,
+      estado: object.estado || regexEstado,
+    };
+  } catch (e) {
+    aiFailed = true;
+    aiErrorMsg = e instanceof Error ? e.message : "Erro IA";
+
+    extracted = {
+      nome: regexNome,
+      telefone: regexTelefone,
+      email: regexEmail,
+      cidade: regexCidade,
+      estado: regexEstado,
+    };
+  }
+} else {
+  aiFailed = true;
+  aiErrorMsg = "Documento sem conteúdo legível";
+}
 
     // Normalização sem inventar: cai para regex sobre o texto bruto se a IA falhou.
     const telefoneFinal = normalizePhone(extracted.telefone, cvText);
