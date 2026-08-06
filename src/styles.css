@@ -4,6 +4,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Design tokens — página Candidatos (ID visual Grupo Villela) */
+@theme {
+  --color-brand: #0B2239;
+  --color-brand-amber: #C9963A;
+  --color-brand-success: #1F9D6B;
+  --color-brand-danger: #C24B3F;
+  --color-brand-bg: #F7F8FA;
+  --color-brand-border: #E7EAEE;
+  --color-brand-row: #F0F1F3;
+  --color-brand-head: #6B7280;
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

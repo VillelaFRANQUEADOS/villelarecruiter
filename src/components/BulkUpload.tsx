@@ -122,8 +122,8 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         onClick={() => inputRef.current?.click()}
-        className={`cursor-pointer rounded-2xl border-2 border-dashed px-6 py-10 text-center transition ${
-          dragging ? "border-primary bg-primary/5" : "border-input hover:border-primary/50 hover:bg-accent/40"
+        className={`cursor-pointer rounded-xl border-2 border-dashed px-6 py-10 text-center transition ${
+          dragging ? "border-brand-amber bg-brand-amber/5" : "border-brand-amber/60 hover:border-brand-amber hover:bg-brand-amber/5"
         }`}
       >
         <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-accent">

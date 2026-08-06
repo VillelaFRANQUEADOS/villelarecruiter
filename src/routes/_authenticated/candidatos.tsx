@@ -8,17 +8,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X, ChevronDown, Eye, EyeOff, Upload } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  useAuth, STATUS_LABELS, STATUS_ORDER, STATUS_TONE, UF_LIST,
+  useAuth, STATUS_LABELS, STATUS_ORDER, UF_LIST,
   type CandidatoRow, type CandidatoStatus,
 } from "@/lib/auth";
 import { MultiSelect } from "@/components/MultiSelect";
@@ -77,6 +79,37 @@ export const Route = createFileRoute("/_authenticated/candidatos")({
   component: CandidatosPage,
 });
 
+// ——— Design system da página (tokens em styles.css) ———
+const CARD_CLS = "rounded-xl border border-brand-border bg-card shadow-[0_1px_3px_rgba(11,34,57,0.06)]";
+const INPUT_CLS = "h-10 rounded-lg focus-visible:border-brand focus-visible:ring-brand/15";
+const SELECT_CLS = "h-10 rounded-lg";
+const CHECKBOX_CLS = "border-brand/40 data-[state=checked]:bg-brand data-[state=checked]:border-brand";
+
+const STATUS_DOT: Record<CandidatoStatus, string> = {
+  aguardando_contato: "bg-brand-amber",
+  aguardando_retorno: "bg-brand",
+  sem_interesse: "bg-brand-danger",
+  agendado: "bg-brand-success",
+};
+
+const AVATAR_TONES = [
+  "bg-brand/15 text-brand",
+  "bg-brand-amber/15 text-brand-amber",
+  "bg-brand-success/15 text-brand-success",
+];
+
+function avatarTone(nome: string) {
+  let h = 0;
+  for (let i = 0; i < nome.length; i++) h = (h + nome.charCodeAt(i)) % 997;
+  return AVATAR_TONES[h % AVATAR_TONES.length];
+}
+
+function initials(nome: string) {
+  const parts = (nome || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+}
+
 function CandidatosPage() {
   const { role, user } = useAuth();
   const search = Route.useSearch();
@@ -91,6 +124,7 @@ function CandidatosPage() {
   const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
   const [bulkReprocessing, setBulkReprocessing] = useState(false);
   const [open, setOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
   const [fNome, setFNome] = useState("");
   const [fTelefone, setFTelefone] = useState("");
@@ -254,9 +288,42 @@ setEditingObsId(null);
     }
   }
 
-  async function handleDeleteAll() {
-    const txt = prompt(`Excluir TODOS os ${total} candidatos? Digite EXCLUIR para confirmar.`);
-    if (txt !== "EXCLUIR") return;
+  // ——— Confirmação por senha: Excluir todos ———
+  const DELETE_ALL_PASSWORD = "752436";
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deletePwd, setDeletePwd] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+  const [pwdError, setPwdError] = useState("");
+  const [wrongAttempts, setWrongAttempts] = useState(0);
+  const [lockUntil, setLockUntil] = useState<number | null>(null);
+  const [nowTs, setNowTs] = useState(Date.now());
+
+  useEffect(() => {
+    if (!lockUntil) return;
+    const t = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [lockUntil]);
+
+  const lockedOut = lockUntil !== null && nowTs < lockUntil;
+  const lockSeconds = lockedOut ? Math.ceil((lockUntil! - nowTs) / 1000) : 0;
+
+  useEffect(() => {
+    if (lockUntil && nowTs >= lockUntil) {
+      setLockUntil(null);
+      setWrongAttempts(0);
+      setPwdError("");
+    }
+  }, [nowTs, lockUntil]);
+
+  function resetDeleteAllModal() {
+    setDeletePwd("");
+    setShowPwd(false);
+    setPwdError("");
+    setWrongAttempts(0);
+    setLockUntil(null);
+  }
+
+  async function executeDeleteAll() {
     const { error } = await supabase.from("candidatos").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     if (error) toast.error(error.message);
     else {
@@ -264,6 +331,26 @@ setEditingObsId(null);
       setSelected(new Set());
       invalidateAtsQueries(queryClient);
     }
+  }
+
+  async function confirmDeleteAll() {
+    if (lockedOut || !deletePwd) return;
+    if (deletePwd !== DELETE_ALL_PASSWORD) {
+      const attempts = wrongAttempts + 1;
+      setDeletePwd("");
+      if (attempts >= 3) {
+        setLockUntil(Date.now() + 30_000);
+        setWrongAttempts(0);
+        setPwdError("Muitas tentativas. Botão bloqueado por 30 segundos.");
+      } else {
+        setWrongAttempts(attempts);
+        setPwdError("Senha incorreta");
+      }
+      return;
+    }
+    setDeleteAllOpen(false);
+    resetDeleteAllModal();
+    await executeDeleteAll();
   }
 
   async function openCurriculo(ref: string) {
@@ -426,47 +513,67 @@ setEditingObsId(null);
   const allVisibleSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.id));
 
   return (
-    <div className="p-4 lg:p-8 max-w-[1400px] mx-auto">
+    <div className="p-4 lg:p-8 max-w-[1400px] mx-auto min-h-screen bg-brand-bg">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 mb-6 sm:flex sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Candidatos</h1>
+          <h1 className="text-2xl font-semibold tracking-[-0.01em] text-brand">Candidatos</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-medium text-brand">
               <Users className="size-3" />
-              {total} no total
+              <span className="font-bold tabular-nums">{total}</span> no total
             </span>
-            <span className="text-xs">Exibindo {filtered.length}{hasFilters ? " (filtrado)" : ""}</span>
+            <span className="text-xs">Exibindo <span className="font-bold tabular-nums">{filtered.length}</span>{hasFilters ? " (filtrado)" : ""}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           {role === "admin" && total > 0 && (
-            <Button size="sm" variant="outline" className="h-9 text-destructive border-destructive/30 hover:bg-destructive/5 hover:text-destructive" onClick={handleDeleteAll}>
-              <Trash2 className="size-4 mr-1.5" /> Excluir todos
-            </Button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-sm text-brand-danger hover:underline underline-offset-2 cursor-pointer"
+              onClick={() => setDeleteAllOpen(true)}
+            >
+              <Trash2 className="size-3.5" /> Excluir todos
+            </button>
           )}
-          <Button size="sm" className="h-9 px-4 shadow-sm" onClick={() => { setEditing(null); setOpen(true); }}>
+          <Button size="sm" className="h-10 px-4 rounded-[10px] bg-brand text-white hover:bg-brand/90 shadow-sm" onClick={() => { setEditing(null); setOpen(true); }}>
             <Plus className="size-4 mr-1.5" /> Novo candidato
           </Button>
         </div>
       </header>
 
-      <Card className="p-5 mb-6 rounded-2xl shadow-sm">
-        <Suspense fallback={<div className="h-36 rounded-2xl border border-dashed bg-accent/20 animate-pulse" />}>
-          <BulkUpload onCreated={() => invalidateAtsQueries(queryClient)} />
-        </Suspense>
+      <Card className={`mb-6 overflow-hidden ${CARD_CLS}`}>
+        <button
+          type="button"
+          className="w-full flex items-center gap-2.5 px-5 py-4 text-left cursor-pointer hover:bg-brand-bg/60 transition-colors"
+          onClick={() => setUploadOpen((o) => !o)}
+          aria-expanded={uploadOpen}
+        >
+          <span className="grid size-8 place-items-center rounded-lg bg-brand-amber/15">
+            <Upload className="size-4 text-brand-amber" />
+          </span>
+          <span className="flex-1 text-sm font-semibold tracking-[-0.01em] text-brand">Enviar currículos</span>
+          <ChevronDown className={`size-4 text-muted-foreground transition-transform ${uploadOpen ? "rotate-180" : ""}`} />
+        </button>
+        {uploadOpen && (
+          <div className="px-5 pb-5">
+            <Suspense fallback={<div className="h-36 rounded-xl border border-dashed border-brand-amber/40 bg-brand-amber/5 animate-pulse" />}>
+              <BulkUpload onCreated={() => invalidateAtsQueries(queryClient)} />
+            </Suspense>
+          </div>
+        )}
       </Card>
 
-      <Card className="p-4 mb-5 space-y-3 rounded-2xl shadow-sm">
+      <Card className={`p-5 mb-5 space-y-3 ${CARD_CLS}`}>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
           <div className="relative lg:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input className="pl-9 h-9 bg-background" placeholder="Nome" value={fNome} onChange={(e) => setFNome(e.target.value)} />
+            <Input className={`pl-9 bg-background ${INPUT_CLS}`} placeholder="Nome" value={fNome} onChange={(e) => setFNome(e.target.value)} />
           </div>
-          <Input className="h-9" placeholder="Telefone" value={fTelefone} onChange={(e) => setFTelefone(e.target.value)} />
-          <Input className="h-9" placeholder="Email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} />
-          <Input className="h-9" placeholder="Vaga" value={fVaga} onChange={(e) => setFVaga(e.target.value)} />
+          <Input className={INPUT_CLS} placeholder="Telefone" value={fTelefone} onChange={(e) => setFTelefone(e.target.value)} />
+          <Input className={INPUT_CLS} placeholder="Email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} />
+          <Input className={INPUT_CLS} placeholder="Vaga" value={fVaga} onChange={(e) => setFVaga(e.target.value)} />
           <MultiSelect
-            className={`w-full ${fStatus.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-full ${SELECT_CLS} ${fStatus.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Status"
             value={fStatus}
             onChange={setFStatus}
@@ -476,21 +583,21 @@ setEditingObsId(null);
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <MultiSelect
-            className={`w-56 ${fRecrutadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-56 ${SELECT_CLS} ${fRecrutadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Recrutadores"
             value={fRecrutadores}
             onChange={setFRecrutadores}
             options={profiles.map((p) => ({ value: p.id, label: p.nome }))}
           />
           <MultiSelect
-            className={`w-40 ${fEstados.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-40 ${SELECT_CLS} ${fEstados.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="UFs"
             value={fEstados}
             onChange={setFEstados}
             options={UF_LIST.map((uf) => ({ value: uf, label: uf }))}
           />
           <MultiSelect
-            className={`w-56 ${fCidades.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-56 ${SELECT_CLS} ${fCidades.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Cidades"
             value={fCidades}
             onChange={setFCidades}
@@ -498,7 +605,7 @@ setEditingObsId(null);
             emptyLabel="Sem cidades validadas"
           />
           <MultiSelect
-            className={`w-44 ${fOrigens.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-44 ${SELECT_CLS} ${fOrigens.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Origem"
             value={fOrigens}
             onChange={setFOrigens}
@@ -509,14 +616,14 @@ setEditingObsId(null);
             <span className="text-xs text-muted-foreground">Período:</span>
             <Input
               type="date"
-              className="h-9 w-[140px]"
+              className={`w-[140px] ${INPUT_CLS}`}
               value={fDateFrom}
               onChange={(e) => setFDateFrom(e.target.value)}
             />
             <span className="text-xs text-muted-foreground">→</span>
             <Input
               type="date"
-              className="h-9 w-[140px]"
+              className={`w-[140px] ${INPUT_CLS}`}
               value={fDateTo}
               onChange={(e) => setFDateTo(e.target.value)}
             />
@@ -527,7 +634,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fEntrevistaQuando === "hoje" ? "default" : "outline"}
-            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "hoje" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
+            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "hoje" ? "bg-brand text-white hover:bg-brand/90 border-transparent" : ""}`}
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "hoje" ? "" : "hoje")}
           >
             Hoje
@@ -535,7 +642,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fEntrevistaQuando === "semana" ? "default" : "outline"}
-            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "semana" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
+            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "semana" ? "bg-brand text-white hover:bg-brand/90 border-transparent" : ""}`}
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "semana" ? "" : "semana")}
           >
             Esta semana
@@ -544,13 +651,13 @@ setEditingObsId(null);
             <span className="text-xs text-muted-foreground">Data:</span>
             <Input
               type="date"
-              className="h-9 w-[150px]"
+              className={`w-[150px] ${INPUT_CLS}`}
               value={fEntrevistaData}
               onChange={(e) => setFEntrevistaData(e.target.value)}
             />
           </div>
           <MultiSelect
-            className={`w-56 ${fEntrevistadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-56 ${SELECT_CLS} ${fEntrevistadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Entrevistador"
             value={fEntrevistadores}
             onChange={setFEntrevistadores}
@@ -561,7 +668,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "com" ? "default" : "outline"}
-            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "com" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
+            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "com" ? "bg-brand text-white hover:bg-brand/90 border-transparent" : ""}`}
             onClick={() => setFObs(fObs === "com" ? "" : "com")}
           >
             Com observação
@@ -569,7 +676,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "sem" ? "default" : "outline"}
-            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "sem" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
+            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "sem" ? "bg-brand text-white hover:bg-brand/90 border-transparent" : ""}`}
             onClick={() => setFObs(fObs === "sem" ? "" : "sem")}
           >
             Sem observação
@@ -608,7 +715,7 @@ setEditingObsId(null);
       </Card>
 
 
-      <Card className="overflow-hidden relative rounded-2xl shadow-sm">
+      <Card className={`overflow-hidden relative ${CARD_CLS}`}>
         {isFetching && (
           <div className="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary/20 overflow-hidden">
             <div className="h-full w-1/3 bg-primary animate-pulse" />
@@ -616,10 +723,11 @@ setEditingObsId(null);
         )}
         <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
           <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <thead className="bg-brand-bg text-[11px] uppercase tracking-[0.05em] text-brand-head">
               <tr>
                 <th className="px-3 py-3 w-8">
                   <Checkbox
+                    className={CHECKBOX_CLS}
                     checked={allVisibleSelected}
                     onCheckedChange={(c) => {
                       setSelected((s) => {
@@ -656,15 +764,20 @@ setEditingObsId(null);
             </thead>
             <tbody>
               {filtered.map(r => (
-                <tr key={r.id} className="border-t border-border/70 transition-colors hover:bg-muted/50">
-                  <td className="px-3 py-3.5">
-                    <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
+                <tr key={r.id} className="border-t border-brand-row transition-colors hover:bg-brand-bg">
+                  <td className="px-3 py-2.5">
+                    <Checkbox className={CHECKBOX_CLS} checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
                   </td>
-                  <td className="px-3 py-3.5 font-semibold text-foreground">
-  {(r.nome || "").toUpperCase()}
-</td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className={`grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-bold ${avatarTone(r.nome || "")}`}>
+                        {initials(r.nome || "")}
+                      </span>
+                      <span className="font-semibold text-foreground">{(r.nome || "").toUpperCase()}</span>
+                    </div>
+                  </td>
                  <td
-  className="px-3 py-3.5 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+  className="px-3 py-2.5 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
   onClick={() => {
     if (!r.telefone) return;
     navigator.clipboard.writeText(r.telefone);
@@ -676,18 +789,21 @@ setEditingObsId(null);
     <AlertTriangle className="size-3.5 text-warning" aria-label="Telefone não informado" />
   )}
 </td>
-                  <td className="px-3 py-3.5 text-muted-foreground">
+                  <td className="px-3 py-2.5 text-muted-foreground">
                     {r.cidade ? r.cidade : (
                       <AlertTriangle className="size-3.5 text-muted-foreground/60" aria-label="Cidade não informada" />
                     )}
                   </td>
-                  <td className="px-3 py-3.5 text-muted-foreground">{r.estado || "—"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{r.estado || "—"}</td>
 
-                  <td className="px-3 py-3.5 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
-                  <td className="px-3 py-3.5">
+                  <td className="px-3 py-2.5 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
+                  <td className="px-3 py-2.5">
                     <Select value={r.status} onValueChange={(v) => changeStatus(r.id, v as CandidatoStatus)}>
-                      <SelectTrigger className="h-8 w-44 text-xs rounded-lg">
-                        <Badge variant="outline" className={`${STATUS_TONE[r.status]} font-medium`}>{STATUS_LABELS[r.status]}</Badge>
+                      <SelectTrigger className="h-8 w-44 text-xs rounded-lg border-brand-border">
+                        <span className="inline-flex items-center gap-2 text-xs font-medium text-foreground">
+                          <span className={`size-1.5 rounded-full shrink-0 ${STATUS_DOT[r.status]}`} />
+                          {STATUS_LABELS[r.status]}
+                        </span>
                       </SelectTrigger>
                       <SelectContent>
                         {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
@@ -712,7 +828,7 @@ setEditingObsId(null);
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-3.5 align-top max-w-[260px]">
+                  <td className="px-3 py-2.5 align-top max-w-[260px]">
                     {(() => {
                       const obs = (r.observacoes ?? "").trim();
                       const isEditing = editingObsId === r.id;
@@ -774,10 +890,10 @@ setEditingObsId(null);
                       );
                     })()}
                   </td>
-                   <td className="px-3 py-3.5 text-muted-foreground text-xs">
+                   <td className="px-3 py-2.5 text-muted-foreground text-xs">
                      {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
                    </td>
-                   <td className="px-3 py-3.5">
+                   <td className="px-3 py-2.5">
                     {r.curriculo_url ? (
                       <div className="flex flex-col gap-1">
                          <div className="flex items-center gap-3">
@@ -800,7 +916,7 @@ setEditingObsId(null);
                     )}
                   </td>
 
-                    <td className="px-3 py-3.5">
+                    <td className="px-3 py-2.5">
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -926,6 +1042,56 @@ setEditingObsId(null);
           onConfirm={confirmAgendamento}
         />
       </Suspense>
+
+      <Dialog open={deleteAllOpen} onOpenChange={(o) => { setDeleteAllOpen(o); if (!o) resetDeleteAllModal(); }}>
+        <DialogContent className={`sm:max-w-md ${CARD_CLS}`}>
+          <DialogHeader>
+            <DialogTitle className="text-brand font-semibold tracking-[-0.01em]">Confirmar exclusão</DialogTitle>
+            <DialogDescription>
+              Esta ação é irreversível: todos os <span className="font-bold tabular-nums">{total}</span> candidatos serão excluídos permanentemente. Digite a senha para confirmar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="relative">
+              <Input
+                type={showPwd ? "text" : "password"}
+                placeholder="Senha"
+                value={deletePwd}
+                onChange={(e) => { setDeletePwd(e.target.value); setPwdError(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter") void confirmDeleteAll(); }}
+                className={`pr-10 ${INPUT_CLS}`}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                aria-label={showPwd ? "Ocultar senha" : "Mostrar senha"}
+              >
+                {showPwd ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            {pwdError && <p className="text-xs font-medium text-brand-danger">{pwdError}</p>}
+            {lockedOut && (
+              <p className="text-xs font-medium text-brand-amber">
+                Botão bloqueado. Tente novamente em <span className="font-bold tabular-nums">{lockSeconds}</span>s.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteAllOpen(false); resetDeleteAllModal(); }}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-brand-danger text-white hover:bg-brand-danger/90"
+              disabled={!deletePwd || lockedOut}
+              onClick={() => void confirmDeleteAll()}
+            >
+              Confirmar exclusão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
