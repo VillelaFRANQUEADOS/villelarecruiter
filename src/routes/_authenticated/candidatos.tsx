@@ -512,37 +512,57 @@ setEditingObsId(null);
   const allVisibleSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.id));
 
   return (
-    <div className="p-4 lg:p-8 max-w-[1400px] mx-auto">
+    <div className="p-4 lg:p-8 max-w-[1400px] mx-auto min-h-screen bg-brand-bg">
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 mb-6 sm:flex sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Candidatos</h1>
+          <h1 className="text-2xl font-semibold tracking-[-0.01em] text-brand">Candidatos</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-medium text-brand">
               <Users className="size-3" />
-              {total} no total
+              <span className="font-bold tabular-nums">{total}</span> no total
             </span>
-            <span className="text-xs">Exibindo {filtered.length}{hasFilters ? " (filtrado)" : ""}</span>
+            <span className="text-xs">Exibindo <span className="font-bold tabular-nums">{filtered.length}</span>{hasFilters ? " (filtrado)" : ""}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           {role === "admin" && total > 0 && (
-            <Button size="sm" variant="outline" className="h-9 text-destructive border-destructive/30 hover:bg-destructive/5 hover:text-destructive" onClick={handleDeleteAll}>
-              <Trash2 className="size-4 mr-1.5" /> Excluir todos
-            </Button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-sm text-brand-danger hover:underline underline-offset-2 cursor-pointer"
+              onClick={() => setDeleteAllOpen(true)}
+            >
+              <Trash2 className="size-3.5" /> Excluir todos
+            </button>
           )}
-          <Button size="sm" className="h-9 px-4 shadow-sm" onClick={() => { setEditing(null); setOpen(true); }}>
+          <Button size="sm" className="h-10 px-4 rounded-[10px] bg-brand text-white hover:bg-brand/90 shadow-sm" onClick={() => { setEditing(null); setOpen(true); }}>
             <Plus className="size-4 mr-1.5" /> Novo candidato
           </Button>
         </div>
       </header>
 
-      <Card className="p-5 mb-6 rounded-2xl shadow-sm">
-        <Suspense fallback={<div className="h-36 rounded-2xl border border-dashed bg-accent/20 animate-pulse" />}>
-          <BulkUpload onCreated={() => invalidateAtsQueries(queryClient)} />
-        </Suspense>
+      <Card className={`mb-6 overflow-hidden ${CARD_CLS}`}>
+        <button
+          type="button"
+          className="w-full flex items-center gap-2.5 px-5 py-4 text-left cursor-pointer hover:bg-brand-bg/60 transition-colors"
+          onClick={() => setUploadOpen((o) => !o)}
+          aria-expanded={uploadOpen}
+        >
+          <span className="grid size-8 place-items-center rounded-lg bg-brand-amber/15">
+            <Upload className="size-4 text-brand-amber" />
+          </span>
+          <span className="flex-1 text-sm font-semibold tracking-[-0.01em] text-brand">Enviar currículos</span>
+          <ChevronDown className={`size-4 text-muted-foreground transition-transform ${uploadOpen ? "rotate-180" : ""}`} />
+        </button>
+        {uploadOpen && (
+          <div className="px-5 pb-5">
+            <Suspense fallback={<div className="h-36 rounded-xl border border-dashed border-brand-amber/40 bg-brand-amber/5 animate-pulse" />}>
+              <BulkUpload onCreated={() => invalidateAtsQueries(queryClient)} />
+            </Suspense>
+          </div>
+        )}
       </Card>
 
-      <Card className="p-4 mb-5 space-y-3 rounded-2xl shadow-sm">
+      <Card className={`p-5 mb-5 space-y-3 ${CARD_CLS}`}>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
           <div className="relative lg:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
