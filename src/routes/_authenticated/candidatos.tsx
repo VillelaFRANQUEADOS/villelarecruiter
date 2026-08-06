@@ -583,21 +583,21 @@ setEditingObsId(null);
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <MultiSelect
-            className={`w-56 ${fRecrutadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-56 ${SELECT_CLS} ${fRecrutadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Recrutadores"
             value={fRecrutadores}
             onChange={setFRecrutadores}
             options={profiles.map((p) => ({ value: p.id, label: p.nome }))}
           />
           <MultiSelect
-            className={`w-40 ${fEstados.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-40 ${SELECT_CLS} ${fEstados.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="UFs"
             value={fEstados}
             onChange={setFEstados}
             options={UF_LIST.map((uf) => ({ value: uf, label: uf }))}
           />
           <MultiSelect
-            className={`w-56 ${fCidades.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-56 ${SELECT_CLS} ${fCidades.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Cidades"
             value={fCidades}
             onChange={setFCidades}
@@ -605,7 +605,7 @@ setEditingObsId(null);
             emptyLabel="Sem cidades validadas"
           />
           <MultiSelect
-            className={`w-44 ${fOrigens.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-44 ${SELECT_CLS} ${fOrigens.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Origem"
             value={fOrigens}
             onChange={setFOrigens}
@@ -634,7 +634,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fEntrevistaQuando === "hoje" ? "default" : "outline"}
-            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "hoje" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
+            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "hoje" ? "bg-brand text-white hover:bg-brand/90 border-transparent" : ""}`}
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "hoje" ? "" : "hoje")}
           >
             Hoje
@@ -642,7 +642,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fEntrevistaQuando === "semana" ? "default" : "outline"}
-            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "semana" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
+            className={`h-8 rounded-full px-3.5 text-xs ${fEntrevistaQuando === "semana" ? "bg-brand text-white hover:bg-brand/90 border-transparent" : ""}`}
             onClick={() => setFEntrevistaQuando(fEntrevistaQuando === "semana" ? "" : "semana")}
           >
             Esta semana
@@ -657,7 +657,7 @@ setEditingObsId(null);
             />
           </div>
           <MultiSelect
-            className={`w-56 ${fEntrevistadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            className={`w-56 ${SELECT_CLS} ${fEntrevistadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
             placeholder="Entrevistador"
             value={fEntrevistadores}
             onChange={setFEntrevistadores}
@@ -668,7 +668,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "com" ? "default" : "outline"}
-            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "com" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
+            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "com" ? "bg-brand text-white hover:bg-brand/90 border-transparent" : ""}`}
             onClick={() => setFObs(fObs === "com" ? "" : "com")}
           >
             Com observação
@@ -676,7 +676,7 @@ setEditingObsId(null);
           <Button
             size="sm"
             variant={fObs === "sem" ? "default" : "outline"}
-            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "sem" ? "bg-foreground text-background hover:bg-foreground/90 border-transparent" : ""}`}
+            className={`h-8 rounded-full px-3.5 text-xs ${fObs === "sem" ? "bg-brand text-white hover:bg-brand/90 border-transparent" : ""}`}
             onClick={() => setFObs(fObs === "sem" ? "" : "sem")}
           >
             Sem observação
@@ -723,7 +723,7 @@ setEditingObsId(null);
         )}
         <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
           <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <thead className="bg-brand-bg text-[11px] uppercase tracking-[0.05em] text-brand-head">
               <tr>
                 <th className="px-3 py-3 w-8">
                   <Checkbox
@@ -763,15 +763,15 @@ setEditingObsId(null);
             </thead>
             <tbody>
               {filtered.map(r => (
-                <tr key={r.id} className="border-t border-border/70 transition-colors hover:bg-muted/50">
-                  <td className="px-3 py-3.5">
+                <tr key={r.id} className="border-t border-brand-row transition-colors hover:bg-brand-bg">
+                  <td className="px-3 py-2.5">
                     <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
                   </td>
-                  <td className="px-3 py-3.5 font-semibold text-foreground">
+                  <td className="px-3 py-2.5 font-semibold text-foreground">
   {(r.nome || "").toUpperCase()}
 </td>
                  <td
-  className="px-3 py-3.5 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+  className="px-3 py-2.5 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
   onClick={() => {
     if (!r.telefone) return;
     navigator.clipboard.writeText(r.telefone);
@@ -783,15 +783,15 @@ setEditingObsId(null);
     <AlertTriangle className="size-3.5 text-warning" aria-label="Telefone não informado" />
   )}
 </td>
-                  <td className="px-3 py-3.5 text-muted-foreground">
+                  <td className="px-3 py-2.5 text-muted-foreground">
                     {r.cidade ? r.cidade : (
                       <AlertTriangle className="size-3.5 text-muted-foreground/60" aria-label="Cidade não informada" />
                     )}
                   </td>
-                  <td className="px-3 py-3.5 text-muted-foreground">{r.estado || "—"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{r.estado || "—"}</td>
 
-                  <td className="px-3 py-3.5 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
-                  <td className="px-3 py-3.5">
+                  <td className="px-3 py-2.5 text-muted-foreground">{r.recrutador_id ? profMap.get(r.recrutador_id) ?? "—" : "—"}</td>
+                  <td className="px-3 py-2.5">
                     <Select value={r.status} onValueChange={(v) => changeStatus(r.id, v as CandidatoStatus)}>
                       <SelectTrigger className="h-8 w-44 text-xs rounded-lg border-brand-border">
                         <span className="inline-flex items-center gap-2 text-xs font-medium text-foreground">
@@ -822,7 +822,7 @@ setEditingObsId(null);
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-3.5 align-top max-w-[260px]">
+                  <td className="px-3 py-2.5 align-top max-w-[260px]">
                     {(() => {
                       const obs = (r.observacoes ?? "").trim();
                       const isEditing = editingObsId === r.id;
@@ -884,10 +884,10 @@ setEditingObsId(null);
                       );
                     })()}
                   </td>
-                   <td className="px-3 py-3.5 text-muted-foreground text-xs">
+                   <td className="px-3 py-2.5 text-muted-foreground text-xs">
                      {ORIGEM_LABELS[normalizeOrigem(r.origem_curriculo)]}
                    </td>
-                   <td className="px-3 py-3.5">
+                   <td className="px-3 py-2.5">
                     {r.curriculo_url ? (
                       <div className="flex flex-col gap-1">
                          <div className="flex items-center gap-3">
@@ -910,7 +910,7 @@ setEditingObsId(null);
                     )}
                   </td>
 
-                    <td className="px-3 py-3.5">
+                    <td className="px-3 py-2.5">
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
