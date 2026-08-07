@@ -79,3 +79,51 @@ export function formatDistanciaKm(km: number): string {
   if (km < 10) return `${km.toFixed(1)} km`;
   return `${Math.round(km)} km`;
 }
+
+// ---------------------------------------------------------------------------
+// Índice reverso: para cada unidade Villela, quais códigos IBGE de município
+// têm ELA como a mais próxima. Usado para filtrar candidatos no servidor
+// (Supabase) por "unidade mais próxima" sem precisar de coluna no banco.
+// Calculado uma única vez (memoizado) a partir de todos os municípios do
+// arquivo municipios-coordenadas.json (~5.500 municípios x 39 unidades).
+// ---------------------------------------------------------------------------
+let unitToIbgeIndex: Map<string, string[]> | null = null;
+
+function buildUnitToIbgeIndex(): Map<string, string[]> {
+  const index = new Map<string, string[]>();
+  for (const nome of UNIDADES.map((u) => u.nome)) index.set(nome, []);
+
+  for (const ibge of Object.keys(MUNICIPIOS_COORDS)) {
+    const coords = MUNICIPIOS_COORDS[ibge];
+    if (!coords || coords.length !== 2) continue;
+    const [lat, lon] = coords;
+    let nearest: { nome: string; d: number } | null = null;
+    for (const u of UNIDADES) {
+      const d = haversineKm(lat, lon, u.lat, u.lon);
+      if (!nearest || d < nearest.d) nearest = { nome: u.nome, d };
+    }
+    if (nearest) index.get(nearest.nome)?.push(ibge);
+  }
+  return index;
+}
+
+/** Lista de nomes de todas as unidades Villela (para opções de filtro). */
+export function getAllUnitNames(): string[] {
+  return UNIDADES.map((u) => u.nome).sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+/**
+ * Dado um conjunto de nomes de unidades selecionadas no filtro, retorna a
+ * lista combinada de códigos IBGE dos municípios cuja unidade mais próxima
+ * é uma delas. Usar com `.in("codigo_ibge", codigos)` no Supabase.
+ */
+export function getIbgeCodesForUnits(unitNames: string[]): string[] {
+  if (!unitNames.length) return [];
+  if (!unitToIbgeIndex) unitToIbgeIndex = buildUnitToIbgeIndex();
+  const out: string[] = [];
+  for (const nome of unitNames) {
+    const codes = unitToIbgeIndex.get(nome);
+    if (codes) out.push(...codes);
+  }
+  return out;
+}
