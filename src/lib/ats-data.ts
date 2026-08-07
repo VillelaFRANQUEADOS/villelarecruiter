@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { CandidatoRow } from "@/lib/auth";
+import { getIbgeCodesForUnits } from "@/lib/nearest-unit";
 
 export interface ProfileLite {
   id: string;
@@ -24,6 +25,8 @@ export interface CandidatosFilters {
   estados?: string[];
   cidades?: string[];
   origens?: string[];
+  /** Nomes das unidades Villela selecionadas no filtro "Unidade mais próxima". */
+  unidades?: string[];
   dateFrom?: string;
   dateTo?: string;
   entrevistaData?: string;
@@ -63,6 +66,12 @@ function applyFilters(qb: SupaQuery, f: CandidatosFilters): SupaQuery {
   if (f.estados?.length) q = q.in("estado", f.estados);
   if (f.cidades?.length) q = q.in("cidade", f.cidades);
   if (f.origens?.length) q = q.in("origem_curriculo", f.origens);
+  if (f.unidades?.length) {
+    const codigosIbge = getIbgeCodesForUnits(f.unidades);
+    // Lista vazia (nenhum município mapeado) força resultado vazio em vez de
+    // ignorar o filtro.
+    q = q.in("codigo_ibge", codigosIbge.length ? codigosIbge : ["__none__"]);
+  }
   if (f.dateFrom) q = q.gte("created_at", `${f.dateFrom}T00:00:00`);
   if (f.dateTo) q = q.lte("created_at", `${f.dateTo}T23:59:59`);
   if (f.entrevistaData) q = q.eq("data_entrevista", f.entrevistaData);
