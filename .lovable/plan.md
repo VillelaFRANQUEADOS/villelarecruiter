@@ -1,74 +1,41 @@
-# Melhorar IA de extração + botão "Reprocessar"
+# Plano: Performance, Topbar Liquid Glass e Observações sem falha de IA
 
-Dois eixos: (1) elevar a qualidade da leitura padrão sem perder velocidade; (2) adicionar um modo "deep" acionado manualmente pelo botão Reprocessar na listagem.
+## 1. Performance — carregamento mais rápido das informações
 
-## 1. Extração padrão mais robusta (mantendo performance)
+Diagnóstico confirmado nas estatísticas do banco:
 
-`src/lib/file-extract.ts`
-- PDF: extrair texto de **todas as páginas** (já faz) mas elevar limiar `hasEnoughText` de 120 para ~250 caracteres por página média (detecta PDFs parcialmente escaneados). Quando texto fraco → renderizar páginas como imagem (cap: até 6 páginas, hoje sem limite — adicionar guarda).
-- Render: aumentar `scale` de 1.6 → 2.0 para OCR mais nítido; JPEG quality 0.9.
-- DOCX: além de `extractRawText`, fazer fallback para `convertToHtml` quando texto < 100 chars (alguns DOCX guardam tudo em tabelas).
-- Adicionar utilitário `extractFromFileDeep(file)` que sempre renderiza todas as páginas do PDF como imagem (mesmo com texto), retornando texto + imagens para análise multimodal completa.
+- A consulta mais lenta do sistema é a de **histórico de status** (`candidato_status_log` ordenado por data, limite 2000): média de ~800ms e 77 mil chamadas. Ela baixa as últimas 2000 mudanças de status da base inteira só para montar o "alterado por" na tabela — e não existe índice para essa ordenação.
+- A listagem de candidatos com contagem exata leva em média 400ms–1s.
+- O Realtime invalida todas as consultas a cada alteração: durante upload em massa ou reprocessamento, dezenas de recargas desnecessárias disparam em sequência.
 
-`src/lib/cv-parser.functions.ts`
-- Aumentar `cvText` de 14000 → 24000 chars e `images` de 3 → 8 (capa do currículo costuma estar nas primeiras páginas, mas precisamos cobrir múltiplas).
-- Reforçar prompt com exemplos negativos e regras anti-alucinação para nome (não confundir com nome de empresa/curso) e cidade/UF (priorizar bloco de contato/endereço).
-- Já existem fallbacks por regex (telefone/email/UF) — manter.
+Mudanças:
 
-## 2. Modo "Reprocessar" (deep, sob demanda)
+1. **Novo índice no banco** em `candidato_status_log (created_at DESC)` para a ordenação ficar instantânea.
+2. **Histórico de status por página**: a consulta passa a filtrar apenas pelos candidatos visíveis na página atual (`.in("candidato_id", ids)`), usando o índice já existente, em vez de baixar 2000 linhas da base inteira.
+3. **Realtime com debounce**: as invalidações passam a ser agrupadas (~500ms), de modo que um lote de 20 currículos gere 1 recarga, não 20. A atualização continua automática e em tempo real.
+4. Manter o comportamento de "manter dados anteriores" ao trocar de página/filtro (já existe) para transições instantâneas.
 
-### Backend — nova server function
+Resultado esperado: primeira carga e trocas de página/filtro visivelmente mais rápidas, sem perder a sincronização em tempo real.
 
-`src/lib/cv-parser.functions.ts` → `reprocessCandidato`
-- Input: `{ candidatoId: string }`.
-- Fluxo:
-  1. Buscar candidato no banco (RLS aplica). Se sem `curriculo_url` ou não `drive:` → erro amigável.
-  2. Baixar arquivo do Drive (reutiliza lógica de `getCurriculoContent`).
-  3. Extração **deep**: chamar Gemini multimodal direto com o **arquivo original como anexo** (PDF/imagem via base64 `file` part da AI SDK), além do texto extraído server-side simples. Usar `google/gemini-2.5-pro` (mais robusto que o flash preview padrão).
-  4. Normalizar (telefone/email/UF) como hoje.
-  5. **Merge não-destrutivo**: para cada campo (`nome`, `telefone`, `email`, `cidade`, `estado`), só sobrescrever se o valor atual estiver vazio/null OU se a IA retornou valor e o atual nunca foi editado manualmente. Como heurística simples e segura: **só preencher campos vazios** (o usuário marcou caixas; respeitamos o que ele já editou). Documentar isso no toast ("preenchidos N campos vazios").
-  6. Atualizar `ultimo_reprocessamento_at` (timestamptz) — nova coluna.
-  7. Retornar `{ updatedFields: string[], ultimo_reprocessamento_at }`.
+## 2. Layout — sidebar vira barra superior "liquid glass"
 
-### Migration
+- Novo componente `AppTopbar`: barra flutuante no topo com efeito vidro líquido — fundo translúcido (`bg-white/60`), desfoque forte (`backdrop-blur-xl` + saturação), borda sutil clara, sombra suave e cantos arredondados, sobre o fundo `#F7F8FA`.
+- Conteúdo da barra: logo + "Villela Recruiter" à esquerda; navegação central (Candidatos; Dashboard e Usuários para admin/recrutador) com item ativo em pill destacado; à direita o link Playbook, nome/função do usuário e botão Sair.
+- **Mobile**: hoje o sidebar some em telas pequenas e não há navegação alguma — a topbar incluirá menu hambúrguer com os mesmos links, resolvendo esse gap.
+- `src/routes/_authenticated.tsx` passa a empilhar topbar + conteúdo (remove o sidebar). `AppSidebar.tsx` será excluído.
+- Tokens de marca mantidos (navy `#0B2239`, âmbar `#C9963A`); efeito de vidro via utilitários padrão do Tailwind (sem prefixos manuais).
 
-Adicionar coluna na tabela `candidatos`:
-- `ultimo_reprocessamento_at timestamptz null`
+## 3. Falha de IA não grava mais em Observações
 
-(sem alteração de RLS — herda das policies existentes da tabela.)
+- Em `parseAndCreateCandidato` (`src/lib/cv-parser.functions.ts`): quando a extração por IA falha, o candidato continua sendo criado normalmente, mas **sem** escrever "Extração automática falhou (...)" nas observações — o campo fica vazio.
+- O aviso visual no upload em massa ("criado sem IA - edite") é mantido, pois vem do retorno da função, não do banco.
+- O reprocessamento já não grava esse texto (apenas falha com erro) — sem mudança.
+- **Limpeza dos registros existentes**: migração que apaga apenas as observações automáticas ainda intactas (`observacoes LIKE 'Extração automática falhou%'` e sem edição manual registrada), preservando qualquer observação que alguém tenha editado depois.
 
-### Tipos
+## Detalhes técnicos
 
-- `src/lib/auth.tsx` `CandidatoRow`: adicionar `ultimo_reprocessamento_at: string | null`.
-- `src/lib/ats-data.ts` `CANDIDATOS_SELECT`: adicionar campo.
-
-### UI — botão na listagem
-
-`src/routes/_authenticated/candidatos.tsx`, célula PDF (linhas 489–500):
-- Adicionar botão "Reprocessar" (ícone `RefreshCw`) ao lado do PDF, visível apenas quando `r.curriculo_url` existir.
-- Estado local `reprocessing: Set<string>` para spinner por linha.
-- Click → confirma rapidamente (toast loading), chama `reprocessCandidato({ data: { candidatoId: r.id } })`, ao concluir mostra toast com nº de campos atualizados e invalida queries.
-- Abaixo do botão (texto pequeno mute), quando `r.ultimo_reprocessamento_at` existir: "Reprocessado em DD/MM HH:mm".
-
-### Erros
-
-- 429 (rate limit) / 402 (créditos) / falha Drive → toast com mensagem clara, sem alterar dados.
-
-## Resumo de arquivos
-
-**Criar:**
-- migration: adiciona `ultimo_reprocessamento_at` em `candidatos`.
-
-**Editar:**
-- `src/lib/file-extract.ts` — limiar OCR, scale, fallback DOCX, novo `extractFromFileDeep`.
-- `src/lib/cv-parser.functions.ts` — prompt reforçado, limites maiores, nova função `reprocessCandidato` (modo deep, merge não-destrutivo).
-- `src/lib/auth.tsx` — adicionar campo `ultimo_reprocessamento_at`.
-- `src/lib/ats-data.ts` — incluir campo no SELECT.
-- `src/routes/_authenticated/candidatos.tsx` — botão Reprocessar + indicador + timestamp.
-
-Nada muda no fluxo de bulk upload — continua usando a extração rápida atual já melhorada.
-
-## Perguntas (responda antes de implementar se quiser ajustar)
-
-1. **Merge**: confirmar que o reprocessamento só preenche campos **vazios** (nunca sobrescreve dados existentes, mesmo que pareçam errados)? Alternativa: sobrescrever sempre, mantendo histórico.
-2. **Modelo deep**: usar `google/gemini-2.5-pro` (mais caro/lento mas melhor)? Ou manter `gemini-3-flash-preview` e apenas enviar o arquivo completo como anexo?
+- Migração SQL: `CREATE INDEX idx_status_log_created ON public.candidato_status_log (created_at DESC)` + limpeza das observações automáticas.
+- `src/lib/ats-data.ts`: `useLatestStatusChangesQuery(ids: string[])` filtrado por página; debounce em `useCandidatosRealtime` (timer único agrupando invalidações de candidatos, status log, opções e dashboard).
+- `src/routes/_authenticated/candidatos.tsx`: passa os IDs da página atual para a consulta de histórico.
+- Novo `src/components/AppTopbar.tsx`; edição de `src/routes/_authenticated.tsx`; remoção de `src/components/AppSidebar.tsx`.
+- Verificação: typecheck + validação visual no navegador (topbar, navegação, páginas carregando).
