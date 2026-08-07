@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_status_log_created_at ON public.candidato_status_log (created_at DESC);
