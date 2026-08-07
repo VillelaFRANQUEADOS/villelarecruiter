@@ -127,7 +127,6 @@ function CandidatosPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(20);
   const { data: profiles = [] } = useProfilesLiteQuery();
-  const { data: latestStatusMap } = useLatestStatusChangesQuery();
   const { data: options } = useCandidatosOptionsQuery();
   const fetchCv = useServerFn(getCurriculoContent);
   const reprocessFn = useServerFn(reprocessCandidato);
@@ -251,6 +250,9 @@ function CandidatosPage() {
 
   const { data: candidatosPage, isFetching } = useCandidatosQuery(page, pageSize, filters);
   const rows = useMemo(() => candidatosPage?.candidatos ?? [], [candidatosPage]);
+  // Histórico de status apenas dos candidatos visíveis na página (índice, sem varrer a base).
+  const rowIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const { data: latestStatusMap } = useLatestStatusChangesQuery(rowIds);
   const total = candidatosPage?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 

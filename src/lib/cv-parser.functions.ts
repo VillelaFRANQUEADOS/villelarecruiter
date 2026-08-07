@@ -204,9 +204,9 @@ if (!nomeFinal) {
     // Origem do currículo (default OUTROS)
     const origem: OrigemCurriculo = normalizeOrigem(data.origemCurriculo);
 
-    const observacoes = aiFailed
-      ? `Extração automática falhou (${aiErrorMsg}). Edite manualmente.`
-      : null;
+    // Falha de IA NÃO é registrada nas observações — apenas sinalizada no
+    // retorno (aiFailed) para a UI do upload exibir o aviso.
+    if (aiFailed) console.warn("Extração com IA falhou:", aiErrorMsg);
 
     // Anti-duplicata por telefone ou email
     if (telefoneFinal || emailFinal) {
@@ -251,7 +251,7 @@ if (!nomeFinal) {
         cidade_validada: cityRes.cidade_validada,
         cidade_original_extraida: cityRes.cidade_original_extraida,
         origem_curriculo: origem,
-        observacoes,
+        observacoes: null,
         curriculo_url: `drive:${driveFileId}`,
         recrutador_id: userId,
         status: "aguardando_contato",

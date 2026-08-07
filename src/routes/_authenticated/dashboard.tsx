@@ -136,6 +136,7 @@ function DashboardPage() {
       estado: fEstados,
       cidade: fCidades,
       origem: fOrigens,
+      unidade: [] as string[],
       recrutador: effectiveRecrutadores,
       entrevistador: [] as string[],
       vaga: fVaga,

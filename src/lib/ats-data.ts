@@ -226,10 +226,12 @@ export function useProfilesLiteQuery() {
   return useQuery({ queryKey: ATS_QUERY_KEYS.profilesLite, queryFn: fetchProfilesLite, staleTime: 10 * 60000, gcTime: 30 * 60000, refetchOnWindowFocus: false });
 }
 
-export function useLatestStatusChangesQuery() {
-  return useQuery({ queryKey: ATS_QUERY_KEYS.latestStatusChanges, queryFn: async () => {
-    const { data, error } = await (supabase as unknown as { from: (t: string) => { select: (s: string) => { order: (c: string, o: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: LatestStatusChange[] | null; error: unknown }> } } } })
-      .from("candidato_status_log").select("candidato_id,changed_by_nome,created_at").order("created_at", { ascending: false }).limit(2000);
+export function useLatestStatusChangesQuery(candidatoIds: string[]) {
+  const idsKey = [...candidatoIds].sort().join(",");
+  return useQuery({ queryKey: [...ATS_QUERY_KEYS.latestStatusChanges, idsKey], enabled: candidatoIds.length > 0, queryFn: async () => {
+    // Escopo por página: usa idx_status_log_candidato em vez de ordenar a base inteira.
+    const { data, error } = await (supabase as unknown as { from: (t: string) => { select: (s: string) => { in: (c: string, ids: string[]) => { order: (c: string, o: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: LatestStatusChange[] | null; error: unknown }> } } } } })
+      .from("candidato_status_log").select("candidato_id,changed_by_nome,created_at").in("candidato_id", candidatoIds).order("created_at", { ascending: false }).limit(500);
     if (error) throw error;
     const map = new Map<string, LatestStatusChange>();
     for (const row of data ?? []) if (!map.has(row.candidato_id)) map.set(row.candidato_id, row);
@@ -240,15 +242,27 @@ export function useLatestStatusChangesQuery() {
 export function useCandidatosRealtime() {
   const queryClient = useQueryClient();
   useEffect(() => {
-    const channel = supabase.channel("candidatos-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "candidatos" }, () => {
+    // Debounce: lotes de alterações (upload em massa, reprocessamento) geram
+    // uma única recarga agrupada em vez de uma por linha.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
         void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.candidatos });
         void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.candidatosOptions });
         void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.dashboard });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "candidato_status_log" }, () => { void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.latestStatusChanges }); })
+        void queryClient.invalidateQueries({ queryKey: ATS_QUERY_KEYS.latestStatusChanges });
+      }, 500);
+    };
+    const channel = supabase.channel("candidatos-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "candidatos" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "candidato_status_log" }, schedule)
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => {
+      if (timer) clearTimeout(timer);
+      void supabase.removeChannel(channel);
+    };
   }, [queryClient]);
 }
 
