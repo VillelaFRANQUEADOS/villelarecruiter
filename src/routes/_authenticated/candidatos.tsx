@@ -15,10 +15,16 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X, ChevronDown, Eye, EyeOff, Upload, MapPin } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X, ChevronDown, Eye, EyeOff, Upload, MapPin, SlidersHorizontal } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Tooltip, TooltipContent, TooltipTrigger, TooltipProvider,
+} from "@/components/ui/tooltip";
 import {
   useAuth, STATUS_LABELS, STATUS_ORDER, UF_LIST,
   type CandidatoRow, type CandidatoStatus,
@@ -271,6 +277,21 @@ function CandidatosPage() {
     !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando || fObs) ||
     fStatus.length > 0 || fRecrutadores.length > 0 || fEstados.length > 0 || fCidades.length > 0 ||
     fEntrevistadores.length > 0 || fOrigens.length > 0 || fUnidades.length > 0;
+
+  // Filtros "avançados" (segundo grupo, escondido por padrão atrás do botão
+  // "Filtros avançados") — reduz a quantidade de escolhas visíveis de cara
+  // (Lei de Hick) e mostra quantos estão ativos via badge (Von Restorff).
+  const advancedFilterCount =
+    fRecrutadores.length + fEstados.length + fCidades.length + fOrigens.length + fUnidades.length +
+    fEntrevistadores.length +
+    (fDateFrom ? 1 : 0) + (fDateTo ? 1 : 0) +
+    (fEntrevistaData ? 1 : 0) + (fEntrevistaQuando ? 1 : 0) +
+    (fObs ? 1 : 0);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  useEffect(() => {
+    if (advancedFilterCount > 0) setFiltersOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   function clearFilters() {
@@ -543,19 +564,29 @@ setEditingObsId(null);
             <span className="text-xs">Exibindo <span className="font-bold tabular-nums">{filtered.length}</span>{hasFilters ? " (filtrado)" : ""}</span>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {role === "admin" && total > 0 && (
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 text-sm text-brand-danger hover:underline underline-offset-2 cursor-pointer"
-              onClick={() => setDeleteAllOpen(true)}
-            >
-              <Trash2 className="size-3.5" /> Excluir todos
-            </button>
-          )}
+        <div className="flex items-center gap-2 shrink-0">
           <Button size="sm" className="h-10 px-4 rounded-[10px] bg-brand text-white hover:bg-brand/90 shadow-sm" onClick={() => { setEditing(null); setOpen(true); }}>
             <Plus className="size-4 mr-1.5" /> Novo candidato
           </Button>
+          {role === "admin" && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="outline" className="h-10 w-10 rounded-[10px]" aria-label="Mais ações" title="Mais ações">
+                  <MoreVertical className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem
+                  disabled={total === 0}
+                  className="text-brand-danger focus:text-brand-danger"
+                  onSelect={() => setDeleteAllOpen(true)}
+                >
+                  <Trash2 className="size-3.5" />
+                  Excluir todos
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </header>
 
@@ -599,6 +630,58 @@ setEditingObsId(null);
             searchable={false}
           />
         </div>
+
+        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <div className="flex flex-wrap items-center gap-2">
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={`h-8 gap-1.5 rounded-full px-3.5 text-xs ${advancedFilterCount > 0 ? "border-accent bg-accent/10 text-accent-foreground hover:bg-accent/20" : ""}`}
+              >
+                <SlidersHorizontal className="size-3.5" />
+                Filtros avançados
+                {advancedFilterCount > 0 && (
+                  <span className="inline-flex items-center justify-center rounded-full bg-brand text-white text-[10px] font-semibold size-4 tabular-nums">
+                    {advancedFilterCount}
+                  </span>
+                )}
+                <ChevronDown className={`size-3.5 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+              </Button>
+            </CollapsibleTrigger>
+            {hasFilters && (
+              <Button size="sm" variant="outline" className="h-8 text-warning border-warning/40 hover:bg-warning/10 hover:text-warning" onClick={clearFilters}>
+                <X className="size-3.5 mr-1" /> Limpar filtros
+              </Button>
+            )}
+            {selected.size > 0 && (
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{selected.size} selecionado(s)</span>
+                <Select onValueChange={(v) => bulkChange(v as CandidatoStatus)}>
+                  <SelectTrigger className="h-9 w-48"><SelectValue placeholder="Mover para..." /></SelectTrigger>
+                  <SelectContent>
+                    {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {role === "admin" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBulkReprocess}
+                    disabled={bulkReprocessing}
+                    className="gap-1.5"
+                  >
+                    <RefreshCw className={`size-3.5 ${bulkReprocessing ? "animate-spin" : ""}`} />
+                    {bulkReprocessing ? "Reprocessando..." : "Reprocessar"}
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={bulkReprocessing}>Limpar seleção</Button>
+              </div>
+            )}
+          </div>
+
+          <CollapsibleContent className="space-y-3 pt-3">
         <div className="flex flex-wrap items-center gap-2.5">
           <MultiSelect
             className={`w-56 ${SELECT_CLS} ${fRecrutadores.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
@@ -706,37 +789,9 @@ setEditingObsId(null);
           >
             Sem observação
           </Button>
-          {hasFilters && (
-            <Button size="sm" variant="outline" className="h-8 text-warning border-warning/40 hover:bg-warning/10 hover:text-warning" onClick={clearFilters}>
-              <X className="size-3.5 mr-1" /> Limpar filtros
-            </Button>
-          )}
-
-          {selected.size > 0 && (
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{selected.size} selecionado(s)</span>
-              <Select onValueChange={(v) => bulkChange(v as CandidatoStatus)}>
-                <SelectTrigger className="h-9 w-48"><SelectValue placeholder="Mover para..." /></SelectTrigger>
-                <SelectContent>
-                  {STATUS_ORDER.map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {role === "admin" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleBulkReprocess}
-                  disabled={bulkReprocessing}
-                  className="gap-1.5"
-                >
-                  <RefreshCw className={`size-3.5 ${bulkReprocessing ? "animate-spin" : ""}`} />
-                  {bulkReprocessing ? "Reprocessando..." : "Reprocessar"}
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} disabled={bulkReprocessing}>Limpar seleção</Button>
-            </div>
-          )}
         </div>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
 
@@ -877,6 +932,11 @@ setEditingObsId(null);
                       const obs = (r.observacoes ?? "").trim();
                       const isEditing = editingObsId === r.id;
                       const updatedAt = r.observacoes_updated_at ? new Date(r.observacoes_updated_at) : null;
+                      // Nota gerada automaticamente pelo sistema quando a extração de
+                      // dados do currículo falha — é um alerta operacional, não uma
+                      // observação humana, então merece um tratamento visual isolado
+                      // (ícone + tooltip) em vez de ocupar 2 linhas de texto na célula.
+                      const isExtractionError = obs.startsWith("Extração automática falhou");
 
                       
                       if (isEditing) {
@@ -903,6 +963,36 @@ setEditingObsId(null);
                               </Button>
                             </div>
                           </div>
+                        );
+                      }
+                      if (isExtractionError) {
+                        return (
+                          <TooltipProvider delayDuration={150}>
+                            <div className="group flex items-center gap-1.5">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-brand-amber/30 bg-brand-amber/10 px-2 py-0.5 text-[11px] font-medium text-brand-amber cursor-help"
+                                  >
+                                    <AlertTriangle className="size-3" />
+                                    Falha na extração
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-[280px] whitespace-normal text-left">
+                                  {obs}
+                                </TooltipContent>
+                              </Tooltip>
+                              <button
+                                type="button"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary shrink-0"
+                                title="Editar observação"
+                                onClick={() => { setEditingObsId(r.id); setEditingObsValue(obs); }}
+                              >
+                                <Pencil className="size-3" />
+                              </button>
+                            </div>
+                          </TooltipProvider>
                         );
                       }
                       return (
