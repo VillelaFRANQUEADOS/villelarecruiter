@@ -25,7 +25,7 @@ import {
 } from "@/lib/auth";
 import { MultiSelect } from "@/components/MultiSelect";
 import { ORIGEM_VALUES, ORIGEM_LABELS, normalizeOrigem } from "@/lib/city-validation";
-import { getNearestUnit, formatDistanciaKm, type NearestUnitResult } from "@/lib/nearest-unit";
+import { getNearestUnit, formatDistanciaKm, getAllUnitNames, type NearestUnitResult } from "@/lib/nearest-unit";
 
 import {
   invalidateAtsQueries,
@@ -56,6 +56,7 @@ export interface CandidatosSearch {
   estado: string[];
   cidade: string[];
   origem: string[];
+  unidade: string[];
   recrutador: string[];
   entrevistador: string[];
   vaga: string;
@@ -70,6 +71,7 @@ export const Route = createFileRoute("/_authenticated/candidatos")({
     estado: toArr(s.estado),
     cidade: toArr(s.cidade),
     origem: toArr(s.origem),
+    unidade: toArr(s.unidade),
     recrutador: toArr(s.recrutador),
     entrevistador: toArr(s.entrevistador),
     vaga: toStr(s.vaga),
@@ -139,6 +141,7 @@ function CandidatosPage() {
   const [fEstados, setFEstados] = useState<string[]>(search.estado);
   const [fCidades, setFCidades] = useState<string[]>(search.cidade);
   const [fOrigens, setFOrigens] = useState<string[]>(search.origem);
+  const [fUnidades, setFUnidades] = useState<string[]>(search.unidade);
 
   // Período (created_at) – combinável com os demais
   const [fDateFrom, setFDateFrom] = useState<string>(search.dateFrom);
@@ -159,6 +162,7 @@ function CandidatosPage() {
     setFEstados(search.estado);
     setFCidades(search.cidade);
     setFOrigens(search.origem);
+    setFUnidades(search.unidade);
     setFEntrevistadores(search.entrevistador);
     setFVaga(search.vaga);
     setFDateFrom(search.dateFrom);
@@ -192,6 +196,7 @@ function CandidatosPage() {
 
   const cidadeOptions = options?.cidades ?? [];
   const entrevistadorOptions = options?.entrevistadores ?? [];
+  const unidadeOptions = useMemo(() => getAllUnitNames(), []);
 
   // Janela hoje / semana (segunda a domingo, horário local)
   const { weekStart, weekEnd, todayStr } = useMemo(() => {
@@ -225,6 +230,7 @@ function CandidatosPage() {
     estados: fEstados,
     cidades: fCidades,
     origens: fOrigens,
+    unidades: fUnidades,
     dateFrom: fDateFrom,
     dateTo: fDateTo,
     entrevistaData: fEntrevistaData,
@@ -235,7 +241,7 @@ function CandidatosPage() {
     todayStr,
     weekStart,
     weekEnd,
-  }), [debNome, debTelefone, debEmail, debVaga, fStatus, fRecrutadores, fEstados, fCidades, fOrigens, fDateFrom, fDateTo, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, fObs, obsSort, todayStr, weekStart, weekEnd]);
+  }), [debNome, debTelefone, debEmail, debVaga, fStatus, fRecrutadores, fEstados, fCidades, fOrigens, fUnidades, fDateFrom, fDateTo, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, fObs, obsSort, todayStr, weekStart, weekEnd]);
 
   const { data: candidatosPage, isFetching } = useCandidatosQuery(page, pageSize, filters);
   const rows = useMemo(() => candidatosPage?.candidatos ?? [], [candidatosPage]);
@@ -264,12 +270,12 @@ function CandidatosPage() {
   const hasFilters =
     !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando || fObs) ||
     fStatus.length > 0 || fRecrutadores.length > 0 || fEstados.length > 0 || fCidades.length > 0 ||
-    fEntrevistadores.length > 0 || fOrigens.length > 0;
+    fEntrevistadores.length > 0 || fOrigens.length > 0 || fUnidades.length > 0;
 
 
   function clearFilters() {
     setFNome(""); setFTelefone(""); setFEmail(""); setFVaga("");
-    setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]); setFOrigens([]);
+    setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]); setFOrigens([]); setFUnidades([]);
     setFDateFrom(""); setFDateTo("");
     setFEntrevistaData(""); setFEntrevistadores([]); setFEntrevistaQuando("");
     setFObs("");
@@ -623,6 +629,13 @@ setEditingObsId(null);
             onChange={setFOrigens}
             options={ORIGEM_VALUES.map((v) => ({ value: v, label: ORIGEM_LABELS[v] }))}
             searchable={false}
+          />
+          <MultiSelect
+            className={`w-56 ${SELECT_CLS} ${fUnidades.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            placeholder="Unidade mais próxima"
+            value={fUnidades}
+            onChange={setFUnidades}
+            options={unidadeOptions.map((nome) => ({ value: nome, label: nome }))}
           />
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground">Período:</span>
