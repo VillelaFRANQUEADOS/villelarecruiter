@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import { AppSidebar } from "@/components/AppSidebar";
+import { AppTopbar } from "@/components/AppTopbar";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthLayout,
@@ -24,8 +24,8 @@ function AuthLayout() {
   }
 
   return (
-    <div className="min-h-screen flex w-full bg-background">
-      <AppSidebar />
+    <div className="min-h-screen flex w-full flex-col bg-background">
+      <AppTopbar />
       <main className="flex-1 overflow-x-hidden">
         <Outlet />
       </main>
