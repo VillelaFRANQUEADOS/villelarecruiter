@@ -32,6 +32,7 @@ export interface CandidatosFilters {
   entrevistaData?: string;
   entrevistadores?: string[];
   entrevistaQuando?: "" | "hoje" | "semana";
+  dadosFaltantes?: string[];
   obs?: "" | "com" | "sem";
   obsSort?: "none" | "asc" | "desc";
   todayStr?: string;
@@ -103,7 +104,16 @@ async function fetchCandidatos(page: number, pageSize: number, filters: Candidat
   } else {
     qb = qb.order("created_at", { ascending: false });
   }
-  qb = qb.range(from, to);
+  qb = qb
+    if (filters.dadosFaltantes?.length) {
+      const missing = new Set(filters.dadosFaltantes);
+      const clauses: string[] = [];
+      if (missing.has("cidade")) clauses.push("cidade.is.null", "cidade.eq.");
+      if (missing.has("uf")) clauses.push("estado.is.null", "estado.eq.");
+      if (missing.has("telefone")) clauses.push("telefone.is.null", "telefone.eq.");
+      if (clauses.length) query = query.or(clauses.join(","));
+    }
+.range(from, to);
   const { data, error, count } = await qb;
   if (error) throw error;
   return { candidatos: ((data ?? []) as unknown) as CandidatoRow[], total: count ?? 0 };

@@ -71,6 +71,7 @@ export interface CandidatosSearch {
   dateFrom: string;
   dateTo: string;
   entrevistaQuando: string;
+  dadosFaltantes: string[];
 }
 
 export const Route = createFileRoute("/_authenticated/candidatos")({
@@ -86,6 +87,7 @@ export const Route = createFileRoute("/_authenticated/candidatos")({
     dateFrom: toStr(s.dateFrom),
     dateTo: toStr(s.dateTo),
     entrevistaQuando: toStr(s.entrevistaQuando),
+    dadosFaltantes: toArr(s.dadosFaltantes),
   }),
   component: CandidatosPage,
 });
@@ -157,6 +159,7 @@ function CandidatosPage() {
   // Filtros de entrevista
   const [fEntrevistaData, setFEntrevistaData] = useState<string>("");
   const [fEntrevistadores, setFEntrevistadores] = useState<string[]>(search.entrevistador);
+  const [fDadosFaltantes, setFDadosFaltantes] = useState<string[]>(search.dadosFaltantes);
   const [fEntrevistaQuando, setFEntrevistaQuando] = useState<"" | "hoje" | "semana">(
     search.entrevistaQuando === "hoje" || search.entrevistaQuando === "semana" ? search.entrevistaQuando : "",
   );
@@ -171,6 +174,7 @@ function CandidatosPage() {
     setFOrigens(search.origem);
     setFUnidades(search.unidade);
     setFEntrevistadores(search.entrevistador);
+    setFDadosFaltantes(search.dadosFaltantes);
     setFVaga(search.vaga);
     setFDateFrom(search.dateFrom);
     setFDateTo(search.dateTo);
@@ -244,13 +248,14 @@ function CandidatosPage() {
     dateTo: fDateTo,
     entrevistaData: fEntrevistaData,
     entrevistadores: fEntrevistadores,
+    dadosFaltantes: fDadosFaltantes,
     entrevistaQuando: fEntrevistaQuando,
     obs: fObs,
     obsSort,
     todayStr,
     weekStart,
     weekEnd,
-  }), [debNome, debTelefone, debEmail, debVaga, fStatus, fRecrutadores, fEstados, fCidades, fOrigens, fUnidades, fDateFrom, fDateTo, fEntrevistaData, fEntrevistadores, fEntrevistaQuando, fObs, obsSort, todayStr, weekStart, weekEnd]);
+  }), [debNome, debTelefone, debEmail, debVaga, fStatus, fRecrutadores, fEstados, fCidades, fOrigens, fUnidades, fDateFrom, fDateTo, fEntrevistaData, fEntrevistadores, fDadosFaltantes, fEntrevistaQuando, fObs, obsSort, todayStr, weekStart, weekEnd]);
 
   const { data: candidatosPage, isFetching } = useCandidatosQuery(page, pageSize, filters);
   const rows = useMemo(() => candidatosPage?.candidatos ?? [], [candidatosPage]);
@@ -305,6 +310,7 @@ function CandidatosPage() {
     setFStatus([]); setFRecrutadores([]); setFEstados([]); setFCidades([]); setFOrigens([]); setFUnidades([]);
     setFDateFrom(""); setFDateTo("");
     setFEntrevistaData(""); setFEntrevistadores([]); setFEntrevistaQuando("");
+    setFDadosFaltantes([]);
     setFObs("");
   }
 
@@ -715,6 +721,18 @@ setEditingObsId(null);
             value={fOrigens}
             onChange={setFOrigens}
             options={ORIGEM_VALUES.map((v) => ({ value: v, label: ORIGEM_LABELS[v] }))}
+            searchable={false}
+          />
+          <MultiSelect
+            className={`w-56 ${SELECT_CLS} ${fDadosFaltantes.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            placeholder="Dados faltantes"
+            value={fDadosFaltantes}
+            onChange={setFDadosFaltantes}
+            options={[
+              { value: "cidade", label: "Cidade não informada" },
+              { value: "uf", label: "UF não informada" },
+              { value: "telefone", label: "Telefone não informado" },
+            ]}
             searchable={false}
           />
           <MultiSelect
