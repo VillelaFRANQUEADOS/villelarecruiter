@@ -1,0 +1,63 @@
+name: Fix CV name sanitization
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'Apply CV name sanitization') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch parser
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/lib/cv-parser.functions.ts')
+          s = p.read_text()
+          marker = 'function deterministicExtract(text: string): Extracted {'
+          helper = r'''
+          function normalizeCandidateName(value: string): string {
+            const name = (value || '').replace(/\s+/g, ' ').trim();
+            if (!name || name.length > 70 || /\d/.test(name) || name.includes('@')) return '';
+            const words = name.split(/\s+/).filter(Boolean);
+            if (words.length < 2 || words.length > 6) return '';
+            const forbidden = [
+              'curriculo', 'currículo', 'curriculum', 'contato', 'contact', 'experiencia',
+              'experiência', 'resumo', 'summary', 'objetivo', 'objective', 'linkedin',
+              'formacao', 'formação', 'education', 'habilidades', 'skills', 'competencias',
+              'competências', 'telefone', 'celular', 'email', 'endereco', 'endereço',
+              'perfil', 'profile', 'sobre mim', 'experiência profissional'
+            ];
+            const lower = name.toLowerCase();
+            if (forbidden.some((w) => lower.includes(w))) return '';
+            if (!words.every((w) => /^[A-Za-zÀ-ÿ'’-]+$/.test(w))) return '';
+            return name;
+          }
+          '''
+          if 'function normalizeCandidateName(value: string)' not in s:
+              if marker not in s:
+                  raise SystemExit('deterministicExtract marker not found')
+              s = s.replace(marker, helper + '\n' + marker, 1)
+          old = 'const nomeFinal = (extracted.nome || "").trim() || cleanFileName(data.fileName);'
+          if old in s:
+              s = s.replace(old, 'const nomeFinal = normalizeCandidateName(extracted.nome);', 1)
+          old2 = 'const nomeNew = (extracted.nome || "").trim();'
+          if old2 in s:
+              s = s.replace(old2, 'const nomeNew = normalizeCandidateName(extracted.nome);', 1)
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/cv-parser.functions.ts
+          git commit -m "Apply CV name sanitization"
+          git push
+      - name: Remove temporary workflow
+        run: |
+          git rm .github/workflows/fix-name-sanitization.yml
+          git commit -m "Remove temporary name sanitization workflow"
+          git push
