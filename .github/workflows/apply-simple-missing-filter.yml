@@ -1,0 +1,85 @@
+name: Apply simple missing-data filter
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'Add simple missing-data filter') && !contains(github.event.head_commit.message, 'Remove temporary simple missing-data workflow') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch candidate filters
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/routes/_authenticated/candidatos.tsx')
+          s = p.read_text()
+
+          old_primary = '''          <MultiSelect
+            className={`w-full ${SELECT_CLS} ${fStatus.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            placeholder="Status"
+            value={fStatus}
+            onChange={setFStatus}
+            options={STATUS_ORDER.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+            searchable={false}
+          />'''
+          new_primary = old_primary + '''
+          <MultiSelect
+            className={`w-full ${SELECT_CLS} ${fDadosFaltantes.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            placeholder="Dados não informados"
+            value={fDadosFaltantes}
+            onChange={setFDadosFaltantes}
+            options={[
+              { value: "telefone", label: "Telefone não informado" },
+              { value: "cidade", label: "Cidade não informada" },
+              { value: "uf", label: "UF não informada" },
+            ]}
+            searchable={false}
+          />'''
+          if old_primary not in s:
+              raise SystemExit('Primary Status filter block not found')
+          s = s.replace(old_primary, new_primary, 1)
+
+          old_advanced = '''          <MultiSelect
+            className={`w-56 ${SELECT_CLS} ${fDadosFaltantes.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}
+            placeholder="Dados faltantes"
+            value={fDadosFaltantes}
+            onChange={setFDadosFaltantes}
+            options={[
+              { value: "cidade", label: "Cidade não informada" },
+              { value: "uf", label: "UF não informada" },
+              { value: "telefone", label: "Telefone não informado" },
+            ]}
+            searchable={false}
+          />
+'''
+          if old_advanced not in s:
+              raise SystemExit('Advanced missing-data filter block not found')
+          s = s.replace(old_advanced, '', 1)
+
+          old_count = '''    fEntrevistadores.length +
+    (fDateFrom ? 1 : 0) +'''
+          new_count = '''    fEntrevistadores.length + fDadosFaltantes.length +
+    (fDateFrom ? 1 : 0) +'''
+          if old_count not in s:
+              raise SystemExit('Advanced filter count block not found')
+          s = s.replace(old_count, new_count, 1)
+
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/routes/_authenticated/candidatos.tsx
+          git diff --cached --check
+          git commit -m "Add simple missing-data filter"
+          git push
+      - name: Remove temporary workflow
+        run: |
+          git rm .github/workflows/apply-simple-missing-filter.yml
+          git commit -m "Remove temporary simple missing-data workflow"
+          git push
