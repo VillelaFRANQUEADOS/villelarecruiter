@@ -20,11 +20,18 @@ const adminItems = [
   { to: "/usuarios", label: "Usuários", icon: Shield },
 ] as const;
 
+const adminOnlyItems = [{ to: "/unidades", label: "Unidades", icon: Building2 }] as const;
+
 export function AppTopbar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { nome, role, signOut } = useAuth();
   const navigate = useNavigate();
-  const items = [...baseItems, ...(role === "admin" || role === "recrutador" ? adminItems : [])];
+  const items = [
+    ...baseItems,
+    ...(role === "admin" || role === "recrutador" ? adminItems : []),
+    ...(role === "admin" ? adminOnlyItems : []),
+  ];
+
 
   const handleSignOut = async () => {
     await signOut();
