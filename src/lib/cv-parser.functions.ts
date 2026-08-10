@@ -301,14 +301,8 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    // Permissão: somente administradores podem reprocessar
-    const { data: roleRow } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!roleRow) throw new Error("Acesso negado: apenas administradores podem reprocessar currículos.");
+    // Qualquer usuário autenticado pode reprocessar currículos.
+    // A autenticação continua sendo obrigatória pelo middleware requireSupabaseAuth.
 
     const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
