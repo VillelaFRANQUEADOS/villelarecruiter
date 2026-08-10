@@ -19,84 +19,57 @@ jobs:
           from pathlib import Path
           import re
 
-          # ---------- candidatos.tsx ----------
           p = Path('src/routes/_authenticated/candidatos.tsx')
           s = p.read_text()
-
-          # Search model
           s = s.replace('entrevistaQuando: string;\n}', 'entrevistaQuando: string;\n  dadosFaltantes: string[];\n}')
           s = s.replace('entrevistaQuando: toStr(s.entrevistaQuando),\n  }),', 'entrevistaQuando: toStr(s.entrevistaQuando),\n    dadosFaltantes: toArr(s.dadosFaltantes),\n  }),')
-
-          # State
           marker = '  const [fEntrevistadores, setFEntrevistadores] = useState<string[]>(search.entrevistador);\n'
           if 'fDadosFaltantes' not in s:
               s = s.replace(marker, marker + '  const [fDadosFaltantes, setFDadosFaltantes] = useState<string[]>(search.dadosFaltantes);\n')
-
-          # URL sync
           marker = '    setFEntrevistadores(search.entrevistador);\n'
           if 'setFDadosFaltantes(search.dadosFaltantes)' not in s:
               s = s.replace(marker, marker + '    setFDadosFaltantes(search.dadosFaltantes);\n')
-
-          # Query filters object
           marker = '    entrevistadores: fEntrevistadores,\n'
           if 'dadosFaltantes: fDadosFaltantes' not in s:
               s = s.replace(marker, marker + '    dadosFaltantes: fDadosFaltantes,\n')
-
-          # Dependency array
           s = s.replace('fEntrevistadores, fEntrevistaQuando, fObs, obsSort, todayStr', 'fEntrevistadores, fDadosFaltantes, fEntrevistaQuando, fObs, obsSort, todayStr')
-
-          # Clear filters
           marker = '    setFEntrevistaData(""); setFEntrevistadores([]); setFEntrevistaQuando("");\n'
           if 'setFDadosFaltantes([])' not in s:
               s = s.replace(marker, marker + '    setFDadosFaltantes([]);\n')
-
-          # Advanced filter counter
           s = s.replace('fEntrevistadores.length + fOrigens.length + fUnidades.length', 'fEntrevistadores.length + fOrigens.length + fUnidades.length + fDadosFaltantes.length')
-
-          # Add a dedicated multiselect in the existing advanced-filter area.
           if 'placeholder="Dados faltantes"' not in s:
               anchor = '''          <MultiSelect\n            className={`w-56 ${SELECT_CLS} ${fUnidades.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}\n            placeholder="Unidade mais próxima"'''
               replacement = '''          <MultiSelect\n            className={`w-56 ${SELECT_CLS} ${fDadosFaltantes.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}\n            placeholder="Dados faltantes"\n            value={fDadosFaltantes}\n            onChange={setFDadosFaltantes}\n            options={[\n              { value: "cidade", label: "Cidade não informada" },\n              { value: "uf", label: "UF não informada" },\n              { value: "telefone", label: "Telefone não informado" },\n            ]}\n            searchable={false}\n          />\n          <MultiSelect\n            className={`w-56 ${SELECT_CLS} ${fUnidades.length > 0 ? "border-accent bg-accent/10 hover:bg-accent/20 text-accent-foreground" : ""}`}\n            placeholder="Unidade mais próxima"'''
               if anchor not in s:
                   raise SystemExit('Could not find advanced-filter insertion anchor in candidatos.tsx')
               s = s.replace(anchor, replacement)
-
           p.write_text(s)
 
-          # ---------- ats-data.ts ----------
           p = Path('src/lib/ats-data.ts')
           s = p.read_text()
-
-          # Add filter property to the interface/type without requiring the exact surrounding formatting.
           if 'dadosFaltantes' not in s:
               m = re.search(r'(entrevistaQuando\??\s*:\s*[^;\n]+;)', s)
               if not m:
                   raise SystemExit('Could not find CandidatosFilters interview field')
               s = s[:m.end()] + '\n  dadosFaltantes?: string[];' + s[m.end():]
-
-          # Ensure the candidates query builder is mutable, then apply OR missing-data conditions before pagination.
           if 'filters.dadosFaltantes' not in s:
               s = s.replace('const query = supabase.from("candidatos")', 'let query = supabase.from("candidatos")', 1)
               if 'let query = supabase.from("candidatos")' not in s:
                   s = s.replace('const query = supabase\n    .from("candidatos")', 'let query = supabase\n    .from("candidatos")', 1)
               if 'filters.dadosFaltantes' not in s:
-                  # Insert immediately before the first range() in the candidates query.
                   idx = s.find('.range(')
                   if idx < 0:
                       raise SystemExit('Could not find pagination range() in ats-data.ts')
                   block = '''\n    if (filters.dadosFaltantes?.length) {\n      const missing = new Set(filters.dadosFaltantes);\n      const clauses: string[] = [];\n      if (missing.has("cidade")) clauses.push("cidade.is.null", "cidade.eq.");\n      if (missing.has("uf")) clauses.push("estado.is.null", "estado.eq.");\n      if (missing.has("telefone")) clauses.push("telefone.is.null", "telefone.eq.");\n      if (clauses.length) query = query.or(clauses.join(","));\n    }\n'''
                   s = s[:idx] + block + s[idx:]
-
           p.write_text(s)
           PY
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/routes/_authenticated/candidatos.tsx src/lib/ats-data.ts
           git diff --cached --check
-          git commit -m "Add candidate missing-data filters"
+          git commit -m "Add candidate missing-data filters" || exit 0
           git push
-
       - name: Remove temporary workflow
         run: |
           git rm .github/workflows/apply-missing-fields-filter.yml
