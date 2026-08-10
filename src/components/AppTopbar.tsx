@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Shield, LogOut, Menu, BookOpen } from "lucide-react";
+import { LayoutDashboard, Users, Shield, LogOut, Menu, BookOpen, Building2 } from "lucide-react";
 import { useAuth, ROLE_LABELS } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
