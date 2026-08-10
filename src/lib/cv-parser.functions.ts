@@ -4,19 +4,9 @@ import { google } from "@ai-sdk/google";
 import { uploadPdfToDrive } from "@/lib/curriculos.functions";
 import { generateObject } from "ai";
 import { z } from "zod";
-import {
-  extractName as parserExtractName,
-  extractPhone as parserExtractPhone,
-  extractEmail as parserExtractEmail,
-  extractCity as parserExtractCity,
-  extractUf as parserExtractUf,
-} from "@/lib/candidate-parser";
+import { extractCandidateIdentity, extractCity, extractUf, extractPhone, extractEmail, extractName } from "@/lib/candidate-parser";
 import { validateCity, normalizeOrigem, type OrigemCurriculo } from "@/lib/city-validation";
 
-const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"] as const;
-
-
-// Schema rígido: somente os 5 campos. Sempre string ("" se ausente).
 const ExtractedSchema = z.object({
   nome: z.string(),
   telefone: z.string(),
@@ -31,72 +21,61 @@ function cleanFileName(name: string) {
   return name.replace(/\.[^.]+$/, "").replace(/[_\-]+/g, " ").trim() || "Candidato";
 }
 
-function extractPhoneFromText(text: string): string {
-  return parserExtractPhone(text);
-}
-
-function extractEmailFromText(text: string): string {
-  return parserExtractEmail(text);
-}
-
-function extractCityFromText(text: string): string {
-  return parserExtractCity(text);
-}
-
-function extractNameFromText(text: string): string {
-  return parserExtractName(text);
-}
-
-const UF_NAMES: Record<string, string> = {
-  "acre":"AC","alagoas":"AL","amapa":"AP","amapá":"AP","amazonas":"AM","bahia":"BA",
-  "ceara":"CE","ceará":"CE","distrito federal":"DF","espirito santo":"ES","espírito santo":"ES",
-  "goias":"GO","goiás":"GO","maranhao":"MA","maranhão":"MA","mato grosso":"MT","mato grosso do sul":"MS",
-  "minas gerais":"MG","para":"PA","pará":"PA","paraiba":"PB","paraíba":"PB","parana":"PR","paraná":"PR",
-  "pernambuco":"PE","piaui":"PI","piauí":"PI","rio de janeiro":"RJ","rio grande do norte":"RN",
-  "rio grande do sul":"RS","rondonia":"RO","rondônia":"RO","roraima":"RR","santa catarina":"SC",
-  "sao paulo":"SP","são paulo":"SP","sergipe":"SE","tocantins":"TO",
-};
-
-function extractUfFromText(text: string): string {
-  return parserExtractUf(text);
-}
-
-
-function normalizeUf(value: string, fallbackText: string): string {
-  if (value) {
-    const v = value.trim().toUpperCase();
-    if (UFS.includes(v as typeof UFS[number])) return v;
-    const named = UF_NAMES[value.trim().toLowerCase()];
-    if (named) return named;
-  }
-  return extractUfFromText(fallbackText);
-}
-
-function normalizePhone(value: string, fallbackText: string): string {
+function normalizePhone(value: string, fallbackText = ""): string {
   let p = (value || "").replace(/\D/g, "");
   if (p.startsWith("55") && p.length > 11) p = p.slice(2);
   if (p.length === 10 || p.length === 11) return p;
-  return extractPhoneFromText(fallbackText);
+  return extractPhone(fallbackText);
 }
 
-function normalizeEmail(value: string, fallbackText: string): string {
+function normalizeEmail(value: string, fallbackText = ""): string {
   const v = (value || "").trim().toLowerCase();
   if (/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(v)) return v;
-  return extractEmailFromText(fallbackText).toLowerCase();
+  return extractEmail(fallbackText).toLowerCase();
 }
 
-const STRICT_PROMPT =
-  "Você extrai DADOS LITERAIS de currículos brasileiros. Leia TODO o documento (todas as páginas e imagens). Regras OBRIGATÓRIAS:\n" +
-  "1. Extraia EXCLUSIVAMENTE: nome, telefone, email, cidade, estado.\n" +
-  "2. NUNCA invente nem deduza. Se um campo NÃO estiver explícito, retorne string vazia \"\".\n" +
-  "3. nome: nome completo da PESSOA candidata. NÃO confunda com nome de empresa, escola, curso, cargo ou referência. Geralmente aparece no topo, em destaque, ou ao lado da foto.\n" +
-  "4. telefone: APENAS DÍGITOS, com DDD (10 ou 11 dígitos). Remova (), -, ., espaços e o DDI 55. Ex.: '(35) 99117-1223' -> '35991171223'. Se houver vários números, prefira celular (11 dígitos começando com 9 no terceiro dígito).\n" +
-  "5. email: minúsculas, como aparece. Se houver vários, prefira o pessoal (gmail, hotmail, outlook, yahoo, icloud) sobre o corporativo.\n" +
-  "6. cidade: apenas o nome da cidade onde o candidato RESIDE (bloco contato/endereço/dados pessoais). NÃO use cidade de emprego/faculdade.\n" +
-  "7. estado: sigla UF de 2 letras (SP, RJ, MG, RS, SC, PR, BA, PE, CE, GO, DF, ES, MT, MS, PA, MA, PB, RN, AL, SE, PI, TO, RO, AC, AM, AP, RR). Converta nomes por extenso. Se ausente, \"\".\n" +
-  "8. Para imagens / PDF escaneado faça OCR cuidadoso e siga as MESMAS regras.\n" +
-  "9. Retorne EXATAMENTE JSON com essas 5 chaves, sem texto extra.";
+const STRICT_PROMPT = `Você é um extrator de currículos brasileiros. Leia TODAS as páginas do currículo e retorne somente JSON com nome, telefone, email, cidade e estado.
+REGRAS CRÍTICAS:
+- Extraia somente informações explicitamente presentes no currículo. Nunca invente.
+- cidade = cidade de RESIDÊNCIA do candidato, não cidade de emprego, faculdade, empresa, vaga ou unidade.
+- Procure primeiro dados pessoais, contato, endereço, residência, cidade/UF e cabeçalho do candidato.
+- Aceite formatos como "Porto Alegre/RS", "Porto Alegre - RS", "Porto Alegre, RS", "Cidade: Porto Alegre", "UF: RS" e endereços completos.
+- estado deve ser sempre a UF de 2 letras.
+- Se cidade ou estado não estiverem explicitamente identificáveis, retorne "".
+- telefone somente dígitos, com DDD, 10 ou 11 dígitos.
+- email em minúsculas.
+- Para PDF escaneado/imagem, faça OCR cuidadoso.
+- Retorne EXATAMENTE: {"nome":"","telefone":"","email":"","cidade":"","estado":""}.`;
 
+function deterministicExtract(text: string): Extracted {
+  const identity = extractCandidateIdentity(text);
+  return {
+    nome: identity.nome || extractName(text),
+    telefone: identity.telefone || extractPhone(text),
+    email: identity.email || extractEmail(text),
+    cidade: identity.cidade || extractCity(text),
+    estado: identity.estado || extractUf(text),
+  };
+}
+
+function validateExtractedLocation(cidade: string, estado: string) {
+  return validateCity((cidade || "").trim(), (estado || "").trim());
+}
+
+async function extractWithAiFromText(cvText: string, images: string[]): Promise<Extracted> {
+  const model = google("gemini-2.5-flash");
+  const content: Array<{ type: "text"; text: string } | { type: "image"; image: string }> = [
+    { type: "text", text: STRICT_PROMPT },
+  ];
+  if (cvText.trim()) content.push({ type: "text", text: `TEXTO EXTRAÍDO DO CURRÍCULO:\n${cvText.slice(0, 32000)}` });
+  for (const image of images.slice(0, 8)) content.push({ type: "image", image });
+  const { object } = await generateObject({
+    model,
+    schema: ExtractedSchema,
+    messages: [{ role: "user", content }],
+  });
+  return object;
+}
 
 export const parseAndCreateCandidato = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -105,110 +84,55 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     fileBase64: string;
     mimeType: string;
     cvText: string;
-    images?: string[]; // data URIs for vision OCR
+    images?: string[];
     origemCurriculo?: string;
   }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-   const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
+    if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY ausente");
 
-    const cvText = (data.cvText || "").slice(0, 24000);
-    const images = (data.images || []).slice(0, 8);
-    let extracted: Extracted = { nome: "", telefone: "", email: "", cidade: "", estado: "" };
+    const cvText = (data.cvText || "").slice(0, 32000);
+    const images = data.images || [];
+    let extracted = deterministicExtract(cvText);
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
 
-    const hasText = cvText.replace(/\s/g, "").length >= 80;
-    const hasImages = images.length > 0;
+    // A IA não é mais pulada simplesmente porque nome/telefone foram encontrados.
+    // Se localização não estiver validada, ela deve ter oportunidade de corrigir cidade/UF.
+    let location = validateExtractedLocation(extracted.cidade, extracted.estado);
+    const needsAi =
+      !extracted.nome ||
+      !extracted.telefone ||
+      !extracted.email ||
+      !location.cidade_validada ||
+      !location.estado ||
+      images.length > 0;
 
-const regexEmail = extractEmailFromText(cvText);
-const regexTelefone = extractPhoneFromText(cvText);
-const regexEstado = extractUfFromText(cvText);
-const regexCidade = extractCityFromText(cvText);
-const regexNome = extractNameFromText(cvText);
-
-// Estratégia econômica:
-// usa IA apenas quando o nome não foi encontrado.
-const dadosBasicos = !!(regexNome && (regexTelefone || regexEmail));
-
-if (dadosBasicos) {
-  extracted = {
-    nome: regexNome,
-    telefone: regexTelefone,
-    email: regexEmail,
-    cidade: regexCidade,
-    estado: regexEstado,
-  };
-} else if (hasText || hasImages) {
-  try {
-    const model = google("gemini-2.5-flash");
-
-    const userContent: Array<
-      | { type: "text"; text: string }
-      | { type: "image"; image: string }
-    > = [{ type: "text", text: STRICT_PROMPT }];
-
-    if (hasText) {
-      userContent.push({ type: "text", text: `CURRÍCULO (texto extraído):\n${cvText}` });
+    if (needsAi && (cvText.replace(/\s/g, "").length >= 30 || images.length > 0)) {
+      try {
+        const ai = await extractWithAiFromText(cvText, images);
+        extracted = {
+          nome: ai.nome || extracted.nome,
+          telefone: ai.telefone || extracted.telefone,
+          email: ai.email || extracted.email,
+          cidade: ai.cidade || extracted.cidade,
+          estado: ai.estado || extracted.estado,
+        };
+        location = validateExtractedLocation(extracted.cidade, extracted.estado);
+      } catch (e) {
+        aiFailed = true;
+        aiErrorMsg = e instanceof Error ? e.message : "Erro IA";
+      }
     }
 
-    for (const img of images) {
-      userContent.push({ type: "image", image: img });
-    }
-
-    const { object } = await generateObject({
-      model,
-      schema: ExtractedSchema,
-      messages: [{ role: "user", content: userContent }],
-    });
-
-    extracted = {
-      nome: object.nome || regexNome,
-      telefone: object.telefone || regexTelefone,
-      email: object.email || regexEmail,
-      cidade: object.cidade || regexCidade,
-      estado: object.estado || regexEstado,
-    };
-  } catch (e) {
-    aiFailed = true;
-    aiErrorMsg = e instanceof Error ? e.message : "Erro IA";
-
-    extracted = {
-      nome: regexNome,
-      telefone: regexTelefone,
-      email: regexEmail,
-      cidade: regexCidade,
-      estado: regexEstado,
-    };
-  }
-} else {
-  aiFailed = true;
-  aiErrorMsg = "Documento sem conteúdo legível";
-}
-
-    // Normalização sem inventar: cai para regex sobre o texto bruto se a IA falhou.
     const telefoneFinal = normalizePhone(extracted.telefone, cvText);
     const emailFinal = normalizeEmail(extracted.email, cvText) || null;
-    const cidadeBruta = (extracted.cidade || "").trim();
-    const estadoBruto = normalizeUf(extracted.estado, cvText);
-    let nomeFinal = (extracted.nome || "").trim();
-
-if (!nomeFinal) {
-  nomeFinal = cleanFileName(data.fileName);
-}
-
-    // Validação de cidade contra base IBGE
-    const cityRes = validateCity(cidadeBruta, estadoBruto);
-
-    // Origem do currículo (default OUTROS)
+    const nomeFinal = (extracted.nome || "").trim() || cleanFileName(data.fileName);
+    location = validateExtractedLocation(extracted.cidade, extracted.estado);
     const origem: OrigemCurriculo = normalizeOrigem(data.origemCurriculo);
 
-    // Falha de IA NÃO é registrada nas observações — apenas sinalizada no
-    // retorno (aiFailed) para a UI do upload exibir o aviso.
     if (aiFailed) console.warn("Extração com IA falhou:", aiErrorMsg);
 
-    // Anti-duplicata por telefone ou email
     if (telefoneFinal || emailFinal) {
       const orParts: string[] = [];
       if (telefoneFinal) orParts.push(`telefone.eq.${telefoneFinal}`);
@@ -219,18 +143,14 @@ if (!nomeFinal) {
         .or(orParts.join(","))
         .limit(1)
         .maybeSingle();
-      if (existing) {
-        return { candidato: null, aiFailed, duplicate: true, existing };
-      }
+      if (existing) return { candidato: null, aiFailed, duplicate: true, existing };
     }
 
-    // Upload do arquivo original para o Drive (qualquer mime suportado)
     const safeName = data.fileName.replace(/[^\w.\-]/g, "_");
-    const driveName = `${Date.now()}-${safeName}`;
     let driveFileId: string;
     try {
       const up = await uploadPdfToDrive({
-        filename: driveName,
+        filename: `${Date.now()}-${safeName}`,
         pdfBase64: data.fileBase64,
         mimeType: data.mimeType || "application/octet-stream",
       });
@@ -239,75 +159,76 @@ if (!nomeFinal) {
       throw new Error(`Upload Drive falhou: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    const { data: inserted, error } = await supabase
-      .from("candidatos")
-      .insert({
-        nome: nomeFinal,
-        telefone: telefoneFinal,
-        email: emailFinal,
-        cidade: cityRes.cidade,
-        estado: cityRes.estado,
-        codigo_ibge: cityRes.codigo_ibge,
-        cidade_validada: cityRes.cidade_validada,
-        cidade_original_extraida: cityRes.cidade_original_extraida,
-        origem_curriculo: origem,
-        observacoes: null,
-        curriculo_url: `drive:${driveFileId}`,
-        recrutador_id: userId,
-        status: "aguardando_contato",
-      })
-      .select()
-      .single();
+    const { data: inserted, error } = await supabase.from("candidatos").insert({
+      nome: nomeFinal,
+      telefone: telefoneFinal,
+      email: emailFinal,
+      cidade: location.cidade,
+      estado: location.estado,
+      codigo_ibge: location.codigo_ibge,
+      cidade_validada: location.cidade_validada,
+      cidade_original_extraida: location.cidade_original_extraida,
+      origem_curriculo: origem,
+      observacoes: null,
+      curriculo_url: `drive:${driveFileId}`,
+      recrutador_id: userId,
+      status: "aguardando_contato",
+    }).select().single();
     if (error) throw new Error(error.message);
 
     return { candidato: inserted, aiFailed, duplicate: false };
   });
 
-// ===================== REPROCESSAMENTO (modo profundo) =====================
-
+// ===================== REPROCESSAMENTO =====================
 const GATEWAY_DRIVE = "https://connector-gateway.lovable.dev/google_drive";
 
-async function downloadFromDrive(fileId: string): Promise<{ base64: string; mimeType: string }> {
+function driveHeaders() {
   const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
   const GOOGLE_DRIVE_API_KEY = process.env.GOOGLE_DRIVE_API_KEY;
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY ausente");
   if (!GOOGLE_DRIVE_API_KEY) throw new Error("GOOGLE_DRIVE_API_KEY ausente (conecte o Google Drive)");
+  return {
+    Authorization: `Bearer ${LOVABLE_API_KEY}`,
+    "X-Connection-Api-Key": GOOGLE_DRIVE_API_KEY,
+  };
+}
+
+async function downloadFromDrive(fileId: string): Promise<{ base64: string; mimeType: string }> {
   const res = await fetch(`${GATEWAY_DRIVE}/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, {
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": GOOGLE_DRIVE_API_KEY,
-    },
+    headers: driveHeaders(),
   });
   if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`Falha ao baixar do Drive [${res.status}]: ${t.slice(0, 200)}`);
+    const text = await res.text().catch(() => "");
+    if (res.status === 401 || res.status === 403) throw new Error("Conexão com o Google Drive expirou. Reconecte o Google Drive.");
+    if (res.status === 404) throw new Error("Currículo não encontrado no Google Drive.");
+    throw new Error(`Falha ao baixar currículo [${res.status}]: ${text.slice(0, 200)}`);
   }
   const mimeType = res.headers.get("content-type")?.split(";")[0] || "application/pdf";
-  const arr = await res.arrayBuffer();
-  const base64 = Buffer.from(arr).toString("base64");
+  const base64 = Buffer.from(await res.arrayBuffer()).toString("base64");
   return { base64, mimeType };
 }
 
-const DEEP_PROMPT =
-  STRICT_PROMPT +
-  "\n\nIMPORTANTE: Este é um reprocessamento profundo. O arquivo COMPLETO está anexado. " +
-  "Leia TODAS as páginas e imagens com atenção máxima. Faça OCR rigoroso se necessário. " +
-  "Procure os 5 campos em qualquer parte do documento (cabeçalho, rodapé, sidebar, dados pessoais, contato).";
+async function extractWithAiFromFile(base64: string, mimeType: string, filename: string): Promise<Extracted> {
+  const model = google("gemini-2.5-flash");
+  const content = [
+    { type: "text" as const, text: STRICT_PROMPT + "\nEste é um REPROCESSAMENTO. Reextraia os dados do arquivo completo, mesmo que o cadastro atual já tenha valores. Corrija cidade e UF se estiverem erradas." },
+    { type: "file" as const, data: base64, mediaType: mimeType, filename },
+  ];
+  const { object } = await generateObject({
+    model,
+    schema: ExtractedSchema,
+    messages: [{ role: "user", content }],
+  });
+  return object;
+}
 
 export const reprocessCandidato = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { candidatoId: string }) =>
-    z.object({ candidatoId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input: { candidatoId: string }) => z.object({ candidatoId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    // Qualquer usuário autenticado pode reprocessar currículos.
-    // A autenticação continua sendo obrigatória pelo middleware requireSupabaseAuth.
+    const { supabase } = context;
+    if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY ausente");
 
-    const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
-
-    // 1. Buscar candidato (RLS aplica)
     const { data: cand, error: fetchErr } = await supabase
       .from("candidatos")
       .select("id,nome,telefone,email,cidade,estado,curriculo_url")
@@ -315,99 +236,64 @@ if (!apiKey) throw new Error("GEMINI_API_KEY ausente");
       .maybeSingle();
     if (fetchErr) throw new Error(fetchErr.message);
     if (!cand) throw new Error("Candidato não encontrado");
-    if (!cand.curriculo_url || !cand.curriculo_url.startsWith("drive:")) {
-      throw new Error("Currículo indisponível para reprocessamento (sem arquivo no Drive).");
-    }
+    if (!cand.curriculo_url?.startsWith("drive:")) throw new Error("Currículo indisponível para reprocessamento (sem arquivo no Drive).");
 
-    // 2. Baixar do Drive
     const fileId = cand.curriculo_url.slice(6);
     const { base64, mimeType } = await downloadFromDrive(fileId);
+    const extracted = await extractWithAiFromFile(base64, mimeType, `${cand.nome || "curriculo"}.pdf`);
 
-    // 3. Extração deep com o arquivo completo como anexo multimodal
-    // Modelo econômico: gemini-2.5-flash-lite (mais barato/rápido) é suficiente
-    // para corrigir nome e completar campos faltantes a partir do PDF anexo.
-    let extracted: Extracted = { nome: "", telefone: "", email: "", cidade: "", estado: "" };
-    let aiErrorMsg: string | null = null;
-    try {
-      const model = google("gemini-2.5-flash-lite");
-
-      // AI SDK aceita parts type:"file" com base64 + mediaType (imagens e PDF).
-      type Part =
-        | { type: "text"; text: string }
-        | { type: "file"; data: string; mediaType: string }
-        | { type: "image"; image: string };
-      const parts: Part[] = [{ type: "text", text: DEEP_PROMPT }];
-      if (mimeType.startsWith("image/")) {
-        parts.push({ type: "image", image: `data:${mimeType};base64,${base64}` });
-      } else {
-        parts.push({ type: "file", data: base64, mediaType: mimeType });
-      }
-
-      const { object } = await generateObject({
-        model,
-        schema: ExtractedSchema,
-        messages: [{ role: "user", content: parts as unknown as never }],
-      });
-      extracted = object;
-    } catch (e) {
-      aiErrorMsg = e instanceof Error ? e.message : "Erro IA";
-      throw new Error(`Falha no reprocessamento: ${aiErrorMsg}`);
-    }
-
-    // 4. Normalização
-    const telefoneNew = normalizePhone(extracted.telefone, "");
-    const emailNew = normalizeEmail(extracted.email, "") || "";
-    const cidadeNew = (extracted.cidade || "").trim();
-    const estadoNew = normalizeUf(extracted.estado, "") || "";
+    const telefoneNew = normalizePhone(extracted.telefone);
+    const emailNew = normalizeEmail(extracted.email);
     const nomeNew = (extracted.nome || "").trim();
-
-    // 5. Merge:
-    //    - nome: CORRIGE (sobrescreve) quando a IA retorna nome plausível
-    //      (2+ palavras, só letras/espaços/hífen/apóstrofo) e diferente do atual.
-    //    - demais campos: preenche apenas se estiverem vazios (não-destrutivo).
-    const isEmpty = (v: string | null | undefined) => !v || !String(v).trim();
-    const isPlausibleName = (n: string) =>
-      /^[A-Za-zÀ-ÖØ-öø-ÿ'’\-\s]{3,}$/.test(n) && n.trim().split(/\s+/).length >= 2;
+    const location = validateExtractedLocation(extracted.cidade, extracted.estado);
     const patch: Record<string, string | boolean | null> = {};
     const updatedFields: string[] = [];
 
-    if (nomeNew && isPlausibleName(nomeNew) && nomeNew.trim().toLowerCase() !== (cand.nome || "").trim().toLowerCase()) {
+    const isPlausibleName = (n: string) => /^[A-Za-zÀ-ÿ'’\-\s]{3,}$/.test(n) && n.trim().split(/\s+/).length >= 2;
+    const different = (a: unknown, b: unknown) => String(a ?? "").trim().toLowerCase() !== String(b ?? "").trim().toLowerCase();
+
+    if (nomeNew && isPlausibleName(nomeNew) && different(nomeNew, cand.nome)) {
       patch.nome = nomeNew;
       updatedFields.push("nome");
     }
-    if (isEmpty(cand.telefone) && telefoneNew) { patch.telefone = telefoneNew; updatedFields.push("telefone"); }
-    if (isEmpty(cand.email) && emailNew) { patch.email = emailNew; updatedFields.push("email"); }
-    if (isEmpty(cand.cidade) && (cidadeNew || estadoNew)) {
-      const cityRes = validateCity(cidadeNew, estadoNew);
-      if (cityRes.cidade_validada) {
-        patch.cidade = cityRes.cidade;
-        patch.estado = cityRes.estado;
-        patch.codigo_ibge = cityRes.codigo_ibge;
-        patch.cidade_validada = true;
-        updatedFields.push("cidade");
-      } else if (isEmpty(cand.estado) && cityRes.estado) {
-        patch.estado = cityRes.estado;
-        patch.cidade_original_extraida = cityRes.cidade_original_extraida;
-        updatedFields.push("estado");
-      }
-    } else if (isEmpty(cand.estado) && estadoNew) {
-      patch.estado = estadoNew; updatedFields.push("estado");
+    if (telefoneNew && different(telefoneNew, cand.telefone)) {
+      patch.telefone = telefoneNew;
+      updatedFields.push("telefone");
+    }
+    if (emailNew && different(emailNew, cand.email)) {
+      patch.email = emailNew;
+      updatedFields.push("email");
+    }
+
+    // Cidade/UF agora são corrigidas, e não apenas preenchidas quando vazias.
+    // Só gravamos cidade quando ela passou pela validação IBGE.
+    if (location.cidade_validada && location.cidade) {
+      if (different(location.cidade, cand.cidade)) { patch.cidade = location.cidade; updatedFields.push("cidade"); }
+      if (different(location.estado, cand.estado)) { patch.estado = location.estado; updatedFields.push("estado"); }
+      if (location.codigo_ibge && different(location.codigo_ibge, (cand as any).codigo_ibge)) patch.codigo_ibge = location.codigo_ibge;
+      patch.cidade_validada = true;
+      patch.cidade_original_extraida = null;
+    } else if (location.estado && different(location.estado, cand.estado)) {
+      patch.estado = location.estado;
+      updatedFields.push("estado");
     }
 
     const nowIso = new Date().toISOString();
     patch.ultimo_reprocessamento_at = nowIso;
 
-
-    const { error: updErr } = await supabase
-      .from("candidatos")
-      .update(patch as never)
-      .eq("id", data.candidatoId);
+    const { error: updErr } = await supabase.from("candidatos").update(patch as never).eq("id", data.candidatoId);
     if (updErr) throw new Error(updErr.message);
 
     return {
       updatedFields,
       ultimo_reprocessamento_at: nowIso,
-      extracted: { nome: nomeNew, telefone: telefoneNew, email: emailNew, cidade: cidadeNew, estado: estadoNew },
+      extracted: {
+        nome: nomeNew,
+        telefone: telefoneNew,
+        email: emailNew,
+        cidade: extracted.cidade || "",
+        estado: extracted.estado || "",
+        cidadeValidada: location.cidade_validada,
+      },
     };
   });
-
