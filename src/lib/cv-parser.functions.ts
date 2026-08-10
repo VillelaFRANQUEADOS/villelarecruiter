@@ -106,7 +106,7 @@ function deterministicExtract(text: string): Extracted {
     estado = fallback.estado || estado;
   }
   return {
-    nome: identity.nome || extractName(text),
+    nome: normalizeCandidateName(identity.nome || extractName(text)),
     telefone: identity.telefone || extractPhone(text),
     email: identity.email || extractEmail(text),
     cidade,
