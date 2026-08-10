@@ -55,7 +55,7 @@ function extractLocationFallback(text: string): { cidade: string; estado: string
 
   const compact = text.replace(/\r/g, " ").replace(/\n/g, " ").replace(/\s+/g, " ").trim();
   for (const [stateName, uf] of stateNames) {
-    const re = new RegExp(`(?:^|[|•·;:])([^|•·;:]{0,180}?)\\s*(?:,|/|-|—|–|\\s)\\s*${stateName.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?:\\s*,?\\s*Brasil)?\\b`, "i");
+    const re = new RegExp(`([^|•·;:]{0,180}?)\s*(?:,|/|-|—|–|\s)\s*${stateName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\s*,?\s*Brasil)?\b`, "i");
     const match = compact.match(re);
     if (!match) continue;
     const words = (match[1] || "").match(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*/g) || [];
