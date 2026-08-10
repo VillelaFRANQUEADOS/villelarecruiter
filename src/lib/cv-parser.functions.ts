@@ -6,6 +6,76 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { extractCandidateIdentity, extractCity, extractUf, extractPhone, extractEmail, extractName } from "@/lib/candidate-parser";
 import { validateCity, normalizeOrigem, type OrigemCurriculo } from "@/lib/city-validation";
+import { createLovableAiGatewayProvider, LOVABLE_GATEWAY_MODELS } from "@/lib/ai-gateway";
+
+// ===================== CADEIA DE FALLBACK DE MODELOS =====================
+// O tier gratuito do Google AI Studio (GEMINI_API_KEY pessoal) tem limites
+// de taxa MUITO baixos (ex.: 5 requisições/minuto, 20/dia no Flash). Quando
+// um lote de currículos é enviado, esse limite estoura rápido e toda
+// extração por IA passa a falhar (HTTP 429), caindo no extrator
+// determinístico (sem IA) — que é ok, mas menos preciso.
+//
+// Para reduzir isso sem exigir cartão de crédito imediatamente, tentamos
+// vários modelos do Google (cada um com cota própria e separada no AI
+// Studio) e, se todos estourarem, caímos no Gateway de IA da Lovable
+// (cota separada, cobrada dos créditos do workspace Lovable).
+function isRateLimitError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /429|rate.?limit|resource.?exhausted|quota/i.test(msg);
+}
+
+type ModelAttempt = { label: string; model: Parameters<typeof generateObject>[0]["model"] };
+
+function buildModelChain(): ModelAttempt[] {
+  const attempts: ModelAttempt[] = [];
+  if (process.env.GEMINI_API_KEY) {
+    attempts.push(
+      { label: "google:gemini-2.5-flash", model: google("gemini-2.5-flash") },
+      { label: "google:gemini-2.5-flash-lite", model: google("gemini-2.5-flash-lite") },
+      { label: "google:gemini-2.0-flash", model: google("gemini-2.0-flash") },
+    );
+  }
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  if (lovableKey) {
+    const lovable = createLovableAiGatewayProvider(lovableKey);
+    attempts.push(
+      { label: "lovable-gateway:gemini-2.5-flash", model: lovable(LOVABLE_GATEWAY_MODELS.geminiFlash) },
+      { label: "lovable-gateway:gemini-2.5-flash-lite", model: lovable(LOVABLE_GATEWAY_MODELS.geminiFlashLite) },
+    );
+  }
+  return attempts;
+}
+
+async function generateObjectWithFallback<T extends z.ZodTypeAny>(
+  schema: T,
+  buildMessages: (model: Parameters<typeof generateObject>[0]["model"]) => Parameters<typeof generateObject>[0]["messages"],
+): Promise<z.infer<T>> {
+  const chain = buildModelChain();
+  if (!chain.length) throw new Error("Nenhum provedor de IA configurado (GEMINI_API_KEY / LOVABLE_API_KEY ausentes)");
+  let lastError: unknown = null;
+  for (const attempt of chain) {
+    try {
+      // O tipo genérico exato do schema varia por overload do SDK; o cast é
+      // seguro aqui porque `schema` é sempre o mesmo ExtractedSchema.
+      const { object } = (await generateObject({
+        model: attempt.model,
+        schema,
+        messages: buildMessages(attempt.model),
+        maxRetries: 0,
+      } as Parameters<typeof generateObject>[0])) as { object: z.infer<T> };
+      return object;
+    } catch (e) {
+      lastError = e;
+      const reason = isRateLimitError(e) ? "limite de taxa" : "erro";
+      console.warn(`Extração IA falhou em ${attempt.label} (${reason}):`, e instanceof Error ? e.message : e);
+      // Segue para o próximo modelo/provedor mesmo em erros que não são de
+      // limite de taxa — é barato tentar e pode ser um problema pontual
+      // daquele provedor específico.
+      continue;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Todos os modelos de IA falharam");
+}
 
 const ExtractedSchema = z.object({ nome: z.string(), telefone: z.string(), email: z.string(), cidade: z.string(), estado: z.string() });
 type Extracted = z.infer<typeof ExtractedSchema>;
@@ -119,12 +189,10 @@ function validateExtractedLocation(cidade: string, estado: string) {
 }
 
 async function extractWithAiFromText(cvText: string, images: string[]): Promise<Extracted> {
-  const model = google("gemini-2.5-flash");
   const content: Array<{ type: "text"; text: string } | { type: "image"; image: string }> = [{ type: "text", text: STRICT_PROMPT }];
   if (cvText.trim()) content.push({ type: "text", text: `TEXTO EXTRAÍDO DO CURRÍCULO:\n${cvText.slice(0, 32000)}` });
   for (const image of images.slice(0, 8)) content.push({ type: "image", image });
-  const { object } = await generateObject({ model, schema: ExtractedSchema, messages: [{ role: "user", content }], maxRetries: 0 });
-  return object;
+  return generateObjectWithFallback(ExtractedSchema, () => [{ role: "user", content }]);
 }
 
 export const parseAndCreateCandidato = createServerFn({ method: "POST" })
@@ -132,7 +200,9 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
   .inputValidator((input: { fileName: string; fileBase64: string; mimeType: string; cvText: string; images?: string[]; origemCurriculo?: string }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY ausente");
+    if (!process.env.GEMINI_API_KEY && !process.env.LOVABLE_API_KEY) {
+      throw new Error("Nenhum provedor de IA configurado (GEMINI_API_KEY / LOVABLE_API_KEY ausentes)");
+    }
     const cvText = (data.cvText || "").slice(0, 32000);
     const images = data.images || [];
     let extracted = deterministicExtract(cvText);
@@ -213,13 +283,11 @@ async function extractPdfTextFromBase64(base64: string): Promise<string> {
   return text;
 }
 async function extractWithAiFromFile(base64: string, mimeType: string, filename: string): Promise<Extracted> {
-  const model = google("gemini-2.5-flash");
   const content = [
     { type: "text" as const, text: STRICT_PROMPT + "\nEste é um REPROCESSAMENTO. Reextraia os dados do arquivo completo, mesmo que o cadastro atual já tenha valores. Corrija cidade e UF se estiverem erradas." },
     { type: "file" as const, data: base64, mediaType: mimeType, filename },
   ];
-  const { object } = await generateObject({ model, schema: ExtractedSchema, messages: [{ role: "user", content }], maxRetries: 0 });
-  return object;
+  return generateObjectWithFallback(ExtractedSchema, () => [{ role: "user", content }]);
 }
 
 export const reprocessCandidato = createServerFn({ method: "POST" })
