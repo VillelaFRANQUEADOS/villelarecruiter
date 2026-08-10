@@ -5,14 +5,29 @@ import unidadesData from "@/data/unidades-villela.json";
 import municipiosCoords from "@/data/municipios-coordenadas.json";
 import { validateCity } from "@/lib/city-validation";
 
-interface Unidade {
+export interface Unidade {
   nome: string;
   lat: number;
   lon: number;
+  endereco?: string | null;
 }
 
-const UNIDADES: Unidade[] = unidadesData as Unidade[];
+// Fonte oficial das unidades: tabela `unidades` no backend (carregada em runtime
+// via setUnidades). O JSON local segue apenas como fallback inicial.
+let UNIDADES: Unidade[] = unidadesData as Unidade[];
 const MUNICIPIOS_COORDS: Record<string, number[]> = municipiosCoords as Record<string, number[]>;
+
+/** Substitui a base de unidades em memória (chamada após carregar do backend). */
+export function setUnidades(list: Unidade[]) {
+  UNIDADES = list;
+  cache.clear();
+  unitToIbgeIndex = null;
+}
+
+export function getUnidadeByNome(nome: string): Unidade | undefined {
+  return UNIDADES.find((u) => u.nome === nome);
+}
+
 
 const EARTH_RADIUS_KM = 6371;
 
