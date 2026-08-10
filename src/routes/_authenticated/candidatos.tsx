@@ -461,21 +461,40 @@ setEditingObsId(null);
     }
   }
 
+  // Um candidato só precisa de IA no reprocessamento se algo essencial ainda
+  // está faltando. Se nome, telefone, email e cidade (validada) já estão
+  // preenchidos, reprocessar de novo não vai mudar nada — só gastaria cota de
+  // IA (e download do Drive) à toa. Usado para pré-filtrar o reprocessamento
+  // em lote.
+  function candidatoPrecisaIa(r: { nome: string | null; telefone: string | null; email: string | null; cidade_validada: boolean | null; estado: string | null }) {
+    return !r.nome || !r.telefone || !r.email || !r.cidade_validada || !r.estado;
+  }
+
   async function handleBulkReprocess() {
     if (bulkReprocessing) return;
     const ids = Array.from(selected);
     if (!ids.length) return;
-    const ok = window.confirm(`Reprocessar ${ids.length} currículo(s) com IA? Isso pode levar alguns minutos e consumir créditos.`);
+    const idsNeeding = ids.filter((id) => {
+      const row = rows.find((r) => r.id === id);
+      return !row || candidatoPrecisaIa(row);
+    });
+    const skipped = ids.length - idsNeeding.length;
+    if (!idsNeeding.length) {
+      toast.info("Todos os selecionados já estão completos — nada para reprocessar.");
+      return;
+    }
+    const skipMsg = skipped > 0 ? ` (${skipped} já completo(s) — será(ão) pulado(s) automaticamente)` : "";
+    const ok = window.confirm(`Reprocessar ${idsNeeding.length} currículo(s) com IA${skipMsg}? Isso pode levar alguns minutos e consumir créditos.`);
     if (!ok) return;
     setBulkReprocessing(true);
-    const toastId = toast.loading(`Reprocessando 0/${ids.length}...`);
+    const toastId = toast.loading(`Reprocessando 0/${idsNeeding.length}...`);
     let done = 0, updated = 0, failed = 0;
     const CONCURRENCY = 2;
     let idx = 0;
     async function worker() {
-      while (idx < ids.length) {
+      while (idx < idsNeeding.length) {
         const i = idx++;
-        const id = ids[i];
+        const id = idsNeeding[i];
         setReprocessing((s) => new Set(s).add(id));
         try {
           const res = await reprocessFn({ data: { candidatoId: id } });
@@ -485,17 +504,17 @@ setEditingObsId(null);
         } finally {
           setReprocessing((s) => { const n = new Set(s); n.delete(id); return n; });
           done++;
-          toast.loading(`Reprocessando ${done}/${ids.length}...`, { id: toastId });
+          toast.loading(`Reprocessando ${done}/${idsNeeding.length}...`, { id: toastId });
         }
       }
     }
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, idsNeeding.length) }, worker));
     invalidateAtsQueries(queryClient);
     setBulkReprocessing(false);
     if (failed === 0) {
-      toast.success(`Reprocessamento concluído: ${updated} candidato(s) atualizado(s) de ${ids.length}.`, { id: toastId });
+      toast.success(`Reprocessamento concluído: ${updated} candidato(s) atualizado(s) de ${idsNeeding.length}.`, { id: toastId });
     } else {
-      toast.error(`Concluído com ${failed} erro(s). ${updated} atualizado(s) de ${ids.length}.`, { id: toastId });
+      toast.error(`Concluído com ${failed} erro(s). ${updated} atualizado(s) de ${idsNeeding.length}.`, { id: toastId });
     }
   }
 
