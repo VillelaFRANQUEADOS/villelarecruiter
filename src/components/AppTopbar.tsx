@@ -20,7 +20,9 @@ const adminItems = [
   { to: "/usuarios", label: "Usuários", icon: Shield },
 ] as const;
 
-const adminOnlyItems = [{ to: "/unidades", label: "Unidades", icon: Building2 }] as const;
+// Unidades é somente consulta para usuários não-admin.
+// As ações administrativas continuam protegidas dentro da própria página/backend.
+const unitsItem = [{ to: "/unidades", label: "Unidades", icon: Building2 }] as const;
 
 export function AppTopbar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
@@ -29,9 +31,8 @@ export function AppTopbar() {
   const items = [
     ...baseItems,
     ...(role === "admin" || role === "recrutador" ? adminItems : []),
-    ...(role === "admin" ? adminOnlyItems : []),
+    ...unitsItem,
   ];
-
 
   const handleSignOut = async () => {
     await signOut();
@@ -41,7 +42,6 @@ export function AppTopbar() {
   return (
     <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5">
       <div className="relative mx-auto flex h-14 max-w-7xl items-center gap-1.5 overflow-hidden rounded-2xl border border-white/60 bg-white/55 px-3 shadow-[0_8px_30px_rgba(11,34,57,0.12)] backdrop-blur-xl backdrop-saturate-150">
-        {/* Brilho especular do "liquid glass" */}
         <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-white/90" />
         <div className="pointer-events-none absolute -top-10 left-10 h-20 w-56 rounded-full bg-white/40 blur-2xl" />
 
@@ -50,14 +50,11 @@ export function AppTopbar() {
             <img src={logoWhite} alt="Villela Recruiter" className="size-6 object-contain" />
           </span>
           <span className="hidden leading-tight sm:block">
-            <span className="block text-sm font-semibold tracking-tight text-brand">
-              Villela Recruiter
-            </span>
+            <span className="block text-sm font-semibold tracking-tight text-brand">Villela Recruiter</span>
             <span className="block text-[10px] text-muted-foreground">ATS · Recrutamento</span>
           </span>
         </Link>
 
-        {/* Navegação desktop */}
         <nav className="mx-auto hidden items-center gap-1 md:flex">
           {items.map((it) => {
             const active = path.startsWith(it.to);
@@ -78,7 +75,6 @@ export function AppTopbar() {
           })}
         </nav>
 
-        {/* Ações à direita (desktop) */}
         <div className="ml-auto hidden items-center gap-1 md:flex">
           <Button
             variant="ghost"
@@ -91,12 +87,8 @@ export function AppTopbar() {
           </Button>
           <div className="mx-1 h-6 w-px bg-brand/15" />
           <div className="px-1 text-right leading-tight">
-            <p className="max-w-36 truncate text-xs font-medium text-brand">
-              {nome ?? "Usuário"}
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              {role ? ROLE_LABELS[role] : "—"}
-            </p>
+            <p className="max-w-36 truncate text-xs font-medium text-brand">{nome ?? "Usuário"}</p>
+            <p className="text-[10px] text-muted-foreground">{role ? ROLE_LABELS[role] : "—"}</p>
           </div>
           <Button
             variant="ghost"
@@ -109,7 +101,6 @@ export function AppTopbar() {
           </Button>
         </div>
 
-        {/* Menu mobile (hoje não existia navegação em telas pequenas) */}
         <div className="ml-auto md:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -120,9 +111,7 @@ export function AppTopbar() {
             <DropdownMenuContent align="end" className="w-56 rounded-xl">
               <div className="px-2 py-1.5 leading-tight">
                 <p className="truncate text-xs font-medium">{nome ?? "Usuário"}</p>
-                <p className="text-[10px] text-muted-foreground">
-                  {role ? ROLE_LABELS[role] : "—"}
-                </p>
+                <p className="text-[10px] text-muted-foreground">{role ? ROLE_LABELS[role] : "—"}</p>
               </div>
               <DropdownMenuSeparator />
               {items.map((it) => (
@@ -135,15 +124,10 @@ export function AppTopbar() {
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => window.open(PLAYBOOK_URL, "_blank")}>
-                <BookOpen className="size-4 mr-2" />
-                Playbook
+                <BookOpen className="size-4 mr-2" /> Playbook
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => void handleSignOut()}
-                className="text-brand-danger"
-              >
-                <LogOut className="size-4 mr-2" />
-                Sair
+              <DropdownMenuItem onClick={() => void handleSignOut()} className="text-brand-danger">
+                <LogOut className="size-4 mr-2" /> Sair
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
