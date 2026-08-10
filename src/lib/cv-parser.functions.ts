@@ -39,7 +39,7 @@ REGRAS CRÍTICAS:
 - Extraia somente informações explicitamente presentes no currículo. Nunca invente.
 - cidade = cidade de RESIDÊNCIA do candidato, não cidade de emprego, faculdade, empresa, vaga ou unidade.
 - Procure primeiro dados pessoais, contato, endereço, residência, cidade/UF e cabeçalho do candidato.
-- Aceite formatos como "Porto Alegre/RS", "Porto Alegre - RS", "Porto Alegre, RS", "Cidade: Porto Alegre", "UF: RS" e endereços completos.
+- Aceite formatos como "Porto Alegre/RS", "Porto Alegre - RS", "Porto Alegre, RS", "Santo André, São Paulo, Brasil", "Cidade: Porto Alegre", "UF: RS" e endereços completos.
 - estado deve ser sempre a UF de 2 letras.
 - Se cidade ou estado não estiverem explicitamente identificáveis, retorne "".
 - telefone somente dígitos, com DDD, 10 ou 11 dígitos.
@@ -73,6 +73,7 @@ async function extractWithAiFromText(cvText: string, images: string[]): Promise<
     model,
     schema: ExtractedSchema,
     messages: [{ role: "user", content }],
+    maxRetries: 0,
   });
   return object;
 }
@@ -97,16 +98,13 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
 
-    // A IA não é mais pulada simplesmente porque nome/telefone foram encontrados.
-    // Se localização não estiver validada, ela deve ter oportunidade de corrigir cidade/UF.
     let location = validateExtractedLocation(extracted.cidade, extracted.estado);
     const needsAi =
       !extracted.nome ||
       !extracted.telefone ||
       !extracted.email ||
       !location.cidade_validada ||
-      !location.estado ||
-      images.length > 0;
+      !location.estado;
 
     if (needsAi && (cvText.replace(/\s/g, "").length >= 30 || images.length > 0)) {
       try {
@@ -208,6 +206,20 @@ async function downloadFromDrive(fileId: string): Promise<{ base64: string; mime
   return { base64, mimeType };
 }
 
+async function extractPdfTextFromBase64(base64: string): Promise<string> {
+  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const data = new Uint8Array(Buffer.from(base64, "base64"));
+  const pdf = await pdfjsLib.getDocument({ data, disableWorker: true }).promise;
+  let text = "";
+  const maxPages = Math.min(pdf.numPages, 20);
+  for (let pageNumber = 1; pageNumber <= maxPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    text += content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ") + "\n";
+  }
+  return text;
+}
+
 async function extractWithAiFromFile(base64: string, mimeType: string, filename: string): Promise<Extracted> {
   const model = google("gemini-2.5-flash");
   const content = [
@@ -218,6 +230,7 @@ async function extractWithAiFromFile(base64: string, mimeType: string, filename:
     model,
     schema: ExtractedSchema,
     messages: [{ role: "user", content }],
+    maxRetries: 0,
   });
   return object;
 }
@@ -227,11 +240,10 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
   .inputValidator((input: { candidatoId: string }) => z.object({ candidatoId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY ausente");
 
     const { data: cand, error: fetchErr } = await supabase
       .from("candidatos")
-      .select("id,nome,telefone,email,cidade,estado,curriculo_url")
+      .select("id,nome,telefone,email,cidade,estado,curriculo_url,codigo_ibge")
       .eq("id", data.candidatoId)
       .maybeSingle();
     if (fetchErr) throw new Error(fetchErr.message);
@@ -240,12 +252,44 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
 
     const fileId = cand.curriculo_url.slice(6);
     const { base64, mimeType } = await downloadFromDrive(fileId);
-    const extracted = await extractWithAiFromFile(base64, mimeType, `${cand.nome || "curriculo"}.pdf`);
 
-    const telefoneNew = normalizePhone(extracted.telefone);
-    const emailNew = normalizeEmail(extracted.email);
+    // Primeiro tenta o parser determinístico no texto real do PDF.
+    // Isso evita consumir Gemini quando o currículo já contém dados legíveis.
+    let cvText = "";
+    try {
+      cvText = await extractPdfTextFromBase64(base64);
+    } catch (e) {
+      console.warn("Não foi possível extrair texto local do PDF:", e);
+    }
+
+    let extracted = deterministicExtract(cvText);
+    let location = validateExtractedLocation(extracted.cidade, extracted.estado);
+    let aiFailed = false;
+    let aiErrorMsg: string | null = null;
+
+    const needsAi =
+      !extracted.nome ||
+      !extracted.telefone ||
+      !extracted.email ||
+      !location.cidade_validada ||
+      !location.estado;
+
+    if (needsAi) {
+      try {
+        extracted = await extractWithAiFromFile(base64, mimeType, `${cand.nome || "curriculo"}.pdf`);
+        location = validateExtractedLocation(extracted.cidade, extracted.estado);
+      } catch (e) {
+        aiFailed = true;
+        aiErrorMsg = e instanceof Error ? e.message : "Erro IA";
+        console.warn("Reprocessamento IA falhou; mantendo resultado determinístico:", aiErrorMsg);
+      }
+    }
+
+    // Mesmo quando a IA estiver sem quota, atualizamos tudo que o parser local conseguiu.
+    const telefoneNew = normalizePhone(extracted.telefone, cvText);
+    const emailNew = normalizeEmail(extracted.email, cvText);
     const nomeNew = (extracted.nome || "").trim();
-    const location = validateExtractedLocation(extracted.cidade, extracted.estado);
+    location = validateExtractedLocation(extracted.cidade, extracted.estado);
     const patch: Record<string, string | boolean | null> = {};
     const updatedFields: string[] = [];
 
@@ -265,12 +309,10 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
       updatedFields.push("email");
     }
 
-    // Cidade/UF agora são corrigidas, e não apenas preenchidas quando vazias.
-    // Só gravamos cidade quando ela passou pela validação IBGE.
     if (location.cidade_validada && location.cidade) {
       if (different(location.cidade, cand.cidade)) { patch.cidade = location.cidade; updatedFields.push("cidade"); }
       if (different(location.estado, cand.estado)) { patch.estado = location.estado; updatedFields.push("estado"); }
-      if (location.codigo_ibge && different(location.codigo_ibge, (cand as any).codigo_ibge)) patch.codigo_ibge = location.codigo_ibge;
+      if (location.codigo_ibge && different(location.codigo_ibge, cand.codigo_ibge)) patch.codigo_ibge = location.codigo_ibge;
       patch.cidade_validada = true;
       patch.cidade_original_extraida = null;
     } else if (location.estado && different(location.estado, cand.estado)) {
@@ -287,6 +329,8 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
     return {
       updatedFields,
       ultimo_reprocessamento_at: nowIso,
+      aiFailed,
+      aiError: aiFailed ? aiErrorMsg : null,
       extracted: {
         nome: nomeNew,
         telefone: telefoneNew,
