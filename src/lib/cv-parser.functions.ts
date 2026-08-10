@@ -77,6 +77,25 @@ function extractLocationFallback(text: string): { cidade: string; estado: string
   return null;
 }
 
+
+function normalizeCandidateName(value: string): string {
+  const name = (value || '').replace(/\s+/g, ' ').trim();
+  if (!name || name.length > 70 || /\d/.test(name) || name.includes('@')) return '';
+  const words = name.split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 6) return '';
+  const forbidden = [
+    'curriculo', 'currículo', 'curriculum', 'contato', 'contact', 'experiencia',
+    'experiência', 'resumo', 'summary', 'objetivo', 'objective', 'linkedin',
+    'formacao', 'formação', 'education', 'habilidades', 'skills', 'competencias',
+    'competências', 'telefone', 'celular', 'email', 'endereco', 'endereço',
+    'perfil', 'profile', 'sobre mim', 'experiência profissional'
+  ];
+  const lower = name.toLowerCase();
+  if (forbidden.some((w) => lower.includes(w))) return '';
+  if (!words.every((w) => /^[A-Za-zÀ-ÿ'’-]+$/.test(w))) return '';
+  return name;
+}
+
 function deterministicExtract(text: string): Extracted {
   const identity = extractCandidateIdentity(text);
   let cidade = identity.cidade || extractCity(text);
@@ -133,7 +152,7 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     }
     const telefoneFinal = normalizePhone(extracted.telefone, cvText);
     const emailFinal = normalizeEmail(extracted.email, cvText) || null;
-    const nomeFinal = (extracted.nome || "").trim() || cleanFileName(data.fileName);
+    const nomeFinal = normalizeCandidateName(extracted.nome);
     location = validateExtractedLocation(extracted.cidade, extracted.estado);
     const origem: OrigemCurriculo = normalizeOrigem(data.origemCurriculo);
     if (aiFailed) console.warn("Extração com IA falhou:", aiErrorMsg);
@@ -247,7 +266,7 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
 
     const telefoneNew = normalizePhone(extracted.telefone, cvText);
     const emailNew = normalizeEmail(extracted.email, cvText);
-    const nomeNew = (extracted.nome || "").trim();
+    const nomeNew = normalizeCandidateName(extracted.nome);
     location = validateExtractedLocation(extracted.cidade, extracted.estado);
     const patch: Record<string, string | boolean | null> = {};
     const updatedFields: string[] = [];
