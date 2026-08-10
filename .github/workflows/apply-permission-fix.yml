@@ -1,0 +1,74 @@
+name: Apply permission fixes
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, 'Apply permission fixes') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch permissions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Admin layout: allow /unidades for authenticated non-admin users.
+          p = Path('src/routes/_authenticated/_admin.tsx')
+          s = p.read_text()
+          s = s.replace('import { useNavigate } from "@tanstack/react-router";', 'import { useNavigate, useLocation } from "@tanstack/react-router";')
+          s = s.replace('''  const navigate = useNavigate();\n  useEffect(() => {\n    if (!loading && role !== "admin") navigate({ to: "/dashboard" });\n  }, [role, loading, navigate]);\n  if (loading || role !== "admin") {''', '''  const navigate = useNavigate();\n  const location = useLocation();\n  const isUnitsPage = location.pathname === "/unidades";\n  useEffect(() => {\n    if (!loading && role !== "admin" && !isUnitsPage) navigate({ to: "/dashboard" });\n  }, [role, loading, navigate, isUnitsPage]);\n  if (loading || (role !== "admin" && !isUnitsPage)) {''')
+          p.write_text(s)
+
+          # Units UI: all authenticated users can view; only admin gets write controls.
+          p = Path('src/routes/_authenticated/_admin/unidades.tsx')
+          s = p.read_text()
+          s = s.replace('import { toast } from "sonner";', 'import { toast } from "sonner";\nimport { useAuth } from "@/lib/auth";')
+          s = s.replace('function UnidadesPage() {\n  const qc = useQueryClient();', 'function UnidadesPage() {\n  const { role } = useAuth();\n  const isAdmin = role === "admin";\n  const qc = useQueryClient();')
+          s = s.replace('''        <div className="ml-auto flex gap-2">\n          <Button variant="outline" className="rounded-xl" onClick={() => setCsvOpen(true)}>\n            <Upload className="size-4 mr-1.5" /> Importar CSV\n          </Button>\n          <Button className="rounded-xl" onClick={() => setNovoOpen(true)}>\n            <Plus className="size-4 mr-1.5" /> Nova unidade\n          </Button>\n        </div>''', '''        {isAdmin && (\n          <div className="ml-auto flex gap-2">\n            <Button variant="outline" className="rounded-xl" onClick={() => setCsvOpen(true)}>\n              <Upload className="size-4 mr-1.5" /> Importar CSV\n            </Button>\n            <Button className="rounded-xl" onClick={() => setNovoOpen(true)}>\n              <Plus className="size-4 mr-1.5" /> Nova unidade\n            </Button>\n          </div>\n        )}''')
+          s = s.replace('''                  <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => setEdit(u)}>\n                    <Pencil className="size-4" />\n                  </Button>\n                  <Button variant="ghost" size="icon" aria-label="Copiar endereço" onClick={() => copiarEndereco(u)}>\n                    <Copy className="size-4" />\n                  </Button>\n                  <Button variant="ghost" size="icon" aria-label="Ativar/Desativar" onClick={() => void toggleAtiva(u)}>\n                    <Power className="size-4" />\n                  </Button>''', '''                  {isAdmin && (\n                    <>\n                      <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => setEdit(u)}>\n                        <Pencil className="size-4" />\n                      </Button>\n                      <Button variant="ghost" size="icon" aria-label="Ativar/Desativar" onClick={() => void toggleAtiva(u)}>\n                        <Power className="size-4" />\n                      </Button>\n                    </>\n                  )}\n                  <Button variant="ghost" size="icon" aria-label="Copiar endereço" onClick={() => copiarEndereco(u)}>\n                    <Copy className="size-4" />\n                  </Button>''')
+          s = s.replace('''      <UnidadeDialog\n        open={novoOpen || !!edit}\n        unidade={edit}\n        onClose={() => { setNovoOpen(false); setEdit(null); }}\n        onSaved={() => { setNovoOpen(false); setEdit(null); refresh(); }}\n      />\n      <CsvDialog open={csvOpen} onClose={() => setCsvOpen(false)} onImported={() => { setCsvOpen(false); refresh(); }} />''', '''      {isAdmin && (\n        <>\n          <UnidadeDialog\n            open={novoOpen || !!edit}\n            unidade={edit}\n            onClose={() => { setNovoOpen(false); setEdit(null); }}\n            onSaved={() => { setNovoOpen(false); setEdit(null); refresh(); }}\n          />\n          <CsvDialog open={csvOpen} onClose={() => setCsvOpen(false)} onImported={() => { setCsvOpen(false); refresh(); }} />\n        </>\n      )}''')
+          p.write_text(s)
+
+          # Candidate UI: recruiters can reprocess their own candidates; admin remains unrestricted.
+          p = Path('src/routes/_authenticated/candidatos.tsx')
+          s = p.read_text()
+          needle = '  const allVisibleSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.id));\n'
+          if 'idsSelectedOwned' not in s:
+              s = s.replace(needle, needle + '  const idsSelectedOwned = selected.size > 0 && [...selected].every((id) => rows.find((r) => r.id === id)?.recrutador_id === user?.id);\n')
+          s = s.replace('''                {role === "admin" && (\n                  <Button\n                    size="sm"\n                    variant="outline"\n                    onClick={handleBulkReprocess}''', '''                {(role === "admin" || (role === "recrutador" && idsSelectedOwned)) && (\n                  <Button\n                    size="sm"\n                    variant="outline"\n                    onClick={handleBulkReprocess}''')
+          s = s.replace('''                            {role === "admin" && r.curriculo_url && (''', '''                            {(role === "admin" || (role === "recrutador" && r.recrutador_id === user?.id)) && r.curriculo_url && (''')
+          p.write_text(s)
+
+          # Server authorization: admin can reprocess any CV; recruiter only own; scheduling cannot.
+          p = Path('src/lib/cv-parser.functions.ts')
+          s = p.read_text()
+          old = '''    // Permissão: somente administradores podem reprocessar\n    const { data: roleRow } = await supabase\n      .from("user_roles")\n      .select("role")\n      .eq("user_id", userId)\n      .eq("role", "admin")\n      .maybeSingle();\n    if (!roleRow) throw new Error("Acesso negado: apenas administradores podem reprocessar currículos.");\n\n    const apiKey = process.env.GEMINI_API_KEY;'''
+          new = '''    const { data: roleRow } = await supabase\n      .from("user_roles")\n      .select("role")\n      .eq("user_id", userId)\n      .maybeSingle();\n    const role = roleRow?.role;\n\n    // Admin: qualquer candidato. Recrutador: somente candidato atribuído ao próprio usuário.\n    // Agendamento e demais perfis: sem permissão. A validação ocorre no backend.\n    const { data: ownership } = await supabase\n      .from("candidatos")\n      .select("recrutador_id")\n      .eq("id", data.candidatoId)\n      .maybeSingle();\n    if (role !== "admin" && !(role === "recrutador" && ownership?.recrutador_id === userId)) {\n      throw new Error("Acesso negado: você só pode reprocessar seus próprios currículos.");\n    }\n\n    const apiKey = process.env.GEMINI_API_KEY;'''
+          if old in s:
+              s = s.replace(old, new)
+          else:
+              old2 = '''    const { data: userRole } = await supabase\n      .from("user_roles")\n      .select("role")\n      .eq("user_id", userId)\n      .maybeSingle();'''
+              if old2 not in s:
+                  raise SystemExit('cv-parser authorization block not found')
+          p.write_text(s)
+
+          # Database: authenticated users may SELECT units; existing write policies remain unchanged.
+          mig = Path('supabase/migrations/20260810143000_allow_authenticated_view_unidades.sql')
+          mig.write_text('''create policy "Authenticated users can view units"\non public.unidades\nfor select\nto authenticated\nusing (true);\n''')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/routes/_authenticated/_admin.tsx src/routes/_authenticated/_admin/unidades.tsx src/routes/_authenticated/candidatos.tsx src/lib/cv-parser.functions.ts supabase/migrations/20260810143000_allow_authenticated_view_unidades.sql
+          git commit -m "Apply permission fixes" || exit 0
+          git push
+      - name: Remove temporary workflow
+        run: |
+          git rm .github/workflows/apply-permission-fix.yml
+          git commit -m "Remove temporary permission workflow"
+          git push
