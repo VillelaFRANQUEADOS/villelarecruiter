@@ -66,11 +66,14 @@ async function generateObjectWithFallback<T extends z.ZodTypeAny>(
       return object;
     } catch (e) {
       lastError = e;
-      const reason = isRateLimitError(e) ? "limite de taxa" : "erro";
-      console.warn(`Extração IA falhou em ${attempt.label} (${reason}):`, e instanceof Error ? e.message : e);
-      // Segue para o próximo modelo/provedor mesmo em erros que não são de
-      // limite de taxa — é barato tentar e pode ser um problema pontual
-      // daquele provedor específico.
+      const rateLimited = isRateLimitError(e);
+      console.warn(`Extração IA falhou em ${attempt.label} (${rateLimited ? "limite de taxa" : "erro"}):`, e instanceof Error ? e.message : e);
+      // Só passa pro próximo modelo/provedor quando o erro é de limite de
+      // taxa/cota — é o único caso em que outro modelo tem chance real de
+      // funcionar. Qualquer outro erro (arquivo ruim, schema, etc.) tende a
+      // se repetir em todos os modelos, então tentar de novo só gasta cota
+      // (e, quando chega no gateway da Lovable, gasta crédito pago) à toa.
+      if (!rateLimited) break;
       continue;
     }
   }
@@ -188,6 +191,17 @@ function validateExtractedLocation(cidade: string, estado: string) {
   return validateCity((cidade || "").trim(), (estado || "").trim());
 }
 
+// Só chama IA quando os dados verdadeiramente essenciais (nome e telefone —
+// o mínimo pra um recrutador conseguir contatar o candidato) não saíram do
+// extrator determinístico. Email/cidade/estado incompletos NÃO disparam IA
+// sozinhos: ficam como estão (editáveis na tela) e, se a IA for chamada por
+// outro motivo, ela aproveita e tenta melhorá-los também. Isso reduz bastante
+// o volume de chamadas de IA por lote, já que o extrator por regex costuma
+// acertar nome/telefone na maioria dos currículos bem formatados.
+function needsAiExtraction(extracted: Extracted): boolean {
+  return !extracted.nome || !extracted.telefone;
+}
+
 async function extractWithAiFromText(cvText: string, images: string[]): Promise<Extracted> {
   const content: Array<{ type: "text"; text: string } | { type: "image"; image: string }> = [{ type: "text", text: STRICT_PROMPT }];
   if (cvText.trim()) content.push({ type: "text", text: `TEXTO EXTRAÍDO DO CURRÍCULO:\n${cvText.slice(0, 32000)}` });
@@ -209,7 +223,7 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
     let location = validateExtractedLocation(extracted.cidade, extracted.estado);
-    const needsAi = !extracted.nome || !extracted.telefone || !extracted.email || !location.cidade_validada || !location.estado;
+    const needsAi = needsAiExtraction(extracted);
     if (needsAi && (cvText.replace(/\s/g, "").length >= 30 || images.length > 0)) {
       try {
         const ai = await extractWithAiFromText(cvText, images);
@@ -310,6 +324,10 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
     let location = validateExtractedLocation(extracted.cidade, extracted.estado);
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
+    // Diferente do upload em massa, o "Reprocessar" é acionado manualmente,
+    // candidato por candidato — geralmente pra corrigir cidade/UF (importante
+    // pro filtro de unidade mais próxima). Por isso aqui mantemos o gatilho
+    // mais completo, checando todos os campos.
     const needsAi = !extracted.nome || !extracted.telefone || !extracted.email || !location.cidade_validada || !location.estado;
     if (needsAi) {
       try {
