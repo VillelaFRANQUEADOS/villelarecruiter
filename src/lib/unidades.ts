@@ -72,10 +72,14 @@ export async function upsertUnidade(u: Partial<UnidadeRow> & { nome: string; cid
   if (u.id) {
     const { error } = await client.from("unidades").update(payload).eq("id", u.id);
     if (error) throw error;
+    return;
+  }
+  const existing = (await fetchUnidades()).find((e) => keyOf(e) === keyOf(payload));
+  if (existing) {
+    const { error } = await client.from("unidades").update(payload).eq("id", existing.id);
+    if (error) throw error;
   } else {
-    const { error } = await client
-      .from("unidades")
-      .upsert(payload, { onConflict: "nome,cidade,estado" });
+    const { error } = await client.from("unidades").insert(payload);
     if (error) throw error;
   }
 }
@@ -153,11 +157,32 @@ export function parseUnidadesCsv(text: string): { rows: CsvUnidade[]; errors: st
   return { rows, errors };
 }
 
+/** Chave de deduplicação: nome + cidade + estado (case-insensitive). */
+function keyOf(u: { nome: string; cidade: string; estado: string }) {
+  return `${u.nome.trim().toLowerCase()}|${u.cidade.trim().toLowerCase()}|${u.estado.trim().toUpperCase()}`;
+}
+
 export async function importUnidades(rows: CsvUnidade[]) {
-  const { error } = await (supabase as unknown as AnyClient)
-    .from("unidades")
-    .upsert(rows, { onConflict: "nome,cidade,estado" });
-  if (error) throw error;
+  const client = supabase as unknown as AnyClient;
+  const existing = await fetchUnidades();
+  const byKey = new Map(existing.map((e) => [keyOf(e), e.id]));
+  const toInsert: CsvUnidade[] = [];
+  let updated = 0;
+  for (const r of rows) {
+    const id = byKey.get(keyOf(r));
+    if (id) {
+      const { error } = await client.from("unidades").update(r).eq("id", id);
+      if (error) throw error;
+      updated++;
+    } else {
+      toInsert.push(r);
+    }
+  }
+  if (toInsert.length) {
+    const { error } = await client.from("unidades").insert(toInsert);
+    if (error) throw error;
+  }
+  return { inserted: toInsert.length, updated };
 }
 
 export const CSV_TEMPLATE =
