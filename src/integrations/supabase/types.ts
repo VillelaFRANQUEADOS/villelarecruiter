@@ -291,6 +291,45 @@ export type Database = {
         }
         Relationships: []
       }
+      unidades: {
+        Row: {
+          ativa: boolean
+          cidade: string
+          created_at: string
+          endereco: string | null
+          estado: string
+          id: string
+          latitude: number
+          longitude: number
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativa?: boolean
+          cidade: string
+          created_at?: string
+          endereco?: string | null
+          estado: string
+          id?: string
+          latitude: number
+          longitude: number
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativa?: boolean
+          cidade?: string
+          created_at?: string
+          endereco?: string | null
+          estado?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

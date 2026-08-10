@@ -5,14 +5,29 @@ import unidadesData from "@/data/unidades-villela.json";
 import municipiosCoords from "@/data/municipios-coordenadas.json";
 import { validateCity } from "@/lib/city-validation";
 
-interface Unidade {
+export interface Unidade {
   nome: string;
   lat: number;
   lon: number;
+  endereco?: string | null;
 }
 
-const UNIDADES: Unidade[] = unidadesData as Unidade[];
+// Fonte oficial das unidades: tabela `unidades` no backend (carregada em runtime
+// via setUnidades). O JSON local segue apenas como fallback inicial.
+let UNIDADES: Unidade[] = unidadesData as Unidade[];
 const MUNICIPIOS_COORDS: Record<string, number[]> = municipiosCoords as Record<string, number[]>;
+
+/** Substitui a base de unidades em memória (chamada após carregar do backend). */
+export function setUnidades(list: Unidade[]) {
+  UNIDADES = list;
+  cache.clear();
+  unitToIbgeIndex = null;
+}
+
+export function getUnidadeByNome(nome: string): Unidade | undefined {
+  return UNIDADES.find((u) => u.nome === nome);
+}
+
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -33,6 +48,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 export interface NearestUnitResult {
   nome: string;
   distanciaKm: number;
+  endereco?: string | null;
 }
 
 // Cache simples em memória: mesma cidade/UF/ibge não recalcula toda vez.
@@ -65,7 +81,7 @@ export function getNearestUnit(
       for (const u of UNIDADES) {
         const d = haversineKm(lat, lon, u.lat, u.lon);
         if (!result || d < result.distanciaKm) {
-          result = { nome: u.nome, distanciaKm: d };
+          result = { nome: u.nome, distanciaKm: d, endereco: u.endereco ?? null };
         }
       }
     }

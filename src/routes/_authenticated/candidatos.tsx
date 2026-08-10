@@ -32,6 +32,8 @@ import {
 import { MultiSelect } from "@/components/MultiSelect";
 import { ORIGEM_VALUES, ORIGEM_LABELS, normalizeOrigem } from "@/lib/city-validation";
 import { getNearestUnit, formatDistanciaKm, getAllUnitNames, type NearestUnitResult } from "@/lib/nearest-unit";
+import { useUnidadesSync } from "@/lib/unidades";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import {
   invalidateAtsQueries,
@@ -201,7 +203,9 @@ function CandidatosPage() {
 
   const cidadeOptions = options?.cidades ?? [];
   const entrevistadorOptions = options?.entrevistadores ?? [];
-  const unidadeOptions = useMemo(() => getAllUnitNames(), []);
+  // Unidades oficiais vêm do backend (apenas ativas alimentam o cálculo).
+  const { data: unidadesData } = useUnidadesSync();
+  const unidadeOptions = useMemo(() => getAllUnitNames(), [unidadesData]);
 
   // Janela hoje / semana (segunda a domingo, horário local)
   const { weekStart, weekEnd, todayStr } = useMemo(() => {
@@ -273,7 +277,7 @@ function CandidatosPage() {
       map.set(r.id, getNearestUnit(r.cidade, r.estado, r.codigo_ibge));
     }
     return map;
-  }, [filtered]);
+  }, [filtered, unidadesData]);
 
   const hasFilters =
     !!(fNome || fTelefone || fEmail || fVaga || fDateFrom || fDateTo || fEntrevistaData || fEntrevistaQuando || fObs) ||
@@ -885,14 +889,40 @@ setEditingObsId(null);
                         return <span className="text-muted-foreground/60 text-xs">—</span>;
                       }
                       return (
-                        <span
-                          className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary"
-                          title={`${nearest.nome} · ${formatDistanciaKm(nearest.distanciaKm)} de distância`}
-                        >
-                          <MapPin className="size-3 shrink-0" />
-                          {nearest.nome}
-                          <span className="text-primary/60 font-normal">· {formatDistanciaKm(nearest.distanciaKm)}</span>
-                        </span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary"
+                              title={`${nearest.nome} · ${formatDistanciaKm(nearest.distanciaKm)} de distância`}
+                            >
+                              <MapPin className="size-3 shrink-0" />
+                              {nearest.nome}
+                              <span className="text-primary/60 font-normal">· {formatDistanciaKm(nearest.distanciaKm)}</span>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-64 rounded-xl p-3 text-xs">
+                            <p className="font-medium text-brand">{nearest.nome}</p>
+                            <p className="text-muted-foreground">{formatDistanciaKm(nearest.distanciaKm)} de distância</p>
+                            <p className="mt-2 flex gap-1.5 text-muted-foreground">
+                              <MapPin className="size-3.5 shrink-0" />
+                              <span>{nearest.endereco || "Endereço não cadastrado"}</span>
+                            </p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-2 w-full rounded-lg"
+                              onClick={() => {
+                                if (!nearest.endereco) { toast.error("Endereço não cadastrado"); return; }
+                                void navigator.clipboard.writeText(nearest.endereco);
+                                toast.success("Endereço copiado");
+                              }}
+                            >
+                              Copiar endereço
+                            </Button>
+                          </PopoverContent>
+                        </Popover>
                       );
                     })()}
                   </td>

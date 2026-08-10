@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Shield, LogOut, Menu, BookOpen } from "lucide-react";
+import { LayoutDashboard, Users, Shield, LogOut, Menu, BookOpen, Building2 } from "lucide-react";
 import { useAuth, ROLE_LABELS } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,11 +20,18 @@ const adminItems = [
   { to: "/usuarios", label: "Usuários", icon: Shield },
 ] as const;
 
+const adminOnlyItems = [{ to: "/unidades", label: "Unidades", icon: Building2 }] as const;
+
 export function AppTopbar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { nome, role, signOut } = useAuth();
   const navigate = useNavigate();
-  const items = [...baseItems, ...(role === "admin" || role === "recrutador" ? adminItems : [])];
+  const items = [
+    ...baseItems,
+    ...(role === "admin" || role === "recrutador" ? adminItems : []),
+    ...(role === "admin" ? adminOnlyItems : []),
+  ];
+
 
   const handleSignOut = async () => {
     await signOut();
