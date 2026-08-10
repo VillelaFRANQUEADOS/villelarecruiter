@@ -2,13 +2,16 @@ import { useCallback, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { parseAndCreateCandidato } from "@/lib/cv-parser.functions";
 import { extractFromFile, fileToBase64 } from "@/lib/file-extract";
-import { Upload, FileText, CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react";
+import { Upload, FileText, CheckCircle2, XCircle, Loader2, AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ORIGEM_VALUES, ORIGEM_LABELS, type OrigemCurriculo } from "@/lib/city-validation";
 
 type Status = "pending" | "extracting" | "ai" | "done" | "warn" | "error";
 interface Item { id: string; file: File; status: Status; message?: string }
+interface StagingItem { id: string; file: File; origem: OrigemCurriculo | "" }
+
+type OrigemMode = "same" | "individual";
 
 const CONCURRENCY = 2;
 
@@ -24,15 +27,24 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
   const parse = useServerFn(parseAndCreateCandidato);
   const [items, setItems] = useState<Item[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [origem, setOrigem] = useState<OrigemCurriculo>("OUTROS");
-  const origemRef = useRef<OrigemCurriculo>("OUTROS");
-  origemRef.current = origem;
+
+  // Modo de origem: mesma origem para todo o lote, ou uma seleção por arquivo.
+  const [mode, setMode] = useState<OrigemMode>("same");
+
+  // Modo "same": origem única aplicada a todo mundo. Vazio = ainda não escolhida
+  // (o envio fica bloqueado até o recrutador selecionar algo).
+  const [origem, setOrigem] = useState<OrigemCurriculo | "">("");
+
+  // Modo "individual": arquivos ficam represados aqui até cada um ter origem
+  // preenchida; só então o lote é liberado para processamento.
+  const [staging, setStaging] = useState<StagingItem[]>([]);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   const setItem = (id: string, patch: Partial<Item>) =>
     setItems((arr) => arr.map((it) => (it.id === id ? { ...it, ...patch } : it)));
 
-  const processOne = useCallback(async (item: Item) => {
+  const processOne = useCallback(async (item: Item, origemDoArquivo: OrigemCurriculo) => {
     try {
       setItem(item.id, { status: "extracting" });
       const extracted = await extractFromFile(item.file);
@@ -45,7 +57,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
           mimeType: extracted.mimeType,
           cvText: extracted.text,
           images: extracted.images,
-          origemCurriculo: origemRef.current,
+          origemCurriculo: origemDoArquivo,
         },
       });
       if (res?.duplicate) {
@@ -60,42 +72,63 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
     } catch (e) {
       setItem(item.id, { status: "error", message: e instanceof Error ? e.message : "Erro" });
     }
-  }, [parse]);
+  }, []);
 
-  const enqueue = useCallback(async (files: File[]) => {
-    const accepted = files.filter(isAcceptedFile);
-    const rejected = files.length - accepted.length;
-    if (!accepted.length) return;
-    const newItems: Item[] = accepted.map((f) => ({
+  // Dispara o processamento real de um lote já com origem definida por item.
+  const runBatch = useCallback(async (batch: Array<{ file: File; origem: OrigemCurriculo }>) => {
+    const newItems: Item[] = batch.map((b) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      file: f,
+      file: b.file,
       status: "pending",
     }));
-    setItems((arr) => [
-      ...newItems,
-      ...arr,
-      ...(rejected > 0
-        ? [{
-            id: `rej-${Date.now()}`,
-            file: new File([], `${rejected} arquivo(s) ignorado(s) — formato não suportado`),
-            status: "error" as Status,
-            message: "formato não suportado",
-          }]
-        : []),
-    ]);
+    setItems((arr) => [...newItems, ...arr]);
 
-    // Pool simples: cada upload é processado individualmente, mantendo a
-    // associação arquivo→candidato. Failures isoladas não derrubam o lote.
     let idx = 0;
     const workers = Array.from({ length: Math.min(CONCURRENCY, newItems.length) }, async () => {
       while (idx < newItems.length) {
-        const my = newItems[idx++];
-        await processOne(my);
+        const my = idx;
+        idx++;
+        await processOne(newItems[my], batch[my].origem);
       }
     });
     await Promise.all(workers);
     onCreated();
   }, [processOne, onCreated]);
+
+  const enqueue = useCallback((files: File[]) => {
+    const accepted = files.filter(isAcceptedFile);
+    const rejectedCount = files.length - accepted.length;
+    if (rejectedCount > 0) {
+      setItems((arr) => [
+        {
+          id: `rej-${Date.now()}`,
+          file: new File([], `${rejectedCount} arquivo(s) ignorado(s) — formato não suportado`),
+          status: "error" as Status,
+          message: "formato não suportado",
+        },
+        ...arr,
+      ]);
+    }
+    if (!accepted.length) return;
+
+    if (mode === "individual") {
+      // Represa os arquivos para seleção de origem individual antes de enviar.
+      setStaging((arr) => [
+        ...arr,
+        ...accepted.map((f) => ({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          file: f,
+          origem: "" as OrigemCurriculo | "",
+        })),
+      ]);
+      return;
+    }
+
+    // Modo "same": só processa se a origem já foi escolhida; caso contrário
+    // a dropzone fica desabilitada (ver render), então isso é um fallback.
+    if (!origem) return;
+    runBatch(accepted.map((f) => ({ file: f, origem })));
+  }, [mode, origem, runBatch]);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -103,37 +136,89 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
     enqueue(Array.from(e.dataTransfer.files));
   };
 
+  const dropzoneLocked = mode === "same" && !origem;
+
+  const setStagingOrigem = (id: string, v: OrigemCurriculo) =>
+    setStaging((arr) => arr.map((it) => (it.id === id ? { ...it, origem: v } : it)));
+
+  const removeStaging = (id: string) => setStaging((arr) => arr.filter((it) => it.id !== id));
+
+  const allStagingFilled = staging.length > 0 && staging.every((it) => it.origem !== "");
+
+  const confirmStaging = () => {
+    if (!allStagingFilled) return;
+    const batch = staging.map((it) => ({ file: it.file, origem: it.origem as OrigemCurriculo }));
+    setStaging([]);
+    runBatch(batch);
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <label className="text-xs font-medium text-muted-foreground">Origem do currículo:</label>
-        <Select value={origem} onValueChange={(v) => setOrigem(v as OrigemCurriculo)}>
-          <SelectTrigger className="h-8 w-40 text-xs"><SelectValue /></SelectTrigger>
+        <Select
+          value={mode}
+          onValueChange={(v) => {
+            setMode(v as OrigemMode);
+            setStaging([]);
+          }}
+        >
+          <SelectTrigger className="h-8 w-52 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {ORIGEM_VALUES.map((v) => (
-              <SelectItem key={v} value={v}>{ORIGEM_LABELS[v]}</SelectItem>
-            ))}
+            <SelectItem value="same">Mesma origem para todos</SelectItem>
+            <SelectItem value="individual">Selecionar por currículo</SelectItem>
           </SelectContent>
         </Select>
-        <span className="text-[11px] text-muted-foreground">Aplicado a todos os arquivos enviados nesta sessão.</span>
+
+        {mode === "same" && (
+          <>
+            <Select value={origem || undefined} onValueChange={(v) => setOrigem(v as OrigemCurriculo)}>
+              <SelectTrigger className="h-8 w-40 text-xs">
+                <SelectValue placeholder="Selecione a origem" />
+              </SelectTrigger>
+              <SelectContent>
+                {ORIGEM_VALUES.map((v) => (
+                  <SelectItem key={v} value={v}>{ORIGEM_LABELS[v]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-[11px] text-muted-foreground">
+              {origem ? "Aplicado a todos os arquivos enviados nesta sessão." : "Selecione a origem para liberar o envio."}
+            </span>
+          </>
+        )}
+
+        {mode === "individual" && (
+          <span className="text-[11px] text-muted-foreground">
+            Cada arquivo terá a origem selecionada individualmente antes do envio.
+          </span>
+        )}
       </div>
+
       <div
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragOver={(e) => { e.preventDefault(); if (!dropzoneLocked) setDragging(true); }}
         onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-        onClick={() => inputRef.current?.click()}
-        className={`cursor-pointer rounded-xl border-2 border-dashed px-6 py-10 text-center transition ${
-          dragging ? "border-brand-amber bg-brand-amber/5" : "border-brand-amber/60 hover:border-brand-amber hover:bg-brand-amber/5"
+        onDrop={dropzoneLocked ? (e) => e.preventDefault() : onDrop}
+        onClick={() => { if (!dropzoneLocked) inputRef.current?.click(); }}
+        aria-disabled={dropzoneLocked}
+        className={`rounded-xl border-2 border-dashed px-6 py-10 text-center transition ${
+          dropzoneLocked
+            ? "cursor-not-allowed opacity-50 border-muted-foreground/30"
+            : dragging
+              ? "cursor-pointer border-brand-amber bg-brand-amber/5"
+              : "cursor-pointer border-brand-amber/60 hover:border-brand-amber hover:bg-brand-amber/5"
         }`}
       >
         <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-accent">
           <Upload className="size-6 text-primary" />
         </div>
-        <p className="text-sm font-semibold">Arraste arquivos aqui</p>
+        <p className="text-sm font-semibold">
+          {dropzoneLocked ? "Selecione a origem do currículo antes de enviar" : "Arraste arquivos aqui"}
+        </p>
         <p className="text-xs text-muted-foreground mt-1">
           PDF, DOC, DOCX, JPG, JPEG, PNG, WEBP · OCR automático para imagens e PDFs escaneados
         </p>
-        <Button type="button" size="sm" className="mt-4 px-4 shadow-sm pointer-events-none">
+        <Button type="button" size="sm" className="mt-4 px-4 shadow-sm pointer-events-none" disabled={dropzoneLocked}>
           Selecionar arquivos
         </Button>
         <input
@@ -141,6 +226,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
           type="file"
           accept={ACCEPT_ATTR}
           multiple
+          disabled={dropzoneLocked}
           className="hidden"
           onChange={(e) => {
             enqueue(Array.from(e.target.files ?? []));
@@ -148,6 +234,44 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
           }}
         />
       </div>
+
+      {staging.length > 0 && (
+        <div className="rounded-xl border bg-card divide-y max-h-72 overflow-auto">
+          <div className="px-3 py-2 text-xs font-medium text-muted-foreground flex justify-between items-center bg-muted/40">
+            <span>{staging.filter((i) => i.origem !== "").length} de {staging.length} com origem definida</span>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setStaging([])}>Cancelar</Button>
+              <Button size="sm" className="h-6 text-xs px-3" disabled={!allStagingFilled} onClick={confirmStaging}>
+                Confirmar e enviar
+              </Button>
+            </div>
+          </div>
+          {staging.map((it) => (
+            <div key={it.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+              <FileText className="size-4 text-muted-foreground shrink-0" />
+              <span className="flex-1 truncate">{it.file.name}</span>
+              <Select value={it.origem || undefined} onValueChange={(v) => setStagingOrigem(it.id, v as OrigemCurriculo)}>
+                <SelectTrigger className="h-7 w-36 text-xs">
+                  <SelectValue placeholder="Origem..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORIGEM_VALUES.map((v) => (
+                    <SelectItem key={v} value={v}>{ORIGEM_LABELS[v]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                type="button"
+                onClick={() => removeStaging(it.id)}
+                className="text-muted-foreground hover:text-destructive shrink-0"
+                aria-label="Remover arquivo"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {items.length > 0 && (
         <div className="rounded-xl border bg-card divide-y max-h-72 overflow-auto">
