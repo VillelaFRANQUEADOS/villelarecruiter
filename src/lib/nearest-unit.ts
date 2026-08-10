@@ -48,6 +48,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 export interface NearestUnitResult {
   nome: string;
   distanciaKm: number;
+  endereco?: string | null;
 }
 
 // Cache simples em memória: mesma cidade/UF/ibge não recalcula toda vez.
@@ -80,7 +81,7 @@ export function getNearestUnit(
       for (const u of UNIDADES) {
         const d = haversineKm(lat, lon, u.lat, u.lon);
         if (!result || d < result.distanciaKm) {
-          result = { nome: u.nome, distanciaKm: d };
+          result = { nome: u.nome, distanciaKm: d, endereco: u.endereco ?? null };
         }
       }
     }
