@@ -223,6 +223,26 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
     let location = validateExtractedLocation(extracted.cidade, extracted.estado);
+
+    // Checagem de duplicado ANTES da IA: se o telefone/email já capturado
+    // pelo regex bater com um candidato existente, nem vale a pena chamar
+    // IA — é o mesmo currículo (ou a mesma pessoa) reenviado, algo comum
+    // entre várias unidades. Isso evita gastar cota de IA num upload que vai
+    // ser descartado de qualquer forma.
+    async function findDuplicate(telefone: string, email: string | null) {
+      if (!telefone && !email) return null;
+      const orParts: string[] = [];
+      if (telefone) orParts.push(`telefone.eq.${telefone}`);
+      if (email) orParts.push(`email.eq.${email}`);
+      const { data: existing } = await supabase.from("candidatos").select("id,nome,telefone,email,created_at,recrutador_id").or(orParts.join(",")).limit(1).maybeSingle();
+      return existing;
+    }
+
+    const preTelefone = normalizePhone(extracted.telefone, cvText);
+    const preEmail = normalizeEmail(extracted.email, cvText) || null;
+    const earlyDuplicate = await findDuplicate(preTelefone, preEmail);
+    if (earlyDuplicate) return { candidato: null, aiFailed: false, duplicate: true, existing: earlyDuplicate };
+
     const needsAi = needsAiExtraction(extracted);
     if (needsAi && (cvText.replace(/\s/g, "").length >= 30 || images.length > 0)) {
       try {
@@ -240,12 +260,12 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     location = validateExtractedLocation(extracted.cidade, extracted.estado);
     const origem: OrigemCurriculo = normalizeOrigem(data.origemCurriculo);
     if (aiFailed) console.warn("Extração com IA falhou:", aiErrorMsg);
-    if (telefoneFinal || emailFinal) {
-      const orParts: string[] = [];
-      if (telefoneFinal) orParts.push(`telefone.eq.${telefoneFinal}`);
-      if (emailFinal) orParts.push(`email.eq.${emailFinal}`);
-      const { data: existing } = await supabase.from("candidatos").select("id,nome,telefone,email,created_at,recrutador_id").or(orParts.join(",")).limit(1).maybeSingle();
-      if (existing) return { candidato: null, aiFailed, duplicate: true, existing };
+    // Segunda checagem: só necessária se a IA revelou um telefone/email que o
+    // regex não tinha capturado antes (então a primeira checagem não pôde
+    // detectar o duplicado).
+    if ((telefoneFinal && telefoneFinal !== preTelefone) || (emailFinal && emailFinal !== preEmail)) {
+      const lateDuplicate = await findDuplicate(telefoneFinal, emailFinal);
+      if (lateDuplicate) return { candidato: null, aiFailed, duplicate: true, existing: lateDuplicate };
     }
     const safeName = data.fileName.replace(/[^\w.\-]/g, "_");
     let driveFileId: string;
