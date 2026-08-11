@@ -50,9 +50,12 @@ function normalizeUf(input: string | null | undefined): string {
 export function cleanCityText(raw: string): string {
   if (!raw) return "";
   let s = raw.replace(/\r/g, " ").replace(/\n/g, " ");
-  // remove CEP
-  s = s.replace(/\bCEP\s*\d{5}-?\d{3}\b/gi, " ");
+  // remove CEP (aceita "CEP: 12345-678", "CEP-12345678", "CEP 12345678" etc.)
+  s = s.replace(/\bCEP\s*[:.\-]?\s*\d{5}-?\d{3}\b/gi, " ");
   s = s.replace(/\b\d{5}-?\d{3}\b/g, " ");
+  // remove rótulo "CEP" que ficou sem os dígitos (ex.: "CEP:" seguido de nada)
+  s = s.replace(/\bCEP\s*[:.\-]?\s*$/i, " ");
+  s = s.replace(/\bCEP\s*[:.\-]?\s*(?=[,\-–—/])/gi, " ");
   // remove ", Brasil"
   s = s.replace(/,\s*bra[sz]il\s*$/i, "");
   // "(3,5 Km da vaga)"
@@ -110,8 +113,11 @@ export function validateCity(cidadeBruta: string | null | undefined, estadoBruto
     if (hit) {
       return { cidade: hit.n, estado: hit.uf, codigo_ibge: hit.id, cidade_validada: true, cidade_original_extraida: null };
     }
-  }
-  if (key) {
+    // Uma UF já foi identificada no currículo mas a cidade não bate com essa UF.
+    // NÃO caímos para o fallback "único município com esse nome no Brasil" aqui,
+    // pois isso pode trocar silenciosamente para um estado errado (ex.: "Penha, SP"
+    // virando "Penha, SC" só porque só existe um município chamado Penha).
+  } else if (key) {
     const matches = byKey.get(key);
     if (matches && matches.length === 1) {
       const hit = matches[0];
