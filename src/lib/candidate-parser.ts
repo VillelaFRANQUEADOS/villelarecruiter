@@ -101,12 +101,16 @@ export function extractPhone(text: string): string {
 // -------- LOCALIZAÇÃO --------
 function cleanLocationText(value: string): string {
   return value
-    .replace(/\b(?:CEP\s*)?\d{5}-?\d{3}\b/gi, " ")
+    .replace(/\bCEP\s*[:.\-]?\s*\d{5}-?\d{3}\b/gi, " ")
+    .replace(/\b\d{5}-?\d{3}\b/g, " ")
+    // rótulo "CEP" que sobrou sem os dígitos (ex.: "CEP:" no fim da linha ou antes de outro separador)
+    .replace(/\bCEP\s*[:.\-]?\s*$/i, " ")
+    .replace(/\bCEP\s*[:.\-]?\s*(?=[,\-–—/])/gi, " ")
     .replace(/\(\s*\d+[,.]?\d*\s*km[^)]*\)/gi, " ")
     .replace(/,?\s*(?:brasil|brazil)\s*$/i, "")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/^[,;|]+|[,;|.]+$/g, "")
+    .replace(/^[\s,;|\-–—]+|[\s,;|.\-–—]+$/g, "")
     .trim();
 }
 
