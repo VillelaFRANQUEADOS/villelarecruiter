@@ -34,11 +34,13 @@ const FORBIDDEN_NAME_WORDS = new Set([
   "vendedor","vendedora","gerente","consultor","consultora","assistente","analista","estagiario","estagiária",
   "coordenador","coordenadora","supervisor","supervisora","diretor","diretora","auxiliar","operador","operadora",
   "tecnico","técnico","engenheiro","engenheira","desenvolvedor","desenvolvedora","programador",
+  // Cabeçalhos comuns em currículos exportados do LinkedIn (em inglês).
+  "contact","summary","languages","skills","top","profile","about","education","experience","objective",
 ]);
 
 const BLOCKED_NAME_LINES = new Set([
   "grupo villela","adequacao com ia","adequacao da ia a vaga","impressao cv - pandape","impressao cv pandape",
-  "status da vaga","vaga atual",
+  "status da vaga","vaga atual","top skills",
 ]);
 
 function isBlockedNameLine(value: string): boolean {
@@ -101,10 +103,10 @@ function cleanLocationText(value: string): string {
   return value
     .replace(/\b(?:CEP\s*)?\d{5}-?\d{3}\b/gi, " ")
     .replace(/\(\s*\d+[,.]?\d*\s*km[^)]*\)/gi, " ")
-    .replace(/,?\s*brasil\s*$/i, "")
+    .replace(/,?\s*(?:brasil|brazil)\s*$/i, "")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/^[,;|]+|[,;|]+$/g, "")
+    .replace(/^[,;|]+|[,;|.]+$/g, "")
     .trim();
 }
 
@@ -294,9 +296,47 @@ export function calculateNameScore(line: string): number {
   return score;
 }
 
+// Conectores comuns em nomes compostos em português. Quando um PDF (ex.:
+// export do LinkedIn) quebra o nome em duas linhas por falta de espaço, a
+// primeira linha costuma terminar em um desses conectores.
+const NAME_CONNECTORS = new Set(["de", "da", "do", "dos", "das", "e"]);
+
+/**
+ * Junta duas linhas quando tudo indica que são a mesma linha de nome
+ * quebrada pelo layout do PDF: a primeira termina em conector ("de", "da"...)
+ * e a segunda é uma única palavra capitalizada (o sobrenome que continua).
+ */
+function mergeBrokenNameLines(lines: string[]): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const next = lines[i + 1];
+    if (next) {
+      const words = line.split(/\s+/).filter(Boolean);
+      const lastWord = words[words.length - 1];
+      const nextWords = next.split(/\s+/).filter(Boolean);
+      if (
+        words.length >= 2 &&
+        words.length <= 4 &&
+        lastWord &&
+        NAME_CONNECTORS.has(normKey(lastWord)) &&
+        nextWords.length === 1 &&
+        /^[A-ZÀ-Ý][a-zà-ÿ'-]+$/.test(nextWords[0]) &&
+        !FORBIDDEN_NAME_WORDS.has(normKey(nextWords[0]))
+      ) {
+        result.push(`${line} ${next}`);
+        i++; // já consumiu a linha seguinte
+        continue;
+      }
+    }
+    result.push(line);
+  }
+  return result;
+}
+
 export function extractName(text: string): string {
   if (!text) return "";
-  const lines = normalizeLines(text).slice(0, 60);
+  const lines = mergeBrokenNameLines(normalizeLines(text).slice(0, 60));
 
   for (const line of lines) {
     const m = line.match(/^\s*nome(?:\s+completo)?\s*[:\-]\s*(.+)$/i);
@@ -306,7 +346,10 @@ export function extractName(text: string): string {
   let best = "";
   let bestScore = 0;
   lines.forEach((line, index) => {
-    const score = calculateNameScore(line) + Math.max(0, 6 - Math.floor(index / 5));
+    let score = calculateNameScore(line) + Math.max(0, 6 - Math.floor(index / 5));
+    // Sinal forte: em currículos de LinkedIn, o nome vem imediatamente
+    // seguido pela linha "Cargo | Especialidade | ...".
+    if (score > 0 && lines[index + 1] && /\|/.test(lines[index + 1])) score += 8;
     if (score > bestScore) {
       bestScore = score;
       best = cleanName(line);
