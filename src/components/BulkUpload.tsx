@@ -310,8 +310,8 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
                 style={{ width: `${(filledCount / staging.length) * 100}%` }}
               />
             </div>
-            {selectedStaging.size > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            {selectedStaging.size > 0 && staging.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-brand-amber/10 px-2 py-1.5">
                 <span className="text-[11px] text-muted-foreground mr-1">
                   Aplicar a {selectedStaging.size} selecionado(s):
                 </span>
@@ -320,7 +320,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
                     key={v}
                     type="button"
                     onClick={() => applyOrigemToSelected(v)}
-                    className="rounded-full border border-brand-amber/50 px-2.5 py-0.5 text-[11px] font-medium text-foreground hover:border-brand-amber hover:bg-brand-amber/10"
+                    className="rounded-full border border-brand-amber/60 bg-background px-2.5 py-1 text-[11px] font-medium text-foreground hover:border-brand-amber hover:bg-brand-amber/20"
                   >
                     {ORIGEM_LABELS[v]}
                   </button>
@@ -330,24 +330,28 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
           </div>
 
           <div className="divide-y max-h-72 overflow-auto">
-            <label className="flex items-center gap-3 px-3 py-1.5 text-[11px] text-muted-foreground cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selectedStaging.size === staging.length}
-                onChange={toggleSelectAllStaging}
-                className="size-3.5 accent-brand-amber"
-              />
-              Selecionar todos
-            </label>
-            {staging.map((it) => (
-              <div key={it.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+            {staging.length > 1 && (
+              <label className="flex items-center gap-3 px-3 py-1.5 text-[11px] text-muted-foreground cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={selectedStaging.has(it.id)}
-                  onChange={() => toggleSelectedStaging(it.id)}
-                  className="size-3.5 accent-brand-amber shrink-0"
-                  aria-label={`Selecionar ${it.file.name}`}
+                  checked={selectedStaging.size === staging.length}
+                  onChange={toggleSelectAllStaging}
+                  className="size-3.5 accent-brand-amber"
                 />
+                Selecionar todos
+              </label>
+            )}
+            {staging.map((it) => (
+              <div key={it.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                {staging.length > 1 && (
+                  <input
+                    type="checkbox"
+                    checked={selectedStaging.has(it.id)}
+                    onChange={() => toggleSelectedStaging(it.id)}
+                    className="size-3.5 accent-brand-amber shrink-0"
+                    aria-label={`Selecionar ${it.file.name}`}
+                  />
+                )}
                 <FileText className="size-4 text-muted-foreground shrink-0" />
                 <span className="flex-1 truncate">{it.file.name}</span>
                 {/* Pills de origem: uma única ação define a origem, sem abrir menu. */}
@@ -358,7 +362,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
                       type="button"
                       onClick={() => setStagingOrigem(it.id, v)}
                       className={cn(
-                        "rounded-full border px-2 py-0.5 text-[11px] font-medium transition",
+                        "rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
                         it.origem === v
                           ? "border-transparent bg-primary text-primary-foreground"
                           : "border-border text-muted-foreground hover:border-brand-amber hover:text-foreground"
