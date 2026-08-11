@@ -310,17 +310,27 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
                 style={{ width: `${(filledCount / staging.length) * 100}%` }}
               />
             </div>
-            {selectedStaging.size > 0 && staging.length > 1 && (
+            {staging.length > 1 && (
               <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-brand-amber/10 px-2 py-1.5">
+                <input
+                  type="checkbox"
+                  checked={selectedStaging.size === staging.length}
+                  onChange={toggleSelectAllStaging}
+                  className="size-3.5 accent-brand-amber shrink-0"
+                  aria-label="Selecionar todos"
+                />
                 <span className="text-[11px] text-muted-foreground mr-1">
-                  Aplicar a {selectedStaging.size} selecionado(s):
+                  {selectedStaging.size > 0
+                    ? `Aplicar a ${selectedStaging.size} selecionado(s):`
+                    : "Selecione arquivos para aplicar origem em lote"}
                 </span>
                 {ORIGEM_VALUES.map((v) => (
                   <button
                     key={v}
                     type="button"
+                    disabled={selectedStaging.size === 0}
                     onClick={() => applyOrigemToSelected(v)}
-                    className="rounded-full border border-brand-amber/60 bg-background px-2.5 py-1 text-[11px] font-medium text-foreground hover:border-brand-amber hover:bg-brand-amber/20"
+                    className="rounded-full border border-brand-amber/60 bg-background px-2.5 py-1 text-[11px] font-medium text-foreground hover:border-brand-amber hover:bg-brand-amber/20 disabled:opacity-40 disabled:hover:border-brand-amber/60 disabled:hover:bg-background"
                   >
                     {ORIGEM_LABELS[v]}
                   </button>
@@ -330,17 +340,6 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
           </div>
 
           <div className="divide-y max-h-72 overflow-auto">
-            {staging.length > 1 && (
-              <label className="flex items-center gap-3 px-3 py-1.5 text-[11px] text-muted-foreground cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedStaging.size === staging.length}
-                  onChange={toggleSelectAllStaging}
-                  className="size-3.5 accent-brand-amber"
-                />
-                Selecionar todos
-              </label>
-            )}
             {staging.map((it) => (
               <div key={it.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                 {staging.length > 1 && (
