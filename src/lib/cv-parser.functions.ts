@@ -98,8 +98,50 @@ REGRAS CRÍTICAS:
 - Para PDF escaneado/imagem, faça OCR cuidadoso.
 - Retorne EXATAMENTE: {"nome":"","telefone":"","email":"","cidade":"","estado":""}.`;
 
+// Pega até `maxWords` palavras (letras) imediatamente antes da posição `index`
+// dentro de `text`. Limitar a janela evita que a regex "volte" até o início
+// do currículo e capture nome/cargo do candidato como se fosse a cidade.
+function wordsBefore(text: string, index: number, maxWords = 5): string[] {
+  const before = text.slice(0, index);
+  const matches = before.match(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*/g) || [];
+  return matches.slice(-maxWords);
+}
+
+// Dada a posição de uma UF no texto, tenta cidade+UF usando janelas
+// decrescentes de palavras imediatamente anteriores (5, 4, 3, 2, 1 palavras),
+// preferindo o candidato mais específico que valida contra o cadastro IBGE.
+function tryCandidatesBeforeUf(compact: string, index: number, uf: string) {
+  const words = wordsBefore(compact, index, 5);
+  for (let size = words.length; size >= 1; size--) {
+    const candidate = words.slice(-size).join(" ").trim();
+    if (!candidate) continue;
+    const location = validateCity(candidate, uf);
+    if (location.cidade_validada && location.cidade) return location;
+  }
+  return null;
+}
+
 function extractLocationFallback(text: string): { cidade: string; estado: string; codigo_ibge: string | null; cidade_validada: boolean; cidade_original_extraida: string | null } | null {
   if (!text) return null;
+  const compact = text.replace(/\r/g, " ").replace(/\n/g, " ").replace(/\s+/g, " ").trim();
+
+  // 1) Prioriza a sigla de 2 letras (ex.: "Barueri, SP", "São Paulo - SP"),
+  // que é o formato mais comum em currículos e o menos ambíguo. Percorre
+  // TODAS as ocorrências da sigla no texto, não só a primeira, pois um
+  // currículo pode citar a UF de uma empresa/vaga antes do endereço real.
+  const ufPattern = "AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO";
+  const ufRe = new RegExp(`(?:^|[\\s,/\\-–—|])(${ufPattern})\\b`, "g");
+  let m: RegExpExecArray | null;
+  while ((m = ufRe.exec(compact))) {
+    const uf = m[1].toUpperCase();
+    const ufIndex = m.index + m[0].indexOf(m[1]);
+    const location = tryCandidatesBeforeUf(compact, ufIndex, uf);
+    if (location) return location as any;
+  }
+
+  // 2) Nome do estado por extenso (menos comum). Mesma lógica de janela
+  // limitada de palavras, para não confundir bairro/cidade com o nome do
+  // estado (ex.: "Penha – São Paulo – SP" não pode virar cidade="Penha").
   const stateNames: Array<[string, string]> = [
     ["distrito federal", "DF"], ["espírito santo", "ES"], ["espirito santo", "ES"], ["minas gerais", "MG"],
     ["mato grosso do sul", "MS"], ["mato grosso", "MT"], ["rio grande do norte", "RN"], ["rio grande do sul", "RS"],
@@ -111,26 +153,14 @@ function extractLocationFallback(text: string): { cidade: string; estado: string
     ["acre", "AC"], ["alagoas", "AL"], ["amapá", "AP"], ["amapa", "AP"],
   ].sort((a, b) => b[0].length - a[0].length);
 
-  const compact = text.replace(/\r/g, " ").replace(/\n/g, " ").replace(/\s+/g, " ").trim();
   for (const [stateName, uf] of stateNames) {
-    const re = new RegExp(`([^|•·;:]{0,180}?)\\s*(?:,|/|-|—|–|\\s)\\s*${stateName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s*,?\\s*Brasil)?\\b`, "i");
-    const match = compact.match(re);
+    const re = new RegExp(`\\b${stateName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+    const match = re.exec(compact);
     if (!match) continue;
-    const words = (match[1] || "").match(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*/g) || [];
-    for (let size = Math.min(5, words.length); size >= 1; size--) {
-      const candidate = words.slice(-size).join(" ").replace(/^[,;|]+|[,;|]+$/g, "").trim();
-      if (!candidate) continue;
-      const location = validateCity(candidate, uf);
-      if (location.cidade_validada && location.cidade) return location as any;
-    }
+    const location = tryCandidatesBeforeUf(compact, match.index, uf);
+    if (location) return location as any;
   }
 
-  const ufPattern = "AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO";
-  const pair = compact.match(new RegExp("([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ' .-]{2,70}?)\\s*(?:,|/|-|—|–|\\|)\\s*(" + ufPattern + ")\\b", "i"));
-  if (pair) {
-    const location = validateCity(pair[1].trim(), pair[2].toUpperCase());
-    if (location.cidade_validada && location.cidade) return location as any;
-  }
   return null;
 }
 
