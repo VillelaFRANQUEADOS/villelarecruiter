@@ -161,7 +161,11 @@ function normalizeCandidateName(value: string): string {
     'experiência', 'resumo', 'summary', 'objetivo', 'objective', 'linkedin',
     'formacao', 'formação', 'education', 'habilidades', 'skills', 'competencias',
     'competências', 'telefone', 'celular', 'email', 'endereco', 'endereço',
-    'perfil', 'profile', 'sobre mim', 'experiência profissional'
+    'perfil', 'profile', 'sobre mim', 'experiência profissional',
+    // Boilerplate de currículos exportados pelo Pandape — nunca é o nome do candidato.
+    'status da vaga', 'vaga atual', 'adequacao com ia', 'adequação com ia',
+    'adequacao da ia a vaga', 'adequação da ia a vaga', 'impressao cv',
+    'impressão cv', 'grupo villela',
   ];
   const lower = name.toLowerCase();
   if (forbidden.some((w) => lower.includes(w))) return '';
