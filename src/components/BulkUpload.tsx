@@ -203,16 +203,23 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
 
         {mode === "same" && (
           <>
-            <Select value={origem || undefined} onValueChange={(v) => setOrigem(v as OrigemCurriculo)}>
-              <SelectTrigger className="h-8 w-40 text-xs">
-                <SelectValue placeholder="Selecione a origem" />
-              </SelectTrigger>
-              <SelectContent>
-                {ORIGEM_VALUES.map((v) => (
-                  <SelectItem key={v} value={v}>{ORIGEM_LABELS[v]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap gap-1">
+              {ORIGEM_VALUES.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setOrigem(v)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
+                    origem === v
+                      ? "border-transparent bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground hover:border-brand-amber hover:text-foreground"
+                  )}
+                >
+                  {ORIGEM_LABELS[v]}
+                </button>
+              ))}
+            </div>
             <span className="text-[11px] text-muted-foreground">
               {origem ? "Aplicado a todos os arquivos enviados nesta sessão." : "Selecione a origem para liberar o envio."}
             </span>
