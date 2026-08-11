@@ -41,6 +41,16 @@ const BLOCKED_NAME_LINES = new Set([
   "status da vaga","vaga atual",
 ]);
 
+function isBlockedNameLine(value: string): boolean {
+  const key = normKey(value);
+  if (BLOCKED_NAME_LINES.has(key)) return true;
+  // Cobre variações com texto extra na mesma linha, ex.: "Status da vaga: Aguardando contato".
+  for (const blocked of BLOCKED_NAME_LINES) {
+    if (key.startsWith(`${blocked} `) || key.startsWith(`${blocked}:`)) return true;
+  }
+  return false;
+}
+
 function stripDiacritics(s: string): string {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
@@ -268,6 +278,7 @@ function isValidName(value: string): boolean {
   const words = s.split(/\s+/).filter(Boolean);
   if (words.length < 2 || words.length > 5) return false;
   if (s.includes("@") || /\d/.test(s) || /https?:\/\//i.test(s)) return false;
+  if (isBlockedNameLine(s)) return false;
   return words.every((w) => {
     const k = normKey(w);
     return /^[A-Za-zÀ-ÿ'-]{2,}$/.test(w) && !FORBIDDEN_NAME_WORDS.has(k);
