@@ -9,16 +9,9 @@ import { validateCity, normalizeOrigem, type OrigemCurriculo } from "@/lib/city-
 import { createLovableAiGatewayProvider, LOVABLE_GATEWAY_MODELS } from "@/lib/ai-gateway";
 
 // ===================== CADEIA DE FALLBACK DE MODELOS =====================
-// O tier gratuito do Google AI Studio (GEMINI_API_KEY pessoal) tem limites
-// de taxa MUITO baixos (ex.: 5 requisições/minuto, 20/dia no Flash). Quando
-// um lote de currículos é enviado, esse limite estoura rápido e toda
-// extração por IA passa a falhar (HTTP 429), caindo no extrator
-// determinístico (sem IA) — que é ok, mas menos preciso.
-//
-// Para reduzir isso sem exigir cartão de crédito imediatamente, tentamos
-// vários modelos do Google (cada um com cota própria e separada no AI
-// Studio) e, se todos estourarem, caímos no Gateway de IA da Lovable
-// (cota separada, cobrada dos créditos do workspace Lovable).
+// A IA é opcional. Quando houver GEMINI_API_KEY ou LOVABLE_API_KEY, ela pode
+// enriquecer a extração determinística. Sem essas chaves, o ATS continua
+// funcionando com o parser local e não bloqueia o cadastro.
 function isRateLimitError(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e);
   return /429|rate.?limit|resource.?exhausted|quota/i.test(msg);
@@ -51,12 +44,10 @@ async function generateObjectWithFallback<T extends z.ZodTypeAny>(
   buildMessages: (model: Parameters<typeof generateObject>[0]["model"]) => Parameters<typeof generateObject>[0]["messages"],
 ): Promise<z.infer<T>> {
   const chain = buildModelChain();
-  if (!chain.length) throw new Error("Nenhum provedor de IA configurado (GEMINI_API_KEY / LOVABLE_API_KEY ausentes)");
+  if (!chain.length) throw new Error("Nenhum provedor de IA configurado");
   let lastError: unknown = null;
   for (const attempt of chain) {
     try {
-      // O tipo genérico exato do schema varia por overload do SDK; o cast é
-      // seguro aqui porque `schema` é sempre o mesmo ExtractedSchema.
       const { object } = (await generateObject({
         model: attempt.model,
         schema,
@@ -68,13 +59,7 @@ async function generateObjectWithFallback<T extends z.ZodTypeAny>(
       lastError = e;
       const rateLimited = isRateLimitError(e);
       console.warn(`Extração IA falhou em ${attempt.label} (${rateLimited ? "limite de taxa" : "erro"}):`, e instanceof Error ? e.message : e);
-      // Só passa pro próximo modelo/provedor quando o erro é de limite de
-      // taxa/cota — é o único caso em que outro modelo tem chance real de
-      // funcionar. Qualquer outro erro (arquivo ruim, schema, etc.) tende a
-      // se repetir em todos os modelos, então tentar de novo só gasta cota
-      // (e, quando chega no gateway da Lovable, gasta crédito pago) à toa.
       if (!rateLimited) break;
-      continue;
     }
   }
   throw lastError instanceof Error ? lastError : new Error("Todos os modelos de IA falharam");
@@ -123,12 +108,12 @@ function extractLocationFallback(text: string): { cidade: string; estado: string
     ["amazonas", "AM"], ["bahia", "BA"], ["ceará", "CE"], ["ceara", "CE"], ["goiás", "GO"], ["goias", "GO"],
     ["maranhão", "MA"], ["maranhao", "MA"], ["pará", "PA"], ["para", "PA"], ["piaui", "PI"], ["piauí", "PI"],
     ["rondônia", "RO"], ["rondonia", "RO"], ["roraima", "RR"], ["sergipe", "SE"], ["tocantins", "TO"],
-    ["acre", "AC"], ["alagoas", "AL"], ["amapá", "AP"], ["amapa", "AP"], ["ceará", "CE"], ["goias", "GO"],
+    ["acre", "AC"], ["alagoas", "AL"], ["amapá", "AP"], ["amapa", "AP"],
   ].sort((a, b) => b[0].length - a[0].length);
 
   const compact = text.replace(/\r/g, " ").replace(/\n/g, " ").replace(/\s+/g, " ").trim();
   for (const [stateName, uf] of stateNames) {
-    const re = new RegExp(`([^|•·;:]{0,180}?)\s*(?:,|/|-|—|–|\s)\s*${stateName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\s*,?\s*Brasil)?\b`, "i");
+    const re = new RegExp(`([^|•·;:]{0,180}?)\\s*(?:,|/|-|—|–|\\s)\\s*${stateName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s*,?\\s*Brasil)?\\b`, "i");
     const match = compact.match(re);
     if (!match) continue;
     const words = (match[1] || "").match(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*/g) || [];
@@ -140,7 +125,6 @@ function extractLocationFallback(text: string): { cidade: string; estado: string
     }
   }
 
-  // Segundo fallback: pares Cidade/UF, inclusive quando o PDF remove quebras de linha.
   const ufPattern = "AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO";
   const pair = compact.match(new RegExp("([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ' .-]{2,70}?)\\s*(?:,|/|-|—|–|\\|)\\s*(" + ufPattern + ")\\b", "i"));
   if (pair) {
@@ -150,30 +134,34 @@ function extractLocationFallback(text: string): { cidade: string; estado: string
   return null;
 }
 
-
 function normalizeCandidateName(value: string): string {
-  const name = (value || '').replace(/\s+/g, ' ').trim();
-  if (!name || name.length > 70 || /\d/.test(name) || name.includes('@')) return '';
+  const name = (value || "").replace(/\s+/g, " ").trim();
+  if (!name || name.length > 70 || /\d/.test(name) || name.includes("@")) return "";
   const words = name.split(/\s+/).filter(Boolean);
-  if (words.length < 2 || words.length > 6) return '';
+  if (words.length < 2 || words.length > 6) return "";
   const forbidden = [
-    'curriculo', 'currículo', 'curriculum', 'contato', 'contact', 'experiencia',
-    'experiência', 'resumo', 'summary', 'objetivo', 'objective', 'linkedin',
-    'formacao', 'formação', 'education', 'habilidades', 'skills', 'competencias',
-    'competências', 'telefone', 'celular', 'email', 'endereco', 'endereço',
-    'perfil', 'profile', 'sobre mim', 'experiência profissional',
-    // Boilerplate de currículos exportados pelo Pandape — nunca é o nome do candidato.
-    'status da vaga', 'vaga atual', 'adequacao com ia', 'adequação com ia',
-    'adequacao da ia a vaga', 'adequação da ia a vaga', 'impressao cv',
-    'impressão cv', 'grupo villela',
+    "curriculo", "currículo", "curriculum", "contato", "contact", "experiencia", "experiência", "resumo", "summary", "objetivo", "objective", "linkedin",
+    "formacao", "formação", "education", "habilidades", "skills", "competencias", "competências", "telefone", "celular", "email", "endereco", "endereço",
+    "perfil", "profile", "sobre mim", "experiência profissional", "status da vaga", "vaga atual", "adequacao com ia", "adequação com ia",
+    "adequacao da ia a vaga", "adequação da ia a vaga", "impressao cv", "impressão cv", "grupo villela",
   ];
   const lower = name.toLowerCase();
-  if (forbidden.some((w) => lower.includes(w))) return '';
-  if (!words.every((w) => /^[A-Za-zÀ-ÿ'’-]+$/.test(w))) return '';
+  if (forbidden.some((w) => lower.includes(w))) return "";
+  if (!words.every((w) => /^[A-Za-zÀ-ÿ'’-]+$/.test(w))) return "";
   return name;
 }
 
-function deterministicExtract(text: string): Extracted {
+function extractNameFromFileName(fileName: string): string {
+  const raw = cleanFileName(fileName)
+    .replace(/\b(curriculo|currículo|cv|resume|resum[eé])\b/gi, " ")
+    .replace(/\b(arquivo|documento|document)\b/gi, " ")
+    .replace(/\s+\d+\s*$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalizeCandidateName(raw);
+}
+
+function deterministicExtract(text: string, fileName = ""): Extracted {
   const identity = extractCandidateIdentity(text);
   let cidade = identity.cidade || extractCity(text);
   let estado = identity.estado || extractUf(text);
@@ -183,7 +171,7 @@ function deterministicExtract(text: string): Extracted {
     estado = fallback.estado || estado;
   }
   return {
-    nome: normalizeCandidateName(identity.nome || extractName(text)),
+    nome: normalizeCandidateName(identity.nome || extractName(text) || extractNameFromFileName(fileName)),
     telefone: identity.telefone || extractPhone(text),
     email: identity.email || extractEmail(text),
     cidade,
@@ -195,15 +183,21 @@ function validateExtractedLocation(cidade: string, estado: string) {
   return validateCity((cidade || "").trim(), (estado || "").trim());
 }
 
-// Só chama IA quando os dados verdadeiramente essenciais (nome e telefone —
-// o mínimo pra um recrutador conseguir contatar o candidato) não saíram do
-// extrator determinístico. Email/cidade/estado incompletos NÃO disparam IA
-// sozinhos: ficam como estão (editáveis na tela) e, se a IA for chamada por
-// outro motivo, ela aproveita e tenta melhorá-los também. Isso reduz bastante
-// o volume de chamadas de IA por lote, já que o extrator por regex costuma
-// acertar nome/telefone na maioria dos currículos bem formatados.
-function needsAiExtraction(extracted: Extracted): boolean {
-  return !extracted.nome || !extracted.telefone;
+// A IA é uma camada opcional de enriquecimento. Quando configurada, campos
+// essenciais ausentes ou localização não validada disparam uma tentativa.
+// Quando não há provedor, o parser determinístico segue normalmente.
+function hasAiProvider(): boolean {
+  return Boolean(process.env.GEMINI_API_KEY || process.env.LOVABLE_API_KEY);
+}
+
+function needsAiExtraction(extracted: Extracted, location?: ReturnType<typeof validateExtractedLocation>): boolean {
+  return Boolean(
+    !extracted.nome ||
+    !extracted.telefone ||
+    !extracted.email ||
+    !location?.cidade_validada ||
+    !location?.estado,
+  );
 }
 
 async function extractWithAiFromText(cvText: string, images: string[]): Promise<Extracted> {
@@ -218,21 +212,13 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
   .inputValidator((input: { fileName: string; fileBase64: string; mimeType: string; cvText: string; images?: string[]; origemCurriculo?: string }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    if (!process.env.GEMINI_API_KEY && !process.env.LOVABLE_API_KEY) {
-      throw new Error("Nenhum provedor de IA configurado (GEMINI_API_KEY / LOVABLE_API_KEY ausentes)");
-    }
     const cvText = (data.cvText || "").slice(0, 32000);
     const images = data.images || [];
-    let extracted = deterministicExtract(cvText);
+    let extracted = deterministicExtract(cvText, data.fileName);
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
     let location = validateExtractedLocation(extracted.cidade, extracted.estado);
 
-    // Checagem de duplicado ANTES da IA: se o telefone/email já capturado
-    // pelo regex bater com um candidato existente, nem vale a pena chamar
-    // IA — é o mesmo currículo (ou a mesma pessoa) reenviado, algo comum
-    // entre várias unidades. Isso evita gastar cota de IA num upload que vai
-    // ser descartado de qualquer forma.
     async function findDuplicate(telefone: string, email: string | null) {
       if (!telefone && !email) return null;
       const orParts: string[] = [];
@@ -247,26 +233,30 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     const earlyDuplicate = await findDuplicate(preTelefone, preEmail);
     if (earlyDuplicate) return { candidato: null, aiFailed: false, duplicate: true, existing: earlyDuplicate };
 
-    const needsAi = needsAiExtraction(extracted);
-    if (needsAi && (cvText.replace(/\s/g, "").length >= 30 || images.length > 0)) {
+    const needsAi = needsAiExtraction(extracted, location);
+    if (hasAiProvider() && needsAi && (cvText.replace(/\s/g, "").length >= 30 || images.length > 0)) {
       try {
         const ai = await extractWithAiFromText(cvText, images);
-        extracted = { nome: ai.nome || extracted.nome, telefone: ai.telefone || extracted.telefone, email: ai.email || extracted.email, cidade: ai.cidade || extracted.cidade, estado: ai.estado || extracted.estado };
+        extracted = {
+          nome: ai.nome || extracted.nome,
+          telefone: ai.telefone || extracted.telefone,
+          email: ai.email || extracted.email,
+          cidade: ai.cidade || extracted.cidade,
+          estado: ai.estado || extracted.estado,
+        };
         location = validateExtractedLocation(extracted.cidade, extracted.estado);
       } catch (e) {
         aiFailed = true;
         aiErrorMsg = e instanceof Error ? e.message : "Erro IA";
       }
     }
+
     const telefoneFinal = normalizePhone(extracted.telefone, cvText);
     const emailFinal = normalizeEmail(extracted.email, cvText) || null;
     const nomeFinal = normalizeCandidateName(extracted.nome);
     location = validateExtractedLocation(extracted.cidade, extracted.estado);
     const origem: OrigemCurriculo = normalizeOrigem(data.origemCurriculo);
     if (aiFailed) console.warn("Extração com IA falhou:", aiErrorMsg);
-    // Segunda checagem: só necessária se a IA revelou um telefone/email que o
-    // regex não tinha capturado antes (então a primeira checagem não pôde
-    // detectar o duplicado).
     if ((telefoneFinal && telefoneFinal !== preTelefone) || (emailFinal && emailFinal !== preEmail)) {
       const lateDuplicate = await findDuplicate(telefoneFinal, emailFinal);
       if (lateDuplicate) return { candidato: null, aiFailed, duplicate: true, existing: lateDuplicate };
@@ -293,10 +283,11 @@ const GATEWAY_DRIVE = "https://connector-gateway.lovable.dev/google_drive";
 function driveHeaders() {
   const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
   const GOOGLE_DRIVE_API_KEY = process.env.GOOGLE_DRIVE_API_KEY;
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY ausente");
-  if (!GOOGLE_DRIVE_API_KEY) throw new Error("GOOGLE_DRIVE_API_KEY ausente (conecte o Google Drive)");
+  if (!LOVABLE_API_KEY) throw new Error("Conexão com o Google Drive indisponível (LOVABLE_API_KEY ausente)");
+  if (!GOOGLE_DRIVE_API_KEY) throw new Error("Conexão com o Google Drive indisponível (conecte o Google Drive)");
   return { Authorization: `Bearer ${LOVABLE_API_KEY}`, "X-Connection-Api-Key": GOOGLE_DRIVE_API_KEY };
 }
+
 async function downloadFromDrive(fileId: string): Promise<{ base64: string; mimeType: string }> {
   const res = await fetch(`${GATEWAY_DRIVE}/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, { headers: driveHeaders() });
   if (!res.ok) {
@@ -308,6 +299,7 @@ async function downloadFromDrive(fileId: string): Promise<{ base64: string; mime
   const mimeType = res.headers.get("content-type")?.split(";")[0] || "application/pdf";
   return { base64: Buffer.from(await res.arrayBuffer()).toString("base64"), mimeType };
 }
+
 async function extractPdfTextFromBase64(base64: string): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const data = new Uint8Array(Buffer.from(base64, "base64"));
@@ -320,6 +312,7 @@ async function extractPdfTextFromBase64(base64: string): Promise<string> {
   }
   return text;
 }
+
 async function extractWithAiFromFile(base64: string, mimeType: string, filename: string): Promise<Extracted> {
   const content = [
     { type: "text" as const, text: STRICT_PROMPT + "\nEste é um REPROCESSAMENTO. Reextraia os dados do arquivo completo, mesmo que o cadastro atual já tenha valores. Corrija cidade e UF se estiverem erradas." },
@@ -343,17 +336,13 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
     let cvText = "";
     try { cvText = await extractPdfTextFromBase64(base64); } catch (e) { console.warn("Não foi possível extrair texto local do PDF:", e); }
 
-    // O fallback determinístico roda sempre. Assim um currículo textual não depende da quota do Gemini.
+    // O reprocessamento sempre tenta primeiro o parser determinístico. IA é opcional.
     let extracted = deterministicExtract(cvText);
     let location = validateExtractedLocation(extracted.cidade, extracted.estado);
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
-    // Diferente do upload em massa, o "Reprocessar" é acionado manualmente,
-    // candidato por candidato — geralmente pra corrigir cidade/UF (importante
-    // pro filtro de unidade mais próxima). Por isso aqui mantemos o gatilho
-    // mais completo, checando todos os campos.
-    const needsAi = !extracted.nome || !extracted.telefone || !extracted.email || !location.cidade_validada || !location.estado;
-    if (needsAi) {
+    const needsAi = needsAiExtraction(extracted, location);
+    if (hasAiProvider() && needsAi) {
       try {
         extracted = await extractWithAiFromFile(base64, mimeType, `${cand.nome || "curriculo"}.pdf`);
         location = validateExtractedLocation(extracted.cidade, extracted.estado);
@@ -364,7 +353,6 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
       }
     }
 
-    // Se a IA falhou ou retornou localização inválida, roda novamente o fallback diretamente no texto bruto.
     if (!location.cidade_validada) {
       const fallback = extractLocationFallback(cvText);
       if (fallback) {
