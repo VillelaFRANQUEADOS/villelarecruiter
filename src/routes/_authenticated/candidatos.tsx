@@ -15,7 +15,10 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X, ChevronDown, Eye, EyeOff, Upload, MapPin, SlidersHorizontal } from "lucide-react";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet";
+import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X, ChevronDown, Eye, EyeOff, Upload, MapPin, SlidersHorizontal, Loader2, ExternalLink, Download } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -137,6 +140,15 @@ function CandidatosPage() {
   const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
   const [bulkReprocessing, setBulkReprocessing] = useState(false);
   const [open, setOpen] = useState(false);
+  const [cvPanel, setCvPanel] = useState<{
+    open: boolean;
+    loading: boolean;
+    error: string | null;
+    url: string | null;
+    mimeType: string | null;
+    nome: string;
+    revoke: boolean;
+  }>({ open: false, loading: false, error: null, url: null, mimeType: null, nome: "", revoke: false });
   const [uploadOpen, setUploadOpen] = useState(false);
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
   const [fNome, setFNome] = useState("");
@@ -404,36 +416,47 @@ setEditingObsId(null);
     await executeDeleteAll();
   }
 
-  async function openCurriculo(ref: string) {
-    const toastId = toast.loading("Abrindo currículo...");
+  function closeCvPanel() {
+    setCvPanel((prev) => {
+      if (prev.revoke && prev.url) URL.revokeObjectURL(prev.url);
+      return { open: false, loading: false, error: null, url: null, mimeType: null, nome: "", revoke: false };
+    });
+  }
+
+  async function openCurriculo(ref: string, nome = "") {
+    setCvPanel({ open: true, loading: true, error: null, url: null, mimeType: null, nome, revoke: false });
     try {
       let url: string;
-      let revokeAfterMs = 5 * 60_000;
+      let mimeType = "application/pdf";
+      let revoke = false;
       if (ref.startsWith("drive:")) {
         const fileId = ref.slice(6);
-        const { base64, mimeType } = await fetchCv({ data: { fileId } });
+        const res = await fetchCv({ data: { fileId } });
+        mimeType = res.mimeType || "application/pdf";
         // Decodificação eficiente sem loop char-a-char
-        const binary = atob(base64);
+        const binary = atob(res.base64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         const blob = new Blob([bytes], { type: mimeType });
         url = URL.createObjectURL(blob);
+        revoke = true;
       } else {
         // legado: storage Lovable Cloud
         const { data, error } = await supabase.storage.from("curriculos").createSignedUrl(ref, 300);
         if (error) throw error;
         url = data.signedUrl;
-        revokeAfterMs = 0;
       }
-      const win = window.open(url, "_blank", "noopener,noreferrer");
-      if (!win) {
-        toast.error("Bloqueado pelo navegador. Permita pop-ups para visualizar o currículo.", { id: toastId });
-        return;
-      }
-      toast.success("Currículo aberto", { id: toastId });
-      if (revokeAfterMs > 0) setTimeout(() => URL.revokeObjectURL(url), revokeAfterMs);
+      setCvPanel({ open: true, loading: false, error: null, url, mimeType, nome, revoke });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao abrir currículo", { id: toastId });
+      setCvPanel({
+        open: true,
+        loading: false,
+        error: e instanceof Error ? e.message : "Falha ao abrir currículo",
+        url: null,
+        mimeType: null,
+        nome,
+        revoke: false,
+      });
     }
   }
 
@@ -1099,11 +1122,11 @@ setEditingObsId(null);
                       <div className="flex flex-col gap-1">
                          <div className="flex items-center gap-3">
                            <button
-                             onClick={() => openCurriculo(r.curriculo_url!)}
-                             className="text-primary hover:underline inline-flex items-center gap-1"
-                             title="Abrir currículo (PDF)"
+                             onClick={() => openCurriculo(r.curriculo_url!, r.nome ?? "")}
+                             className="inline-flex items-center gap-1 text-brand-cyan-dark transition-colors hover:text-brand-cyan-dark hover:underline"
+                             title="Visualizar currículo"
                            >
-                             <FileText className="size-3.5" /> Abrir currículo
+                             <FileText className="size-3.5" /> Ver currículo
                            </button>
                          </div>
                         {r.ultimo_reprocessamento_at && (
@@ -1293,6 +1316,83 @@ setEditingObsId(null);
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Sheet open={cvPanel.open} onOpenChange={(o) => { if (!o) closeCvPanel(); }}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-0 overflow-hidden border-l border-brand-cyan/25 bg-white p-0 shadow-[-8px_0_40px_rgba(11,34,57,0.18)] sm:max-w-xl md:max-w-2xl [&>button]:top-4 [&>button]:right-4 [&>button]:rounded-lg [&>button]:text-white/70 [&>button]:hover:bg-brand-cyan/20 [&>button]:hover:text-brand-cyan"
+        >
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-brand-cyan via-brand-cyan/60 to-transparent" />
+
+          <SheetHeader className="shrink-0 space-y-0 border-b border-brand-cyan/15 bg-gradient-to-r from-brand to-brand px-5 py-4">
+            <div className="flex items-center gap-3 pr-8">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/10 ring-1 ring-brand-cyan/50">
+                <FileText className="size-4 text-brand-cyan" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <SheetTitle className="truncate text-sm font-semibold tracking-[-0.01em] text-white">
+                  {cvPanel.nome ? cvPanel.nome.toUpperCase() : "Currículo"}
+                </SheetTitle>
+                <p className="text-[11px] text-white/60">Visualização do currículo</p>
+              </div>
+              {cvPanel.url && (
+                <div className="flex shrink-0 items-center gap-1">
+                  <a
+                    href={cvPanel.url}
+                    download
+                    className="grid size-8 place-items-center rounded-lg text-white/70 transition-colors hover:bg-brand-cyan/20 hover:text-brand-cyan"
+                    title="Baixar currículo"
+                  >
+                    <Download className="size-4" />
+                  </a>
+                  <a
+                    href={cvPanel.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="grid size-8 place-items-center rounded-lg text-white/70 transition-colors hover:bg-brand-cyan/20 hover:text-brand-cyan"
+                    title="Abrir em nova aba"
+                  >
+                    <ExternalLink className="size-4" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </SheetHeader>
+
+          <div className="relative flex-1 overflow-hidden bg-brand-bg">
+            {cvPanel.loading && (
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+                <Loader2 className="size-6 animate-spin text-brand-cyan" />
+                <span className="text-sm">Carregando currículo…</span>
+              </div>
+            )}
+
+            {!cvPanel.loading && cvPanel.error && (
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                <AlertTriangle className="size-6 text-brand-danger" />
+                <p className="text-sm font-medium text-brand-danger">{cvPanel.error}</p>
+                <p className="text-xs text-muted-foreground">Tente novamente ou reprocesse o currículo do candidato.</p>
+              </div>
+            )}
+
+            {!cvPanel.loading && !cvPanel.error && cvPanel.url && (
+              cvPanel.mimeType === "application/pdf" || cvPanel.mimeType?.includes("pdf") ? (
+                <iframe
+                  src={cvPanel.url}
+                  title={`Currículo${cvPanel.nome ? ` de ${cvPanel.nome}` : ""}`}
+                  className="h-full w-full border-0"
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                  <FileText className="size-8 text-brand-cyan" />
+                  <p className="text-sm font-medium text-brand">Pré-visualização indisponível para este formato</p>
+                  <p className="text-xs text-muted-foreground">Use os botões acima para baixar ou abrir o arquivo em uma nova aba.</p>
+                </div>
+              )
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
