@@ -1,6 +1,7 @@
 // Parser determinístico de identidade de candidato.
 // Prioriza contexto de localização para evitar confundir UFs/cidades de empregos,
 // cursos e outras partes do currículo.
+import { countKnownFirstNames } from "./br-names";
 
 export interface CandidateIdentity {
   nome: string;
@@ -297,6 +298,13 @@ export function calculateNameScore(line: string): number {
   let score = 10;
   const words = s.split(/\s+/);
   if (words.every((w) => w === w.toUpperCase()) || words.every((w) => /^[A-ZÀ-Ý]/.test(w))) score += 5;
+  // Sinal extra: confere as duas primeiras palavras contra a base de
+  // primeiros nomes do Censo IBGE. Isso ajuda a distinguir uma linha que é
+  // de fato um nome de pessoa de outras linhas capitalizadas do currículo
+  // (ex.: títulos de seção, nomes de empresa).
+  const normWords = words.map((w) => normKey(w));
+  const knownFirstNames = countKnownFirstNames(normWords, 2);
+  score += knownFirstNames * 4;
   return score;
 }
 
