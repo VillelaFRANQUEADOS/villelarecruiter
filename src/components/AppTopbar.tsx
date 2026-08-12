@@ -42,12 +42,13 @@ export function AppTopbar() {
   return (
     <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5">
       <div className="relative mx-auto flex h-14 max-w-7xl items-center gap-1.5 overflow-hidden rounded-2xl border border-white/60 bg-white/55 px-3 shadow-[0_8px_30px_rgba(11,34,57,0.12)] backdrop-blur-xl backdrop-saturate-150">
-        <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-white/90" />
-        <div className="pointer-events-none absolute -top-10 left-10 h-20 w-56 rounded-full bg-white/40 blur-2xl" />
+        <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-brand-cyan/70 to-transparent" />
+        <div className="pointer-events-none absolute -top-10 left-10 h-20 w-56 rounded-full bg-brand-cyan/20 blur-2xl" />
 
         <Link to="/candidatos" className="flex shrink-0 items-center gap-2.5 pr-1">
-          <span className="grid size-9 place-items-center rounded-xl bg-brand shadow-sm">
-            <img src={logoWhite} alt="Villela Recruiter" className="size-6 object-contain" />
+          <span className="relative grid size-9 place-items-center rounded-xl bg-gradient-to-br from-brand to-brand shadow-sm ring-1 ring-brand-cyan/40">
+            <span className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-tr from-transparent via-transparent to-brand-cyan/50" />
+            <img src={logoWhite} alt="Villela Recruiter" className="relative size-6 object-contain" />
           </span>
           <span className="hidden leading-tight sm:block">
             <span className="block text-sm font-semibold tracking-tight text-brand">Villela Recruiter</span>
@@ -62,14 +63,17 @@ export function AppTopbar() {
               <Link
                 key={it.to}
                 to={it.to}
-                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm transition-all ${
+                className={`relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm transition-all ${
                   active
-                    ? "bg-brand font-medium text-white shadow-sm"
-                    : "text-foreground/70 hover:bg-brand/10 hover:text-brand"
+                    ? "bg-brand font-medium text-white shadow-[0_0_0_1px_rgba(78,197,233,0.45),0_4px_14px_rgba(11,34,57,0.25)]"
+                    : "text-foreground/70 hover:bg-brand-cyan/10 hover:text-brand"
                 }`}
               >
-                <it.icon className="size-4" />
+                <it.icon className={`size-4 ${active ? "text-brand-cyan" : ""}`} />
                 {it.label}
+                {active && (
+                  <span className="absolute inset-x-3 -bottom-[1px] h-[2px] rounded-full bg-brand-cyan" />
+                )}
               </Link>
             );
           })}
@@ -79,7 +83,7 @@ export function AppTopbar() {
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-full text-foreground/70 hover:bg-brand/10 hover:text-brand"
+            className="rounded-full text-foreground/70 hover:bg-brand-cyan/10 hover:text-brand-cyan-dark"
             onClick={() => window.open(PLAYBOOK_URL, "_blank")}
           >
             <BookOpen className="size-4 mr-1.5" />
