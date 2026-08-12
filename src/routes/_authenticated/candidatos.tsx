@@ -18,7 +18,7 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
-import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X, ChevronDown, Eye, EyeOff, Upload, MapPin, SlidersHorizontal, Loader2, ExternalLink, Download } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, RefreshCw, Plus, Calendar, Clock, User, ArrowUp, ArrowDown, ArrowUpDown, Users, MoreVertical, StickyNote, AlertTriangle, X, ChevronDown, Eye, EyeOff, Upload, MapPin, SlidersHorizontal, Loader2, ExternalLink, Download, Phone, Mail } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -148,7 +148,8 @@ function CandidatosPage() {
     mimeType: string | null;
     nome: string;
     revoke: boolean;
-  }>({ open: false, loading: false, error: null, url: null, mimeType: null, nome: "", revoke: false });
+    candidato: CandidatoRow | null;
+  }>({ open: false, loading: false, error: null, url: null, mimeType: null, nome: "", revoke: false, candidato: null });
   const [uploadOpen, setUploadOpen] = useState(false);
   const [editing, setEditing] = useState<CandidatoRow | null>(null);
   const [fNome, setFNome] = useState("");
@@ -419,12 +420,26 @@ setEditingObsId(null);
   function closeCvPanel() {
     setCvPanel((prev) => {
       if (prev.revoke && prev.url) URL.revokeObjectURL(prev.url);
-      return { open: false, loading: false, error: null, url: null, mimeType: null, nome: "", revoke: false };
+      return { open: false, loading: false, error: null, url: null, mimeType: null, nome: "", revoke: false, candidato: null };
     });
   }
 
-  async function openCurriculo(ref: string, nome = "") {
-    setCvPanel({ open: true, loading: true, error: null, url: null, mimeType: null, nome, revoke: false });
+  async function refreshCvPanelCandidato(id: string) {
+    const { data } = await supabase
+      .from("candidatos")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (data) {
+      setCvPanel((prev) =>
+        prev.candidato?.id === id ? { ...prev, nome: data.nome ?? "", candidato: data as CandidatoRow } : prev,
+      );
+    }
+  }
+
+  async function openCurriculo(ref: string, candidato: CandidatoRow) {
+    const nome = candidato.nome ?? "";
+    setCvPanel({ open: true, loading: true, error: null, url: null, mimeType: null, nome, revoke: false, candidato });
     try {
       let url: string;
       let mimeType = "application/pdf";
@@ -446,7 +461,7 @@ setEditingObsId(null);
         if (error) throw error;
         url = data.signedUrl;
       }
-      setCvPanel({ open: true, loading: false, error: null, url, mimeType, nome, revoke });
+      setCvPanel({ open: true, loading: false, error: null, url, mimeType, nome, revoke, candidato });
     } catch (e) {
       setCvPanel({
         open: true,
@@ -456,6 +471,7 @@ setEditingObsId(null);
         mimeType: null,
         nome,
         revoke: false,
+        candidato,
       });
     }
   }
@@ -1122,7 +1138,7 @@ setEditingObsId(null);
                       <div className="flex flex-col gap-1">
                          <div className="flex items-center gap-3">
                            <button
-                             onClick={() => openCurriculo(r.curriculo_url!, r.nome ?? "")}
+                             onClick={() => openCurriculo(r.curriculo_url!, r)}
                              className="inline-flex items-center gap-1 text-brand-cyan-dark transition-colors hover:text-brand-cyan-dark hover:underline"
                              title="Visualizar currículo"
                            >
@@ -1255,7 +1271,10 @@ setEditingObsId(null);
           open={open}
           onOpenChange={setOpen}
           candidato={editing}
-          onSaved={() => invalidateAtsQueries(queryClient)}
+          onSaved={() => {
+            invalidateAtsQueries(queryClient);
+            if (editing) refreshCvPanelCandidato(editing.id);
+          }}
         />
         <AgendarEntrevistaDialog
           open={agendarOpen}
@@ -1356,6 +1375,32 @@ setEditingObsId(null);
                   </a>
                 </div>
               )}
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-white/5 px-3 py-2 ring-1 ring-white/10">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-white/80">
+                <span className="inline-flex items-center gap-1.5 truncate">
+                  <Phone className="size-3.5 shrink-0 text-brand-cyan" />
+                  {cvPanel.candidato?.telefone || "Sem telefone"}
+                </span>
+                <span className="inline-flex items-center gap-1.5 truncate">
+                  <Mail className="size-3.5 shrink-0 text-brand-cyan" />
+                  {cvPanel.candidato?.email || "Sem email"}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 shrink-0 gap-1.5 rounded-full bg-white/10 px-3 text-[12px] text-white hover:bg-brand-cyan/25 hover:text-white"
+                disabled={!cvPanel.candidato}
+                onClick={() => {
+                  if (cvPanel.candidato) {
+                    setEditing(cvPanel.candidato);
+                    setOpen(true);
+                  }
+                }}
+              >
+                <Pencil className="size-3.5" /> Editar dados
+              </Button>
             </div>
           </SheetHeader>
 
