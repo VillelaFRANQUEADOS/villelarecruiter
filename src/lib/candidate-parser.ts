@@ -1,7 +1,8 @@
 // Parser determinístico de identidade de candidato.
 // Prioriza contexto de localização para evitar confundir UFs/cidades de empregos,
 // cursos e outras partes do currículo.
-import { countKnownFirstNames } from "./br-names";
+import { countKnownFirstNames, isKnownBrFirstName } from "./br-names";
+import { normKey } from "./text-normalize";
 
 export interface CandidateIdentity {
   nome: string;
@@ -52,14 +53,6 @@ function isBlockedNameLine(value: string): boolean {
     if (key.startsWith(`${blocked} `) || key.startsWith(`${blocked}:`)) return true;
   }
   return false;
-}
-
-function stripDiacritics(s: string): string {
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-
-function normKey(s: string): string {
-  return stripDiacritics(s).toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 function titleCase(s: string): string {
@@ -346,9 +339,54 @@ function mergeBrokenNameLines(lines: string[]): string[] {
   return result;
 }
 
+/**
+ * Fallback usado quando nenhuma linha nas primeiras posições passa nos
+ * critérios rígidos de "parece uma linha de nome" (isValidName). Em vez de
+ * só pontuar linhas já candidatas, aqui a lista de primeiros nomes do IBGE
+ * é usada de forma ativa: percorremos um trecho maior do currículo token a
+ * token, procurando uma sequência de 2 a 5 palavras cuja primeira palavra
+ * seja um primeiro nome brasileiro conhecido. Isso reduz casos em que o
+ * nome fica em branco ("falta") só porque a formatação do PDF/DOCX não
+ * bateu com os padrões de linha esperados (linha isolada, poucas palavras,
+ * sem números/símbolos colados etc.) — tanto no processamento inicial
+ * quanto no reprocessamento.
+ */
+function findNameByIbgeSignal(lines: string[]): string {
+  const WORD_RE = /^[A-Za-zÀ-ÿ'-]{2,}$/;
+  let best = "";
+  let bestScore = 0;
+  lines.forEach((rawLine, lineIndex) => {
+    // Tokeniza a linha preservando só sequências de letras — ignora
+    // números, "|", "-", pontuação solta etc. que podem estar colados ao
+    // nome (ex.: "João Silva | Analista de RH", "João Silva, 28 anos").
+    const tokens = rawLine.match(/[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'-]*/g) || [];
+    if (tokens.length < 2) return;
+    for (let start = 0; start < tokens.length; start++) {
+      for (let len = Math.min(5, tokens.length - start); len >= 2; len--) {
+        const windowWords = tokens.slice(start, start + len);
+        if (!windowWords.every((w) => WORD_RE.test(w))) continue;
+        const normWords = windowWords.map((w) => normKey(w));
+        if (normWords.some((w) => FORBIDDEN_NAME_WORDS.has(w))) continue;
+        if (!isKnownBrFirstName(normWords[0])) continue;
+        const knownCount = countKnownFirstNames(normWords, windowWords.length);
+        let score = 10 + knownCount * 6 + Math.max(0, 4 - Math.floor(lineIndex / 10));
+        // Prefere janelas onde as palavras têm cara de nome próprio (iniciam maiúsculas).
+        if (windowWords.every((w) => /^[A-ZÀ-Ý]/.test(w))) score += 3;
+        if (score > bestScore) {
+          bestScore = score;
+          best = windowWords.join(" ");
+        }
+        break; // já achou a maior janela válida começando em `start`; não tenta janelas menores aqui
+      }
+    }
+  });
+  return best;
+}
+
 export function extractName(text: string): string {
   if (!text) return "";
-  const lines = mergeBrokenNameLines(normalizeLines(text).slice(0, 60));
+  const rawLines = normalizeLines(text);
+  const lines = mergeBrokenNameLines(rawLines.slice(0, 60));
 
   for (const line of lines) {
     const m = line.match(/^\s*nome(?:\s+completo)?\s*[:\-]\s*(.+)$/i);
@@ -367,7 +405,12 @@ export function extractName(text: string): string {
       best = cleanName(line);
     }
   });
-  return best;
+  if (best) return best;
+
+  // Nenhuma linha passou nos critérios rígidos: tenta localizar o nome
+  // ativamente via lista IBGE numa janela maior do documento, para reduzir
+  // faltas no processamento/reprocessamento.
+  return findNameByIbgeSignal(rawLines.slice(0, 150));
 }
 
 const HEADER_KEYWORDS = [
