@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Shield, LogOut, Menu, BookOpen, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, Shield, LogOut, Menu, BookOpen, Building2, Rocket } from "lucide-react";
 import { useAuth, ROLE_LABELS } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
 import logoWhite from "@/assets/villela-logo-white.png";
 
 const PLAYBOOK_URL = "https://canva.link/playbookvillelarecruiter";
+const ACELERADOR_URL = "https://portal-saas.aceleradorvillela.com/";
 
 const baseItems = [{ to: "/candidatos", label: "Candidatos", icon: Users }] as const;
 
@@ -77,6 +78,15 @@ export function AppTopbar() {
               </Link>
             );
           })}
+          <a
+            href={ACELERADOR_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm text-foreground/70 transition-all hover:bg-brand-cyan/10 hover:text-brand"
+          >
+            <Rocket className="size-4" />
+            Acelerador
+          </a>
         </nav>
 
         <div className="ml-auto hidden items-center gap-1 md:flex">
@@ -127,6 +137,9 @@ export function AppTopbar() {
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => window.open(ACELERADOR_URL, "_blank")}>
+                <Rocket className="size-4 mr-2" /> Acelerador
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => window.open(PLAYBOOK_URL, "_blank")}>
                 <BookOpen className="size-4 mr-2" /> Playbook
               </DropdownMenuItem>
