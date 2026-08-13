@@ -5,7 +5,6 @@ import { uploadPdfToDrive } from "@/lib/curriculos.functions";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { extractCandidateIdentity, extractCity, extractUf, extractPhone, extractEmail, extractName } from "@/lib/candidate-parser";
-import { normKey } from "@/lib/text-normalize";
 import { validateCity, normalizeOrigem, type OrigemCurriculo } from "@/lib/city-validation";
 import { createLovableAiGatewayProvider, LOVABLE_GATEWAY_MODELS } from "@/lib/ai-gateway";
 
@@ -170,16 +169,13 @@ function normalizeCandidateName(value: string): string {
   if (!name || name.length > 70 || /\d/.test(name) || name.includes("@")) return "";
   const words = name.split(/\s+/).filter(Boolean);
   if (words.length < 2 || words.length > 6) return "";
-  // Lista única, sem acento: normKey remove acento do texto lido do
-  // currículo antes de comparar, então não é preciso manter variantes
-  // acentuadas e sem acento aqui (evita esquecer alguma variante).
   const forbidden = [
-    "curriculo", "curriculum", "contato", "contact", "experiencia", "resumo", "summary", "objetivo", "objective", "linkedin",
-    "formacao", "education", "habilidades", "skills", "competencias", "telefone", "celular", "email", "endereco",
-    "perfil", "profile", "sobre mim", "experiencia profissional", "status da vaga", "vaga atual", "adequacao com ia",
-    "adequacao da ia a vaga", "impressao cv", "grupo villela",
+    "curriculo", "currículo", "curriculum", "contato", "contact", "experiencia", "experiência", "resumo", "summary", "objetivo", "objective", "linkedin",
+    "formacao", "formação", "education", "habilidades", "skills", "competencias", "competências", "telefone", "celular", "email", "endereco", "endereço",
+    "perfil", "profile", "sobre mim", "experiência profissional", "status da vaga", "vaga atual", "adequacao com ia", "adequação com ia",
+    "adequacao da ia a vaga", "adequação da ia a vaga", "impressao cv", "impressão cv", "grupo villela",
   ];
-  const lower = normKey(name);
+  const lower = name.toLowerCase();
   if (forbidden.some((w) => lower.includes(w))) return "";
   if (!words.every((w) => /^[A-Za-zÀ-ÿ'’-]+$/.test(w))) return "";
   return name;
@@ -205,7 +201,10 @@ function deterministicExtract(text: string, fileName = ""): Extracted {
     estado = fallback.estado || estado;
   }
   return {
-    nome: normalizeCandidateName(identity.nome || extractName(text) || extractNameFromFileName(fileName)),
+    nome:
+      normalizeCandidateName(identity.nome) ||
+      normalizeCandidateName(extractName(text)) ||
+      extractNameFromFileName(fileName),
     telefone: identity.telefone || extractPhone(text),
     email: identity.email || extractEmail(text),
     cidade,
@@ -334,6 +333,21 @@ async function downloadFromDrive(fileId: string): Promise<{ base64: string; mime
   return { base64: Buffer.from(await res.arrayBuffer()).toString("base64"), mimeType };
 }
 
+// Recupera o nome original do arquivo no Drive (ex.: "Rubens Junior.pdf") para
+// servir de último fallback do nome do candidato no reprocessamento. Falhas
+// aqui não devem interromper o reprocessamento — apenas ficamos sem esse sinal extra.
+async function getDriveFileName(fileId: string): Promise<string> {
+  try {
+    const res = await fetch(`${GATEWAY_DRIVE}/drive/v3/files/${encodeURIComponent(fileId)}?fields=name`, { headers: driveHeaders() });
+    if (!res.ok) return "";
+    const json = (await res.json()) as { name?: string };
+    // O arquivo é salvo no Drive como "{timestamp}-{nomeOriginal}"; removemos o prefixo.
+    return (json.name || "").replace(/^\d+-/, "");
+  } catch {
+    return "";
+  }
+}
+
 async function extractPdfTextFromBase64(base64: string): Promise<string> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const data = new Uint8Array(Buffer.from(base64, "base64"));
@@ -369,9 +383,10 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
     const { base64, mimeType } = await downloadFromDrive(fileId);
     let cvText = "";
     try { cvText = await extractPdfTextFromBase64(base64); } catch (e) { console.warn("Não foi possível extrair texto local do PDF:", e); }
+    const driveFileName = await getDriveFileName(fileId);
 
     // O reprocessamento sempre tenta primeiro o parser determinístico. IA é opcional.
-    let extracted = deterministicExtract(cvText);
+    let extracted = deterministicExtract(cvText, driveFileName);
     let location = validateExtractedLocation(extracted.cidade, extracted.estado);
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
