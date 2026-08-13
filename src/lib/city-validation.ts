@@ -1,6 +1,7 @@
 // Validação determinística de cidade+UF usando a base oficial IBGE (bundle estático).
 // Sem chamadas externas.
 import ibgeData from "@/data/ibge-municipios.json";
+import { normKey as strip } from "@/lib/text-normalize";
 
 interface IbgeEntry { id: string; n: string; k: string; uf: string }
 
@@ -27,10 +28,6 @@ const UF_NAMES: Record<string, string> = {
   "rondonia":"RO","roraima":"RR","santa catarina":"SC","sao paulo":"SP",
   "sergipe":"SE","tocantins":"TO",
 };
-
-function strip(s: string): string {
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-}
 
 const ADDRESS_TOKENS = /^(rua|r\.|av|av\.|avenida|alameda|al\.|travessa|tv\.|rodovia|rod\.|praca|praça|estrada|est\.|via|viela|beco|largo|servidao|servidão|quadra|q\.|lote|lt\.|apto|apt\.|apartamento|bloco|bl\.|sala|casa|cs|edif|edifício|edificio|cep|n[oº]?\.?)$/i;
 
