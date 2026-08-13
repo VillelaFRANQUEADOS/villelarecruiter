@@ -5,6 +5,7 @@ import { uploadPdfToDrive } from "@/lib/curriculos.functions";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { extractCandidateIdentity, extractCity, extractUf, extractPhone, extractEmail, extractName } from "@/lib/candidate-parser";
+import { normKey } from "@/lib/text-normalize";
 import { validateCity, normalizeOrigem, type OrigemCurriculo } from "@/lib/city-validation";
 import { createLovableAiGatewayProvider, LOVABLE_GATEWAY_MODELS } from "@/lib/ai-gateway";
 
@@ -169,13 +170,16 @@ function normalizeCandidateName(value: string): string {
   if (!name || name.length > 70 || /\d/.test(name) || name.includes("@")) return "";
   const words = name.split(/\s+/).filter(Boolean);
   if (words.length < 2 || words.length > 6) return "";
+  // Lista única, sem acento: normKey remove acento do texto lido do
+  // currículo antes de comparar, então não é preciso manter variantes
+  // acentuadas e sem acento aqui (evita esquecer alguma variante).
   const forbidden = [
-    "curriculo", "currículo", "curriculum", "contato", "contact", "experiencia", "experiência", "resumo", "summary", "objetivo", "objective", "linkedin",
-    "formacao", "formação", "education", "habilidades", "skills", "competencias", "competências", "telefone", "celular", "email", "endereco", "endereço",
-    "perfil", "profile", "sobre mim", "experiência profissional", "status da vaga", "vaga atual", "adequacao com ia", "adequação com ia",
-    "adequacao da ia a vaga", "adequação da ia a vaga", "impressao cv", "impressão cv", "grupo villela",
+    "curriculo", "curriculum", "contato", "contact", "experiencia", "resumo", "summary", "objetivo", "objective", "linkedin",
+    "formacao", "education", "habilidades", "skills", "competencias", "telefone", "celular", "email", "endereco",
+    "perfil", "profile", "sobre mim", "experiencia profissional", "status da vaga", "vaga atual", "adequacao com ia",
+    "adequacao da ia a vaga", "impressao cv", "grupo villela",
   ];
-  const lower = name.toLowerCase();
+  const lower = normKey(name);
   if (forbidden.some((w) => lower.includes(w))) return "";
   if (!words.every((w) => /^[A-Za-zÀ-ÿ'’-]+$/.test(w))) return "";
   return name;
