@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { google } from "@ai-sdk/google";
+import { uploadPdfToDrive } from "@/lib/curriculos.functions";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { extractCandidateIdentity, extractCity, extractUf, extractPhone, extractEmail, extractName } from "@/lib/candidate-parser";
@@ -294,23 +295,17 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
       if (lateDuplicate) return { candidato: null, aiFailed, duplicate: true, existing: lateDuplicate };
     }
     const safeName = data.fileName.replace(/[^\w.\-]/g, "_");
-    const storagePath = `${Date.now()}-${safeName}`;
+    let driveFileId: string;
     try {
-      const fileBuffer = Buffer.from(data.fileBase64, "base64");
-      const { error: uploadError } = await supabase.storage
-        .from("curriculos")
-        .upload(storagePath, fileBuffer, {
-          contentType: data.mimeType || "application/octet-stream",
-          upsert: false,
-        });
-      if (uploadError) throw new Error(uploadError.message);
+      const up = await uploadPdfToDrive({ filename: `${Date.now()}-${safeName}`, pdfBase64: data.fileBase64, mimeType: data.mimeType || "application/octet-stream" });
+      driveFileId = up.fileId;
     } catch (e) {
-      throw new Error(`Upload do currículo falhou: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(`Upload Drive falhou: ${e instanceof Error ? e.message : String(e)}`);
     }
     const { data: inserted, error } = await supabase.from("candidatos").insert({
       nome: nomeFinal, telefone: telefoneFinal, email: emailFinal, cidade: location.cidade, estado: location.estado,
       codigo_ibge: location.codigo_ibge, cidade_validada: location.cidade_validada, cidade_original_extraida: location.cidade_original_extraida,
-      origem_curriculo: origem, observacoes: null, curriculo_url: storagePath, recrutador_id: userId, status: "aguardando_contato",
+      origem_curriculo: origem, observacoes: null, curriculo_url: `drive:${driveFileId}`, recrutador_id: userId, status: "aguardando_contato",
     }).select().single();
     if (error) throw new Error(error.message);
     return { candidato: inserted, aiFailed, duplicate: false };
@@ -382,29 +377,16 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
     const { data: cand, error: fetchErr } = await supabase.from("candidatos").select("id,nome,telefone,email,cidade,estado,curriculo_url,codigo_ibge").eq("id", data.candidatoId).maybeSingle();
     if (fetchErr) throw new Error(fetchErr.message);
     if (!cand) throw new Error("Candidato não encontrado");
-    if (!cand.curriculo_url) throw new Error("Currículo indisponível para reprocessamento (nenhum arquivo associado).");
+    if (!cand.curriculo_url?.startsWith("drive:")) throw new Error("Currículo indisponível para reprocessamento (sem arquivo no Drive).");
 
-    let base64: string;
-    let mimeType: string;
-    let fileNameHint = "";
-    if (cand.curriculo_url.startsWith("drive:")) {
-      // Compatibilidade com currículos antigos que ainda estão no Google Drive.
-      const fileId = cand.curriculo_url.slice(6);
-      ({ base64, mimeType } = await downloadFromDrive(fileId));
-      fileNameHint = await getDriveFileName(fileId);
-    } else {
-      // Caminho novo: arquivo no bucket "curriculos" do Supabase Storage.
-      const { data: fileData, error: downloadError } = await supabase.storage.from("curriculos").download(cand.curriculo_url);
-      if (downloadError || !fileData) throw new Error(`Falha ao baixar currículo do Supabase Storage: ${downloadError?.message || "arquivo não encontrado"}`);
-      const arrayBuffer = await fileData.arrayBuffer();
-      base64 = Buffer.from(arrayBuffer).toString("base64");
-      mimeType = fileData.type || "application/pdf";
-    }
+    const fileId = cand.curriculo_url.slice(6);
+    const { base64, mimeType } = await downloadFromDrive(fileId);
     let cvText = "";
     try { cvText = await extractPdfTextFromBase64(base64); } catch (e) { console.warn("Não foi possível extrair texto local do PDF:", e); }
+    const driveFileName = await getDriveFileName(fileId);
 
     // O reprocessamento sempre tenta primeiro o parser determinístico. IA é opcional.
-    let extracted = deterministicExtract(cvText, fileNameHint);
+    let extracted = deterministicExtract(cvText, driveFileName);
     let location = validateExtractedLocation(extracted.cidade, extracted.estado);
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
