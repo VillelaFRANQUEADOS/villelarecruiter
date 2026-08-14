@@ -85,10 +85,26 @@ function normalizeEmail(value: string, fallbackText = ""): string {
   return extractEmail(fallbackText).toLowerCase();
 }
 
-const STRICT_PROMPT = `Você é um extrator de currículos brasileiros. Leia TODAS as páginas do currículo e retorne somente JSON com nome, telefone, email, cidade e estado.
+// Formata a data de entrada do currículo (quando ele foi inserido no ATS) no
+// padrão brasileiro, para ancorar o "ponto de vista" temporal da IA.
+function formatReferenceDate(date: Date): string {
+  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo" });
+}
+
+// A IA deve interpretar o currículo como se estivesse lendo-o na data em que
+// ele ENTROU no sistema (criação do candidato), nunca na data real do
+// processamento — isso importa sobretudo no reprocessamento, que pode
+// acontecer meses/anos depois do currículo ter sido recebido. Sem essa âncora,
+// a IA tende a usar a data atual do servidor como "hoje", o que pode levar a
+// interpretações erradas de "cargo atual", endereço/residência mais recente,
+// tempo de experiência etc.
+function buildStrictPrompt(referenceDate: Date): string {
+  const dataReferencia = formatReferenceDate(referenceDate);
+  return `Você é um extrator de currículos brasileiros. Leia TODAS as páginas do currículo e retorne somente JSON com nome, telefone, email, cidade e estado.
+DATA DE REFERÊNCIA: ${dataReferencia}. Esta é a data em que o currículo ENTROU no sistema (foi recebido/inserido) — trate-a como "hoje" para qualquer interpretação relativa a tempo (ex.: qual é o cargo/endereço mais recente do candidato, o que está "atualmente" em andamento). NUNCA use a data real do seu processamento para essa interpretação, apenas a DATA DE REFERÊNCIA acima.
 REGRAS CRÍTICAS:
 - Extraia somente informações explicitamente presentes no currículo. Nunca invente.
-- cidade = cidade de RESIDÊNCIA do candidato, não cidade de emprego, faculdade, empresa, vaga ou unidade.
+- cidade = cidade de RESIDÊNCIA do candidato, não cidade de emprego, faculdade, empresa, vaga ou unidade. Se houver mais de um endereço/residência no currículo, use o mais recente em relação à DATA DE REFERÊNCIA.
 - Procure primeiro dados pessoais, contato, endereço, residência, cidade/UF e cabeçalho do candidato.
 - Aceite formatos como "Porto Alegre/RS", "Porto Alegre - RS", "Porto Alegre, RS", "Santo André, São Paulo, Brasil", "Cidade: Porto Alegre", "UF: RS" e endereços completos.
 - estado deve ser sempre a UF de 2 letras.
@@ -97,6 +113,7 @@ REGRAS CRÍTICAS:
 - email em minúsculas.
 - Para PDF escaneado/imagem, faça OCR cuidadoso.
 - Retorne EXATAMENTE: {"nome":"","telefone":"","email":"","cidade":"","estado":""}.`;
+}
 
 // Pega até `maxWords` palavras (letras) imediatamente antes da posição `index`
 // dentro de `text`. Limitar a janela evita que a regex "volte" até o início
@@ -233,8 +250,8 @@ function needsAiExtraction(extracted: Extracted, location?: ReturnType<typeof va
   );
 }
 
-async function extractWithAiFromText(cvText: string, images: string[]): Promise<Extracted> {
-  const content: Array<{ type: "text"; text: string } | { type: "image"; image: string }> = [{ type: "text", text: STRICT_PROMPT }];
+async function extractWithAiFromText(cvText: string, images: string[], referenceDate: Date): Promise<Extracted> {
+  const content: Array<{ type: "text"; text: string } | { type: "image"; image: string }> = [{ type: "text", text: buildStrictPrompt(referenceDate) }];
   if (cvText.trim()) content.push({ type: "text", text: `TEXTO EXTRAÍDO DO CURRÍCULO:\n${cvText.slice(0, 32000)}` });
   for (const image of images.slice(0, 8)) content.push({ type: "image", image });
   return generateObjectWithFallback(ExtractedSchema, () => [{ role: "user", content }]);
@@ -247,6 +264,9 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const cvText = (data.cvText || "").slice(0, 32000);
     const images = data.images || [];
+    // Ponto de vista temporal da IA: o momento em que este currículo está
+    // entrando no sistema agora (novo cadastro).
+    const referenceDate = new Date();
     let extracted = deterministicExtract(cvText, data.fileName);
     let aiFailed = false;
     let aiErrorMsg: string | null = null;
@@ -269,7 +289,7 @@ export const parseAndCreateCandidato = createServerFn({ method: "POST" })
     const needsAi = needsAiExtraction(extracted, location);
     if (hasAiProvider() && needsAi && (cvText.replace(/\s/g, "").length >= 30 || images.length > 0)) {
       try {
-        const ai = await extractWithAiFromText(cvText, images);
+        const ai = await extractWithAiFromText(cvText, images, referenceDate);
         extracted = {
           nome: ai.nome || extracted.nome,
           telefone: ai.telefone || extracted.telefone,
@@ -361,9 +381,14 @@ async function extractPdfTextFromBase64(base64: string): Promise<string> {
   return text;
 }
 
-async function extractWithAiFromFile(base64: string, mimeType: string, filename: string): Promise<Extracted> {
+async function extractWithAiFromFile(base64: string, mimeType: string, filename: string, referenceDate: Date): Promise<Extracted> {
   const content = [
-    { type: "text" as const, text: STRICT_PROMPT + "\nEste é um REPROCESSAMENTO. Reextraia os dados do arquivo completo, mesmo que o cadastro atual já tenha valores. Corrija cidade e UF se estiverem erradas." },
+    {
+      type: "text" as const,
+      text:
+        buildStrictPrompt(referenceDate) +
+        "\nEste é um REPROCESSAMENTO. Reextraia os dados do arquivo completo, mesmo que o cadastro atual já tenha valores. Corrija cidade e UF se estiverem erradas. Lembre-se: a DATA DE REFERÊNCIA acima é a data em que o currículo entrou no sistema originalmente, não a data de hoje — use-a para interpretar o que é 'atual' no currículo.",
+    },
     { type: "file" as const, data: base64, mediaType: mimeType, filename },
   ];
   return generateObjectWithFallback(ExtractedSchema, () => [{ role: "user", content }]);
@@ -374,10 +399,15 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
   .inputValidator((input: { candidatoId: string }) => z.object({ candidatoId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const { data: cand, error: fetchErr } = await supabase.from("candidatos").select("id,nome,telefone,email,cidade,estado,curriculo_url,codigo_ibge").eq("id", data.candidatoId).maybeSingle();
+    const { data: cand, error: fetchErr } = await supabase.from("candidatos").select("id,nome,telefone,email,cidade,estado,curriculo_url,codigo_ibge,created_at").eq("id", data.candidatoId).maybeSingle();
     if (fetchErr) throw new Error(fetchErr.message);
     if (!cand) throw new Error("Candidato não encontrado");
     if (!cand.curriculo_url?.startsWith("drive:")) throw new Error("Currículo indisponível para reprocessamento (sem arquivo no Drive).");
+
+    // Ponto de vista temporal da IA: a data em que o currículo ENTROU no
+    // sistema originalmente (created_at), não a data em que o reprocessamento
+    // está rodando agora — que pode ser meses/anos depois.
+    const referenceDate = cand.created_at ? new Date(cand.created_at) : new Date();
 
     const fileId = cand.curriculo_url.slice(6);
     const { base64, mimeType } = await downloadFromDrive(fileId);
@@ -393,7 +423,7 @@ export const reprocessCandidato = createServerFn({ method: "POST" })
     const needsAi = needsAiExtraction(extracted, location);
     if (hasAiProvider() && needsAi) {
       try {
-        extracted = await extractWithAiFromFile(base64, mimeType, `${cand.nome || "curriculo"}.pdf`);
+        extracted = await extractWithAiFromFile(base64, mimeType, `${cand.nome || "curriculo"}.pdf`, referenceDate);
         location = validateExtractedLocation(extracted.cidade, extracted.estado);
       } catch (e) {
         aiFailed = true;
