@@ -74,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRole((r?.role as AppRole) ?? null);
     })();
 
-
     try {
       await metaRequestRef.current;
     } finally {
@@ -149,6 +148,9 @@ export interface CandidatoRow {
   data_entrevista: string | null;
   horario_entrevista: string | null;
   entrevistador: string | null;
+  agendado_por_id: string | null;
+  agendado_por_nome: string | null;
+  agendado_em: string | null;
   ultimo_reprocessamento_at: string | null;
   origem_curriculo: string;
   cidade_validada: boolean;
@@ -160,4 +162,3 @@ export const UF_LIST: string[] = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
   "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
 ];
-

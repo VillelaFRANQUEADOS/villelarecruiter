@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { STATUS_LABELS, STATUS_ORDER, UF_LIST, type CandidatoRow, type CandidatoStatus } from "@/lib/auth";
+import { STATUS_LABELS, STATUS_ORDER, UF_LIST, type CandidatoRow, type CandidatoStatus, useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ORIGEM_VALUES, ORIGEM_LABELS, normalizeOrigem, type OrigemCurriculo } from "@/lib/city-validation";
 
@@ -30,6 +26,7 @@ interface StatusLogRow {
 }
 
 export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: Props) {
+  const { user, nome: currentUserNome } = useAuth();
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<StatusLogRow[]>([]);
   const [form, setForm] = useState({
@@ -66,42 +63,20 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
 
   async function loadHistory(candidatoId: string) {
     const { data } = await (supabase as unknown as {
-      from: (t: string) => {
-        select: (s: string) => {
-          eq: (c: string, v: string) => {
-            order: (c: string, o: { ascending: boolean }) => {
-              limit: (n: number) => Promise<{ data: StatusLogRow[] | null }>;
-            };
-          };
-        };
-      };
-    })
-      .from("candidato_status_log")
-      .select("id,status_anterior,status_novo,changed_by_nome,created_at")
-      .eq("candidato_id", candidatoId)
-      .order("created_at", { ascending: false })
-      .limit(50);
+      from: (t: string) => { select: (s: string) => { eq: (c: string, v: string) => { order: (c: string, o: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: StatusLogRow[] | null }> } } } }
+    }).from("candidato_status_log").select("id,status_anterior,status_novo,changed_by_nome,created_at").eq("candidato_id", candidatoId).order("created_at", { ascending: false }).limit(50);
     setHistory(data ?? []);
   }
 
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    // Campos obrigatórios quando status = agendado
-    if (form.status === "agendado") {
-      if (!form.data_entrevista || !form.horario_entrevista || !form.entrevistador.trim()) {
-        toast.error("Para agendar, informe data, horário e entrevistador.");
-        return;
-      }
+    if (form.status === "agendado" && (!form.data_entrevista || !form.horario_entrevista || !form.entrevistador.trim())) {
+      toast.error("Para agendar, informe data, horário e entrevistador.");
+      return;
     }
-
     setBusy(true);
-
     const telDigits = form.telefone.replace(/\D/g, "");
     const emailNorm = form.email.trim().toLowerCase();
-
-    // Anti-duplicata: bloqueia telefone/email já cadastrado em OUTRO candidato
     if (telDigits || emailNorm) {
       const orParts: string[] = [];
       if (telDigits) orParts.push(`telefone.eq.${telDigits}`);
@@ -128,10 +103,16 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
     };
     let error;
     if (isNew) {
-      const { data: u } = await supabase.auth.getUser();
-      ({ error } = await supabase.from("candidatos").insert({ ...payloadBase, recrutador_id: u.user?.id ?? null }));
+      ({ error } = await supabase.from("candidatos").insert({
+        ...payloadBase,
+        recrutador_id: user?.id ?? null,
+        ...(isAgendado ? { agendado_por_id: user?.id ?? null, agendado_por_nome: currentUserNome ?? null, agendado_em: new Date().toISOString() } : {}),
+      }));
     } else {
-      ({ error } = await supabase.from("candidatos").update(payloadBase).eq("id", candidato!.id));
+      const schedulingFields = isAgendado && !candidato?.agendado_por_id && !candidato?.agendado_por_nome
+        ? { agendado_por_id: user?.id ?? null, agendado_por_nome: currentUserNome ?? null, agendado_em: new Date().toISOString() }
+        : {};
+      ({ error } = await supabase.from("candidatos").update({ ...payloadBase, ...schedulingFields }).eq("id", candidato!.id));
     }
 
     setBusy(false);
@@ -152,20 +133,14 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
               <Label>Estado (UF)</Label>
               <Select value={form.estado || "none"} onValueChange={(v) => setForm({ ...form, estado: v === "none" ? "" : v })}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— não informado —</SelectItem>
-                  {UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
-                </SelectContent>
+                <SelectContent><SelectItem value="none">— não informado —</SelectItem>{UF_LIST.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-
             <div className="space-y-1.5 col-span-2">
               <Label>Origem do currículo</Label>
               <Select value={form.origem_curriculo} onValueChange={(v) => setForm({ ...form, origem_curriculo: v as OrigemCurriculo })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {ORIGEM_VALUES.map((v) => <SelectItem key={v} value={v}>{ORIGEM_LABELS[v]}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{ORIGEM_VALUES.map((v) => <SelectItem key={v} value={v}>{ORIGEM_LABELS[v]}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5 col-span-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
@@ -173,56 +148,21 @@ export function CandidatoEditDialog({ open, onOpenChange, candidato, onSaved }: 
               <Label>Status</Label>
               <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as CandidatoStatus })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            {form.status === "agendado" && (
-              <>
-                <div className="space-y-1.5">
-                  <Label>Data da entrevista *</Label>
-                  <Input type="date" required value={form.data_entrevista} onChange={(e) => setForm({ ...form, data_entrevista: e.target.value })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Horário *</Label>
-                  <Input type="time" required value={form.horario_entrevista} onChange={(e) => setForm({ ...form, horario_entrevista: e.target.value })} />
-                </div>
-                <div className="space-y-1.5 col-span-2">
-                  <Label>Entrevistador responsável *</Label>
-                  <Input required value={form.entrevistador} onChange={(e) => setForm({ ...form, entrevistador: e.target.value })} placeholder="Nome do entrevistador" />
-                </div>
-              </>
-            )}
+            {form.status === "agendado" && <>
+              <div className="space-y-1.5"><Label>Data da entrevista *</Label><Input type="date" required value={form.data_entrevista} onChange={(e) => setForm({ ...form, data_entrevista: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Horário *</Label><Input type="time" required value={form.horario_entrevista} onChange={(e) => setForm({ ...form, horario_entrevista: e.target.value })} /></div>
+              <div className="space-y-1.5 col-span-2"><Label>Entrevistador responsável *</Label><Input required value={form.entrevistador} onChange={(e) => setForm({ ...form, entrevistador: e.target.value })} placeholder="Nome do entrevistador" /></div>
+            </>}
             <div className="space-y-1.5 col-span-2"><Label>Observações</Label><Textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></div>
-            {!isNew && (
-              <div className="space-y-1.5 col-span-2">
-                <Label>Histórico de status</Label>
-                {history.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Nenhuma alteração registrada.</p>
-                ) : (
-                  <ul className="max-h-40 overflow-y-auto space-y-1 rounded-md border border-border p-2 text-xs">
-                    {history.map((h) => (
-                      <li key={h.id} className="flex justify-between gap-2">
-                        <span>
-                          {h.status_anterior ? `${STATUS_LABELS[h.status_anterior]} → ` : ""}
-                          <strong>{STATUS_LABELS[h.status_novo]}</strong>
-                          {h.changed_by_nome ? ` · ${h.changed_by_nome}` : ""}
-                        </span>
-                        <span className="text-muted-foreground whitespace-nowrap">
-                          {new Date(h.created_at).toLocaleString("pt-BR")}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
+            {!isNew && <div className="space-y-1.5 col-span-2">
+              <Label>Histórico de status</Label>
+              {history.length === 0 ? <p className="text-xs text-muted-foreground">Nenhuma alteração registrada.</p> : <ul className="max-h-40 overflow-y-auto space-y-1 rounded-md border border-border p-2 text-xs">{history.map((h) => <li key={h.id} className="flex justify-between gap-2"><span>{h.status_anterior ? `${STATUS_LABELS[h.status_anterior]} → ` : ""}<strong>{STATUS_LABELS[h.status_novo]}</strong>{h.changed_by_nome ? ` · ${h.changed_by_nome}` : ""}</span><span className="text-muted-foreground whitespace-nowrap">{new Date(h.created_at).toLocaleString("pt-BR")}</span></li>)}</ul>}
+            </div>}
           </div>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={busy}>{busy ? "Salvando..." : "Salvar"}</Button>
-          </DialogFooter>
+          <DialogFooter><Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button><Button type="submit" disabled={busy}>{busy ? "Salvando..." : "Salvar"}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
