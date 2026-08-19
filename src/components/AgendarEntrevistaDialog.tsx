@@ -5,11 +5,14 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ProfileLite } from "@/lib/ats-data";
+import { useAuth } from "@/lib/auth";
 
 export interface AgendamentoData {
   data_entrevista: string;
   horario_entrevista: string;
   entrevistador: string;
+  agendado_por_id: string | null;
+  agendado_por_nome: string | null;
 }
 
 interface Props {
@@ -22,6 +25,7 @@ interface Props {
 }
 
 export function AgendarEntrevistaDialog({ open, onOpenChange, candidatoNome, profiles, initial, onConfirm }: Props) {
+  const { user, nome } = useAuth();
   const [data, setData] = useState("");
   const [hora, setHora] = useState("");
   const [entrevistador, setEntrevistador] = useState("");
@@ -40,7 +44,13 @@ export function AgendarEntrevistaDialog({ open, onOpenChange, candidatoNome, pro
     if (!data || !hora || !entrevistador.trim()) return;
     setBusy(true);
     try {
-      await onConfirm({ data_entrevista: data, horario_entrevista: hora, entrevistador: entrevistador.trim() });
+      await onConfirm({
+        data_entrevista: data,
+        horario_entrevista: hora,
+        entrevistador: entrevistador.trim(),
+        agendado_por_id: initial?.agendado_por_id ?? user?.id ?? null,
+        agendado_por_nome: initial?.agendado_por_nome ?? nome ?? null,
+      });
       onOpenChange(false);
     } finally {
       setBusy(false);
