@@ -7,8 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -21,9 +19,7 @@ export type Database = {
           changed_by_nome: string | null
           created_at: string
           id: string
-          status_anterior:
-            | Database["public"]["Enums"]["candidato_status"]
-            | null
+          status_anterior: Database["public"]["Enums"]["candidato_status"] | null
           status_novo: Database["public"]["Enums"]["candidato_status"]
         }
         Insert: {
@@ -32,9 +28,7 @@ export type Database = {
           changed_by_nome?: string | null
           created_at?: string
           id?: string
-          status_anterior?:
-            | Database["public"]["Enums"]["candidato_status"]
-            | null
+          status_anterior?: Database["public"]["Enums"]["candidato_status"] | null
           status_novo: Database["public"]["Enums"]["candidato_status"]
         }
         Update: {
@@ -43,9 +37,7 @@ export type Database = {
           changed_by_nome?: string | null
           created_at?: string
           id?: string
-          status_anterior?:
-            | Database["public"]["Enums"]["candidato_status"]
-            | null
+          status_anterior?: Database["public"]["Enums"]["candidato_status"] | null
           status_novo?: Database["public"]["Enums"]["candidato_status"]
         }
         Relationships: [
@@ -60,6 +52,9 @@ export type Database = {
       }
       candidatos: {
         Row: {
+          agendado_em: string | null
+          agendado_por_id: string | null
+          agendado_por_nome: string | null
           cidade: string | null
           cidade_original_extraida: string | null
           cidade_validada: boolean
@@ -92,6 +87,9 @@ export type Database = {
           vaga: string | null
         }
         Insert: {
+          agendado_em?: string | null
+          agendado_por_id?: string | null
+          agendado_por_nome?: string | null
           cidade?: string | null
           cidade_original_extraida?: string | null
           cidade_validada?: boolean
@@ -124,6 +122,9 @@ export type Database = {
           vaga?: string | null
         }
         Update: {
+          agendado_em?: string | null
+          agendado_por_id?: string | null
+          agendado_por_nome?: string | null
           cidade?: string | null
           cidade_original_extraida?: string | null
           cidade_validada?: boolean
@@ -154,354 +155,34 @@ export type Database = {
           ultimo_reprocessamento_at?: string | null
           updated_at?: string
           vaga?: string | null
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          ativo: boolean
-          created_at: string
-          email: string
-          id: string
-          nome: string
-        }
-        Insert: {
-          ativo?: boolean
-          created_at?: string
-          email: string
-          id: string
-          nome: string
-        }
-        Update: {
-          ativo?: boolean
-          created_at?: string
-          email?: string
-          id?: string
-          nome?: string
-        }
-        Relationships: []
-      }
-      sharepoint_config: {
-        Row: {
-          enabled: boolean
-          id: boolean
-          last_delta_link: string | null
-          last_sync_at: string | null
-          last_sync_message: string | null
-          last_sync_status: string | null
-          list_id: string | null
-          list_name: string | null
-          site_id: string | null
-          site_name: string | null
-          site_url: string | null
-          updated_at: string
-        }
-        Insert: {
-          enabled?: boolean
-          id?: boolean
-          last_delta_link?: string | null
-          last_sync_at?: string | null
-          last_sync_message?: string | null
-          last_sync_status?: string | null
-          list_id?: string | null
-          list_name?: string | null
-          site_id?: string | null
-          site_name?: string | null
-          site_url?: string | null
-          updated_at?: string
-        }
-        Update: {
-          enabled?: boolean
-          id?: boolean
-          last_delta_link?: string | null
-          last_sync_at?: string | null
-          last_sync_message?: string | null
-          last_sync_status?: string | null
-          list_id?: string | null
-          list_name?: string | null
-          site_id?: string | null
-          site_name?: string | null
-          site_url?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      sharepoint_outbox: {
-        Row: {
-          attempts: number
-          candidato_id: string
-          created_at: string
-          id: number
-          last_error: string | null
-          op: string
-        }
-        Insert: {
-          attempts?: number
-          candidato_id: string
-          created_at?: string
-          id?: number
-          last_error?: string | null
-          op: string
-        }
-        Update: {
-          attempts?: number
-          candidato_id?: string
-          created_at?: string
-          id?: number
-          last_error?: string | null
-          op?: string
         }
         Relationships: [
           {
-            foreignKeyName: "sharepoint_outbox_candidato_id_fkey"
-            columns: ["candidato_id"]
+            foreignKeyName: "candidatos_agendado_por_id_fkey"
+            columns: ["agendado_por_id"]
             isOneToOne: false
-            referencedRelation: "candidatos"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
       }
-      sharepoint_sync_log: {
-        Row: {
-          action: string
-          candidato_id: string | null
-          created_at: string
-          direction: string
-          id: number
-          message: string | null
-          sharepoint_item_id: string | null
-        }
-        Insert: {
-          action: string
-          candidato_id?: string | null
-          created_at?: string
-          direction: string
-          id?: number
-          message?: string | null
-          sharepoint_item_id?: string | null
-        }
-        Update: {
-          action?: string
-          candidato_id?: string | null
-          created_at?: string
-          direction?: string
-          id?: number
-          message?: string | null
-          sharepoint_item_id?: string | null
-        }
+      profiles: {
+        Row: { ativo: boolean; created_at: string; email: string; id: string; nome: string }
+        Insert: { ativo?: boolean; created_at?: string; email: string; id: string; nome: string }
+        Update: { ativo?: boolean; created_at?: string; email?: string; id?: string; nome?: string }
         Relationships: []
       }
-      unidades: {
-        Row: {
-          ativa: boolean
-          cidade: string
-          created_at: string
-          endereco: string | null
-          estado: string
-          id: string
-          latitude: number
-          longitude: number
-          nome: string
-          updated_at: string
-        }
-        Insert: {
-          ativa?: boolean
-          cidade: string
-          created_at?: string
-          endereco?: string | null
-          estado: string
-          id?: string
-          latitude: number
-          longitude: number
-          nome: string
-          updated_at?: string
-        }
-        Update: {
-          ativa?: boolean
-          cidade?: string
-          created_at?: string
-          endereco?: string | null
-          estado?: string
-          id?: string
-          latitude?: number
-          longitude?: number
-          nome?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      user_roles: {
-        Row: {
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
+      sharepoint_config: { Row: { enabled: boolean; id: boolean; last_delta_link: string | null; last_sync_at: string | null; last_sync_message: string | null; last_sync_status: string | null; list_id: string | null; list_name: string | null; site_id: string | null; site_name: string | null; site_url: string | null; updated_at: string }; Insert: { enabled?: boolean; id?: boolean; last_delta_link?: string | null; last_sync_at?: string | null; last_sync_message?: string | null; last_sync_status?: string | null; list_id?: string | null; list_name?: string | null; site_id?: string | null; site_name?: string | null; site_url?: string | null; updated_at?: string }; Update: { enabled?: boolean; id?: boolean; last_delta_link?: string | null; last_sync_at?: string | null; last_sync_message?: string | null; last_sync_status?: string | null; list_id?: string | null; list_name?: string | null; site_id?: string | null; site_name?: string | null; site_url?: string | null; updated_at?: string }; Relationships: [] }
+      sharepoint_outbox: { Row: { attempts: number; candidato_id: string; created_at: string; id: number; last_error: string | null; op: string }; Insert: { attempts?: number; candidato_id: string; created_at?: string; id?: number; last_error?: string | null; op: string }; Update: { attempts?: number; candidato_id?: string; created_at?: string; id?: number; last_error?: string | null; op?: string }; Relationships: [{ foreignKeyName: "sharepoint_outbox_candidato_id_fkey"; columns: ["candidato_id"]; isOneToOne: false; referencedRelation: "candidatos"; referencedColumns: ["id"] }] }
+      user_roles: { Row: { id: string; role: Database["public"]["Enums"]["app_role"]; user_id: string }; Insert: { id?: string; role: Database["public"]["Enums"]["app_role"]; user_id: string }; Update: { id?: string; role?: Database["public"]["Enums"]["app_role"]; user_id?: string }; Relationships: [] }
+      unidades: { Row: { ativo: boolean; cidade: string; created_at: string; estado: string; id: string; nome: string; updated_at: string; coordenadas: Json | null; codigo_ibge: string | null }; Insert: { ativo?: boolean; cidade: string; created_at?: string; estado: string; id?: string; nome: string; updated_at?: string; coordenadas?: Json | null; codigo_ibge?: string | null }; Update: { ativo?: boolean; cidade?: string; created_at?: string; estado?: string; id?: string; nome?: string; updated_at?: string; coordenadas?: Json | null; codigo_ibge?: string | null }; Relationships: [] }
     }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-    }
+    Views: { [_ in never]: never }
+    Functions: { [_ in never]: never }
     Enums: {
       app_role: "admin" | "agendamento" | "recrutador"
-      candidato_status:
-        | "aguardando_contato"
-        | "aguardando_retorno"
-        | "sem_interesse"
-        | "agendado"
+      candidato_status: "aguardando_contato" | "aguardando_retorno" | "sem_interesse" | "agendado"
     }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    CompositeTypes: { [_ in never]: never }
   }
 }
-
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
-
-export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
-
-export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
-
-export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
-
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
-
-export const Constants = {
-  public: {
-    Enums: {
-      app_role: ["admin", "agendamento", "recrutador"],
-      candidato_status: [
-        "aguardando_contato",
-        "aguardando_retorno",
-        "sem_interesse",
-        "agendado",
-      ],
-    },
-  },
-} as const
