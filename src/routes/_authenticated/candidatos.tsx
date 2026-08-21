@@ -222,6 +222,9 @@ function CandidatosPage() {
   const entrevistadorOptions = options?.entrevistadores ?? [];
   // Unidades oficiais vêm do backend (apenas ativas alimentam o cálculo).
   const { data: unidadesData } = useUnidadesSync();
+  // unidadesData não é lido diretamente aqui, mas dispara o recálculo quando
+  // getAllUnitNames() (cache global populado por useUnidadesSync) muda.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const unidadeOptions = useMemo(() => getAllUnitNames(), [unidadesData]);
 
   // Janela hoje / semana (segunda a domingo, horário local)
@@ -289,12 +292,15 @@ function CandidatosPage() {
 
   // Unidade Villela mais próxima de cada candidato (distância real em km,
   // calculada a partir do código IBGE do município / cidade+UF).
+  // unidadesData não é lido diretamente aqui, mas dispara o recálculo quando
+  // getNearestUnit() (cache global populado por useUnidadesSync) muda.
   const nearestUnitById = useMemo(() => {
     const map = new Map<string, NearestUnitResult | null>();
     for (const r of filtered) {
       map.set(r.id, getNearestUnit(r.cidade, r.estado, r.codigo_ibge));
     }
     return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, unidadesData]);
 
   const hasFilters =
