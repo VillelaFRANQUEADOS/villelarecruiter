@@ -76,9 +76,7 @@ export function BulkUpload({ onCreated }: { onCreated: () => void }) {
     } catch (e) {
       setItem(item.id, { status: "error", message: e instanceof Error ? e.message : "Erro" });
     }
-  }, []);
-
-  // Dispara o processamento real de um lote já com origem definida por item.
+  }, [parse]);
   const runBatch = useCallback(async (batch: Array<{ file: File; origem: OrigemCurriculo }>) => {
     const newItems: Item[] = batch.map((b) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
