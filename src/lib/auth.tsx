@@ -63,7 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastLoadedUserId.current = null;
         setNome(null); setRole(null);
         if (typeof window !== "undefined") {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const { toast } = await import("sonner");
           toast.error("Usuário desativado. Contate um administrador.");
         }
