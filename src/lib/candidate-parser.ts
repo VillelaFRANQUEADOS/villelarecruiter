@@ -95,11 +95,11 @@ export function extractPhone(text: string): string {
 // -------- LOCALIZAÇÃO --------
 function cleanLocationText(value: string): string {
   return value
-    .replace(/\bCEP\s*[:.\-]?\s*\d{5}-?\d{3}\b/gi, " ")
+    .replace(/\bCEP\s*[:.-]?\s*\d{5}-?\d{3}\b/gi, " ")
     .replace(/\b\d{5}-?\d{3}\b/g, " ")
     // rótulo "CEP" que sobrou sem os dígitos (ex.: "CEP:" no fim da linha ou antes de outro separador)
-    .replace(/\bCEP\s*[:.\-]?\s*$/i, " ")
-    .replace(/\bCEP\s*[:.\-]?\s*(?=[,\-–—/])/gi, " ")
+    .replace(/\bCEP\s*[:.-]?\s*$/i, " ")
+    .replace(/\bCEP\s*[:.-]?\s*(?=[,\-–—/])/gi, " ")
     .replace(/\(\s*\d+[,.]?\d*\s*km[^)]*\)/gi, " ")
     .replace(/,?\s*(?:brasil|brazil)\s*$/i, "")
     .replace(/\s+/g, " ")
@@ -133,7 +133,7 @@ function cityFromLocationLine(raw: string): { cidade: string; estado: string } |
   if (!line) return null;
 
   // Remove rótulos que já foram reconhecidos, sem destruir o restante.
-  line = line.replace(/^\s*(?:cidade|localiza[cç][aã]o|resid[eê]ncia|residente em|endere[cç]o)\s*[:\-]?\s*/i, "");
+  line = line.replace(/^\s*(?:cidade|localiza[cç][aã]o|resid[eê]ncia|residente em|endere[cç]o)\s*[:-]?\s*/i, "");
 
   // 1) Formatos explícitos: Cidade/UF, Cidade - UF, Cidade, UF, Cidade | UF.
   const pair = line.match(/(.+?)\s*(?:\/|\||-|–|—|,)\s*([A-Za-zÀ-ÿ]{2,30})\s*$/);
@@ -195,7 +195,7 @@ export function extractCity(text: string): string {
 
   // Rótulos explícitos têm prioridade máxima.
   for (const line of lines) {
-    const m = line.match(/^\s*(?:cidade|localiza[cç][aã]o|resid[eê]ncia|residente em)\s*[:\-]\s*(.+)$/i);
+    const m = line.match(/^\s*(?:cidade|localiza[cç][aã]o|resid[eê]ncia|residente em)\s*[:-]\s*(.+)$/i);
     if (m) {
       const parsed = cityFromLocationLine(m[1]);
       if (parsed?.cidade) return parsed.cidade;
@@ -242,7 +242,7 @@ export function extractUf(text: string): string {
 
   // Rótulos explícitos.
   for (const line of lines) {
-    const m = line.match(/^\s*(?:estado|uf)\s*[:\-]\s*(.+)$/i);
+    const m = line.match(/^\s*(?:estado|uf)\s*[:-]\s*(.+)$/i);
     if (m) {
       const uf = normalizeUf(m[1]);
       if (uf) return uf;
@@ -389,7 +389,7 @@ export function extractName(text: string): string {
   const lines = mergeBrokenNameLines(rawLines.slice(0, 60));
 
   for (const line of lines) {
-    const m = line.match(/^\s*nome(?:\s+completo)?\s*[:\-]\s*(.+)$/i);
+    const m = line.match(/^\s*nome(?:\s+completo)?\s*[:-]\s*(.+)$/i);
     if (m && isValidName(m[1])) return cleanName(m[1]);
   }
 
