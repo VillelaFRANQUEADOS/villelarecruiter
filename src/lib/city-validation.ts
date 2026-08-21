@@ -48,11 +48,11 @@ export function cleanCityText(raw: string): string {
   if (!raw) return "";
   let s = raw.replace(/\r/g, " ").replace(/\n/g, " ");
   // remove CEP (aceita "CEP: 12345-678", "CEP-12345678", "CEP 12345678" etc.)
-  s = s.replace(/\bCEP\s*[:.\-]?\s*\d{5}-?\d{3}\b/gi, " ");
+  s = s.replace(/\bCEP\s*[:.-]?\s*\d{5}-?\d{3}\b/gi, " ");
   s = s.replace(/\b\d{5}-?\d{3}\b/g, " ");
   // remove rótulo "CEP" que ficou sem os dígitos (ex.: "CEP:" seguido de nada)
-  s = s.replace(/\bCEP\s*[:.\-]?\s*$/i, " ");
-  s = s.replace(/\bCEP\s*[:.\-]?\s*(?=[,\-–—/])/gi, " ");
+  s = s.replace(/\bCEP\s*[:.-]?\s*$/i, " ");
+  s = s.replace(/\bCEP\s*[:.-]?\s*(?=[,\-–—/])/gi, " ");
   // remove ", Brasil"
   s = s.replace(/,\s*bra[sz]il\s*$/i, "");
   // "(3,5 Km da vaga)"
@@ -60,7 +60,7 @@ export function cleanCityText(raw: string): string {
   s = s.replace(/\s{2,}/g, " ").trim();
 
   // Padrões prioritários: "Cidade - UF", "Cidade/UF", "Cidade, UF"
-  const sepMatch = s.match(/([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'.\-]{1,80})\s*[-–\/,]\s*([A-Z]{2})\b/);
+  const sepMatch = s.match(/([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s'.-]{1,80})\s*[-–/,]\s*([A-Z]{2})\b/);
   if (sepMatch && UF_SET.has(sepMatch[2])) {
     let cityPart = sepMatch[1].trim();
     // Se tem vírgulas (endereço completo), pega o último trecho antes da UF
